@@ -11,7 +11,7 @@ export function Identify({
 }: {
   tripId: string;
   hasViewer: boolean;
-  members: { userId: string; name: string; role: "organizer" | "member" | "honoree" }[];
+  members: { userId: string; name: string; role: "organizer" | "member" | "honoree"; party: string | null }[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -34,7 +34,10 @@ export function Identify({
               <input type="hidden" name="userId" value={member.userId} />
               <button className="flex min-h-12 w-full items-center justify-between rounded-2xl border border-line px-3 py-3 text-left" type="submit">
                 <span className="font-semibold">{member.name}</span>
-                <span className="text-xs text-muted">{roleLabel(member.role)}</span>
+                <span className="text-xs text-muted">
+                  {member.party && !member.name.startsWith(member.party) ? `${member.party} · ` : ""}
+                  {roleLabel(member.role)}
+                </span>
               </button>
             </form>
           ))}

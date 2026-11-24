@@ -11,7 +11,9 @@ import { Identify } from "@/components/identify";
 import { TripNav } from "@/components/nav";
 import { ShareLauncher } from "@/components/share-launcher";
 import { Badge } from "@/components/ui/badge";
-import { roleLabel, statusLabel, tripStatusLabel } from "@/lib/labels";
+import Link from "next/link";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "@/lib/constants";
+import { partyStatusLabel, roleLabel, tripStatusLabel } from "@/lib/labels";
 import { formatWhen } from "@/lib/format";
 import type { TripView } from "@/lib/view";
 
@@ -30,33 +32,61 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
               <h1 className="font-serif text-3xl leading-tight">{view.name}</h1>
-              <p className="mt-1 text-sm text-muted">
-                Bachelor party for {view.guestName}
-              </p>
+              <p className="mt-1 text-sm text-muted">{view.subtitle}</p>
             </div>
             <Badge tone={tone}>{tripStatusLabel(view.status)}</Badge>
           </div>
           <details className="mt-3 rounded-2xl border border-line bg-card">
             <summary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold">
-              Viewing as {view.viewer ? `${view.viewer.name} · ${roleLabel(view.viewer.role)}` : "nobody yet — pick a person"}
+              Viewing as{" "}
+              {view.viewer
+                ? `${view.viewer.name} · ${view.viewerParty && view.viewerParty.travelers.length > 1 ? `${view.viewerParty.name} · ` : ""}${roleLabel(view.viewer.role)}`
+                : "nobody yet — pick a person"}
             </summary>
-            <div className="grid gap-1 border-t border-line p-2">
-              {view.members.map((member) => (
-                <form key={member.userId} action={switchUserAction}>
-                  <input type="hidden" name="tripId" value={view.id} />
-                  <input type="hidden" name="userId" value={member.userId} />
-                  <button
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm hover:bg-chip"
-                    type="submit"
-                  >
-                    <span>
-                      {member.name}
-                      <span className="text-muted"> · {roleLabel(member.role)}</span>
-                    </span>
-                    <span className="text-xs text-muted">{statusLabel(member.status)}</span>
-                  </button>
-                </form>
-              ))}
+            <div className="grid gap-2 border-t border-line p-2">
+              {view.parties.map((party) => {
+                const people = view.members.filter((member) => member.partyUserId === party.payerUserId);
+                const offline = party.travelers.filter((traveler) => !traveler.hasAccount);
+                return (
+                  <div key={party.payerUserId} className="rounded-xl bg-chip/50 p-1">
+                    <p className="flex items-center justify-between px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                      <span>{party.name}</span>
+                      <span className="normal-case tracking-normal">{partyStatusLabel(party.status)}</span>
+                    </p>
+                    {people.map((member) => (
+                      <form key={member.userId} action={switchUserAction}>
+                        <input type="hidden" name="tripId" value={view.id} />
+                        <input type="hidden" name="userId" value={member.userId} />
+                        <button
+                          className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm hover:bg-chip"
+                          type="submit"
+                        >
+                          <span>
+                            {member.name}
+                            <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : "on this party"}</span>
+                          </span>
+                          {member.userId === view.viewer?.userId ? <span className="text-xs text-accent">You</span> : null}
+                        </button>
+                      </form>
+                    ))}
+                    {offline.length > 0 ? (
+                      <p className="px-2 pb-1 text-xs text-muted">
+                        No app: {offline.map((traveler) => traveler.name.split(" ")[0]).join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {view.isDemo ? (
+                <p className="px-2 pt-1 text-xs text-muted">
+                  Other demo:{" "}
+                  {view.id === LAKE_TRIP_ID ? (
+                    <Link className="font-semibold text-accent" href={`/demo?trip=${DEMO_TRIP_ID}`}>Alex&apos;s Bachelor Party</Link>
+                  ) : (
+                    <Link className="font-semibold text-accent" href={`/demo?trip=${LAKE_TRIP_ID}`}>Harper Lake House (family)</Link>
+                  )}
+                </p>
+              ) : null}
             </div>
           </details>
           <ShareLauncher
@@ -78,7 +108,12 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
         <Identify
           tripId={view.id}
           hasViewer={!!view.viewer}
-          members={view.members.map((member) => ({ userId: member.userId, name: member.name, role: member.role }))}
+          members={view.members.map((member) => ({
+            userId: member.userId,
+            name: member.name,
+            role: member.role,
+            party: view.parties.find((party) => party.payerUserId === member.partyUserId)?.name ?? null,
+          }))}
         />
         <div className="px-4 pt-3">
           <QaBar view={view} />
@@ -127,7 +162,7 @@ function QaBar({ view }: { view: TripView }) {
         ) : null}
       </div>
       <p className="px-3 pb-3 text-xs text-muted">
-        The clock only moves when you use these controls. Resetting time does not undo drops. Reset demo puts Alex&apos;s party back to the seeded crew.
+        The clock only moves when you use these controls. Resetting time does not undo drops. Reset demo restores both seeded trips.
       </p>
     </details>
   );

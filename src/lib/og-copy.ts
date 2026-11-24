@@ -17,17 +17,36 @@ export interface OgCard {
 /** Public card copy. No private budgets. */
 export function ogCard(view: Pick<
   TripView,
-  "name" | "payerCount" | "maxHeadcount" | "minHeadcount" | "buyInDeadline" | "polls" | "sensitivityRows" | "currentShareCents" | "guestName"
+  | "name"
+  | "payerCount"
+  | "maxHeadcount"
+  | "minHeadcount"
+  | "buyInDeadline"
+  | "polls"
+  | "sensitivityRows"
+  | "currentShareCents"
+  | "guestName"
+  | "tripType"
+  | "preWeddingStyle"
+  | "travelerCount"
 >): OgCard {
   const destination = view.polls.find((poll) => poll.kind === "destination");
   const leader = destination?.options.slice().sort((a, b) => b.votes - a.votes)[0];
-  const place = destination?.lockedLabel ?? leader?.label ?? view.name.replace(/bachelor party/i, "").trim();
+  const place = destination?.lockedLabel ?? leader?.label ?? view.name;
   const at = Math.max(view.minHeadcount, view.payerCount);
   const forecast = view.sensitivityRows.find((row) => row.payers === at)?.totalCents ?? view.currentShareCents;
-  const amount = forecast != null ? `~${wholeDollars(forecast)} each` : "share still open";
+  const amount = forecast != null ? `~${wholeDollars(forecast)} per party` : "share still open";
   const when = view.buyInDeadline ? `commit by ${formatDay(view.buyInDeadline)}` : "commit date not set";
-  const title = `${place} bachelor`;
-  const line = `${view.payerCount} of ${view.maxHeadcount} in · ${amount}`;
+  const kind =
+    view.tripType === "family"
+      ? "family trip"
+      : view.preWeddingStyle === "bachelor"
+        ? "bachelor"
+        : view.preWeddingStyle === "bachelorette"
+          ? "bachelorette"
+          : "weekend";
+  const title = `${place.split(",")[0]} ${kind}`;
+  const line = `${view.payerCount} of ${view.minHeadcount} parties in · ${view.travelerCount} going · ${amount}`;
   return {
     eyebrow: "SENDOFF",
     title,

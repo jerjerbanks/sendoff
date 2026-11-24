@@ -20,14 +20,15 @@ export default async function PayPage({
   if (!view) return null;
   const viewer = view.viewer;
   const buyIn = view.milestones.find((milestone) => milestone.kind === "buy_in");
-  const owed = viewer?.lines.filter((line) => line.canPay) ?? [];
+  const owed = viewer?.isPayer ? viewer.lines.filter((line) => line.canPay) : [];
 
   return (
     <div className="grid gap-4">
       <div>
         <h2 className="font-serif text-3xl">Nobody fronts the bill</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          Every committed payer pays their own share straight into the trip. These buttons are a test. No card is charged, and Stripe is not connected.
+          Each committed party pays its own share straight into the trip, so the organizer doesn&apos;t front it. Test payment — no card charged. Stripe
+          is not connected and no real money moves.
         </p>
       </div>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
@@ -36,22 +37,39 @@ export default async function PayPage({
         <section className="rounded-3xl border border-line bg-card p-4">
           <h3 className="font-serif text-2xl">You&apos;re covered</h3>
           <p className="mt-2 text-sm leading-relaxed">
-            {view.guestName} doesn&apos;t pay a buy-in. The crew splits the shared costs, including the flight, without you.
+            You don&apos;t pay a buy-in. The group splits the shared costs, including your flight, without you.
           </p>
         </section>
       ) : null}
 
-      {viewer && viewer.status !== "off_trip" && viewer.role !== "honoree" && view.buyInOpen && viewer.status === "joined" && buyIn ? (
-        <section className="rounded-3xl border-2 border-accent bg-card p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Commit your spot</p>
-          <h3 className="mt-1 font-serif text-4xl">{money(view.buyInAmountCents)}</h3>
+      {viewer && !viewer.isPayer && viewer.role !== "honoree" ? (
+        <section className="rounded-3xl border border-line bg-card p-4">
+          <h3 className="font-serif text-2xl">{view.viewerParty?.payerName.split(" ")[0] ?? "Your payer"} pays for your party</h3>
           <p className="mt-2 text-sm leading-relaxed">
-            This is the first slice of your share, not a fee on top. It is <strong>refundable until the stay is booked</strong>, and forfeited if you drop after that.
+            One buy-in covers the whole {view.viewerParty?.name ?? ""} party. Status: {view.viewerParty?.status === "committed" ? "committed" : "not committed yet"}.
+          </p>
+        </section>
+      ) : null}
+
+      {viewer && viewer.isPayer && viewer.status !== "off_trip" && viewer.role !== "honoree" && (view.buyInOpen || view.status === "booking_ready") && viewer.status === "joined" && buyIn ? (
+        <section className="rounded-3xl border-2 border-accent bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+            Commit {view.viewerParty && view.viewerParty.travelers.length > 1 ? `the ${view.viewerParty.name} party` : "your spot"}
+          </p>
+          <h3 className="mt-1 font-serif text-4xl">{money(view.buyInAmountCents)}</h3>
+          {view.viewerParty && view.viewerParty.travelers.length > 1 ? (
+            <p className="mt-1 text-sm">
+              One buy-in for {view.viewerParty.travelers.map((traveler) => traveler.name.split(" ")[0]).join(", ")}.
+            </p>
+          ) : null}
+          <p className="mt-2 text-sm leading-relaxed">
+            Your buy-in is refundable until the organizer books the stay. After the stay is booked, the buy-in is forfeited if you drop and is not
+            returned. It is the first slice of your share, not a fee on top.
           </p>
           <ul className="mt-3 grid gap-2 text-sm">
-            <li>You get it back only if the crew misses the minimum of {view.minHeadcount}, or the organizer cancels.</li>
+            <li>You get it back if the group misses the minimum of {view.minPayerCount} paying parties, or the organizer cancels before booking.</li>
             <li>If you drop after the stay is booked, this payment is forfeited. It reduces lodging first, and everyone else&apos;s share goes up.</li>
-            <li>The deadline is {view.buyInDeadline ? formatWhen(view.buyInDeadline) : "not set"}. Miss it and you&apos;re off, with no way back.</li>
+            <li>The deadline is {view.buyInDeadline ? formatWhen(view.buyInDeadline) : "not set"}. Miss it and your party is off, with no way back.</li>
           </ul>
           <form action={payAction} className="mt-4 grid gap-3">
             <input type="hidden" name="tripId" value={view.id} />
@@ -93,7 +111,7 @@ export default async function PayPage({
           </div>
           <p className="mt-1 text-sm text-muted">
             {paymentStatusLabel(line.status)} · due {formatWhen(line.dueDate)}
-            {line.status === "late" ? " · late. The organizer can take you off the trip and keep what you've paid." : ""}
+            {line.status === "late" ? " · late. The organizer can take your party off the trip and keep what you've paid." : ""}
           </p>
           <form action={payAction} className="mt-3">
             <input type="hidden" name="tripId" value={view.id} />
@@ -107,6 +125,7 @@ export default async function PayPage({
 
       <section>
         <h3 className="mb-3 font-serif text-2xl">Who still owes what</h3>
+        <p className="mb-2 text-xs text-muted">One row per paying party. Test payments only.</p>
         <PaymentGrid view={view} />
       </section>
 
@@ -114,12 +133,13 @@ export default async function PayPage({
         <section className="rounded-3xl border border-line bg-card p-4">
           <h3 className="font-serif text-2xl">Late payers</h3>
           <p className="mt-1 text-sm text-muted">
-            Moving someone off forfeits what they already paid into the base pot. Optional costs re-split among whoever is still opted in. The guest of honor can&apos;t be dropped.
+            Moving a party off forfeits what it already paid, which pays down lodging first. Optional costs re-split among whoever is still opted in.
+            The guest of honor can&apos;t be dropped.
           </p>
           <ul className="mt-3 grid gap-2">
-            {view.members.filter((member) => member.lines.some((line) => line.status === "late")).map((member) => (
+            {view.members.filter((member) => member.isPayer && member.lines.some((line) => line.status === "late")).map((member) => (
               <li key={member.userId} className="flex items-center justify-between gap-3 rounded-2xl bg-warn-soft px-3 py-2">
-                <span className="text-sm font-semibold">{member.name} is late</span>
+                <span className="text-sm font-semibold">{view.parties.find((party) => party.payerUserId === member.userId)?.name ?? member.name} is late</span>
                 <form action={removeMemberAction}>
                   <input type="hidden" name="tripId" value={view.id} />
                   <input type="hidden" name="actorId" value={viewer?.userId} />
@@ -148,8 +168,8 @@ export default async function PayPage({
             <Input className="mt-1.5" name="amount" inputMode="decimal" defaultValue={(view.suggestedBuyInCents / 100).toFixed(2)} required />
           </label>
           <label className="text-sm font-medium">
-            Minimum people, including the guest of honor
-            <Input className="mt-1.5" name="minHeadcount" type="number" min={2} defaultValue={view.minHeadcount} required />
+            Paying parties needed to book (guests of honor don&apos;t count)
+            <Input className="mt-1.5" name="minHeadcount" type="number" min={1} defaultValue={view.minHeadcount} required />
           </label>
           <label className="text-sm font-medium">
             Deadline (US Central)
@@ -161,7 +181,7 @@ export default async function PayPage({
 
       {view.termsLocked && view.buyInOpen ? (
         <p className="text-sm text-muted">
-          Buy-in is {money(view.buyInAmountCents)}, due {view.buyInDeadline ? formatWhen(view.buyInDeadline) : ""}. Amount and deadline are locked because someone already committed.
+          Buy-in is {money(view.buyInAmountCents)} per paying party, due {view.buyInDeadline ? formatWhen(view.buyInDeadline) : ""}. Amount and deadline are locked because a party already committed.
         </p>
       ) : null}
     </div>

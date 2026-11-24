@@ -419,6 +419,7 @@ export async function saveBudgetAction(formData: FormData) {
     }),
     `/trip/${tripId}/budget`,
   );
+  if (text(formData, "welcome") === "1") redirect(`/trip/${tripId}/vote`);
 }
 
 export async function outOfPocketAction(formData: FormData) {

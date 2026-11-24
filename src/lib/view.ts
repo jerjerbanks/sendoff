@@ -4,7 +4,6 @@ import { DEMO_TRIP_ID } from "./constants";
 import { LAKE_TRIP_ID } from "./constants";
 import { fitForOption, medianWeight, privateFit, type BedOption } from "./budgets";
 import {
-  billInput,
   buyInTermsLocked,
   ensureDemoSeed,
   isPayerMember,
@@ -156,6 +155,14 @@ export interface TripView {
   viewerParty: PartyView | null;
   travelerCount: number;
   bedsNeeded: number;
+  /**
+   * Live lodging price of each spot if a party held it at today's occupancy.
+   * An open share slot is priced at half the spot. Null in even split modes.
+   */
+  spotPrices: Record<string, number> | null;
+  lodgingTotalCents: number;
+  /** Each paying party's all-in under every lodging split mode, for the before/after. */
+  splitPreview: { payerUserId: string; name: string; byMode: Record<SplitMode, number> }[];
   dateWindow: string;
   status: TripStatus;
   buyInAmountCents: number;
@@ -499,6 +506,21 @@ function buildView(
     viewerParty: partyViews.find((party) => party.payerUserId === viewerPartyId) ?? null,
     travelerCount: activeTravelers.length,
     bedsNeeded: partySpotTravelers(activeTravelers),
+    spotPrices: raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw) : null,
+    splitPreview: (() => {
+      const modes: SplitMode[] = ["weighted_by_spot", "even_per_traveler", "even_per_party"];
+      const byMode = new Map(modes.map((mode) => [mode, settledBills({ ...billArgs, splitMode: mode })]));
+      return bills
+        .filter((bill) => bill.payer)
+        .map((bill) => ({
+          payerUserId: bill.userId,
+          name: raw.parties.find((party) => party.payerUserId === bill.userId)?.name ?? nameOf.get(bill.userId) ?? "Party",
+          byMode: Object.fromEntries(
+            modes.map((mode) => [mode, byMode.get(mode)?.find((item) => item.userId === bill.userId)?.totalCents ?? 0]),
+          ) as Record<SplitMode, number>,
+        }));
+    })(),
+    lodgingTotalCents: raw.trip.actualLodgingTotal ?? lodgingCents(raw.costs),
     dateWindow: raw.trip.dateWindow,
     status: raw.trip.status,
     buyInAmountCents: raw.trip.buyInAmount,
@@ -558,6 +580,24 @@ function buildView(
     addIfSomeoneDropsCents: sense?.ifSomeoneDropsAddsCents ?? null,
     isDemo: raw.trip.id === DEMO_TRIP_ID || raw.trip.id === LAKE_TRIP_ID,
   };
+}
+
+function livePrices(raw: RawTrip): Record<string, number> {
+  const lodge = raw.trip.actualLodgingTotal ?? lodgingCents(raw.costs);
+  const honoreeParties = new Set(honoreeIdsOf(raw));
+  const occupants = (spotId: string) =>
+    raw.claims.filter((claim) => claim.spotId === spotId && claim.status === "approved" && !honoreeParties.has(claim.userId)).length;
+  const occupied = raw.spots.filter((spot) => !spot.reservedForHonoree && occupants(spot.id) > 0);
+  const base = occupied.reduce((sum, spot) => sum + spot.weight, 0);
+  const prices: Record<string, number> = {};
+  for (const spot of raw.spots) {
+    if (spot.reservedForHonoree) continue;
+    const taken = occupants(spot.id);
+    if (taken === 0) prices[spot.id] = Math.round((lodge * spot.weight) / (base + spot.weight));
+    else if (spot.sharingEnabled && taken < (spot.capacity || 2)) prices[spot.id] = Math.round((lodge * spot.weight) / 2 / base);
+    else prices[spot.id] = Math.round((lodge * spot.weight) / taken / base);
+  }
+  return prices;
 }
 
 function joinNames(names: string[]): string {

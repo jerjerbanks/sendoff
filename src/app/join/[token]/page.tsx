@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   await ensureDemoSeed();
   const tripId = await tripIdForToken(token);
   const shell = tripId ? await loadTripView(tripId, null) : null;
-  const payer = shell?.members.find((member) => member.status === "committed" && member.role !== "honoree");
+  const payer = shell?.members.find((member) => member.isPayer && member.status === "committed" && member.role !== "honoree");
   const view = payer && tripId ? await loadTripView(tripId, payer.userId) : shell;
   if (!view) return { title: "Sendoff invite" };
   const card = ogCard(view);
@@ -50,11 +50,12 @@ export default async function JoinPage({
         <>
           <h1 className="mt-2 font-serif text-4xl leading-tight">{view.name}</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            {view.organizerName} is planning a bachelor party for {view.guestName}. {view.dateWindow}. This is a mock
-            login — the phone or email is just how we recognize you next time.
+            {view.organizerName} is planning {view.subtitle.charAt(0).toLowerCase() + view.subtitle.slice(1)}. {view.dateWindow}. Join, then add
+            anyone you&apos;re bringing. This is a mock login — the phone or email is just how we recognize you next time.
           </p>
           <p className="mt-3 text-sm">
-            {view.payerCount} payers committed · {view.members.filter((member) => member.status === "joined").length} still deciding
+            {view.payerCount} {view.payerCount === 1 ? "party" : "parties"} committed ·{" "}
+            {view.parties.filter((party) => party.status === "joined").length} still deciding · {view.travelerCount} travelers so far
           </p>
           {closed ? (
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">

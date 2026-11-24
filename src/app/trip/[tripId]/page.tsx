@@ -5,7 +5,7 @@ import { PaymentGrid } from "@/components/payment-grid";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { formatWhen, money, utcToZonedInput } from "@/lib/format";
-import { pollKindLabel, roleLabel, statusLabel } from "@/lib/labels";
+import { ageBandLabel, honoreeRoleLabel, partyStatusLabel, pollKindLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { loadTripView, type TripView } from "@/lib/view";
 
@@ -63,40 +63,57 @@ export default async function DashboardPage({
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-accent">
+        <p className="mt-3 text-sm">
+          {view.honoreeNames.length > 0
+            ? `Guest${view.honoreeNames.length > 1 ? "s" : ""} of honor: ${view.honoreeNames.join(" and ")}${view.honoreeExcluded ? " · the group covers their share" : ""}`
+            : "No guest of honor. Everyone who commits pays."}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-sm font-semibold text-accent">
+          <Link href={`/trip/${view.id}/party`}>Your party</Link>
           <Link href={`/trip/${view.id}/vote`}>Polls</Link>
-          <Link href={`/trip/${view.id}/spots`}>Beds</Link>
-          <Link href={`/trip/${view.id}/sleep`}>Spot setup</Link>
-          <Link href={`/trip/${view.id}/book`}>Book stay</Link>
-          <Link href={`/trip/${view.id}/settings`}>Settings</Link>
-          <Link href={`/trip/${view.id}/approvals`}>Approvals</Link>
-          <Link href={`/trip/${view.id}/budget`}>Budget</Link>
-          <Link href={`/trip/${view.id}/metrics`}>Metrics</Link>
+          <Link href={`/trip/${view.id}/spots`}>Rooms</Link>
+          {view.viewer?.isPayer ? <Link href={`/trip/${view.id}/budget`}>Private budget</Link> : null}
+          {view.isOrganizer ? (
+            <>
+              <Link href={`/trip/${view.id}/sleep`}>Room setup</Link>
+              <Link href={`/trip/${view.id}/approvals`}>Approvals</Link>
+              <Link href={`/trip/${view.id}/book`}>Book stay</Link>
+              <Link href={`/trip/${view.id}/settings`}>Settings</Link>
+              <Link href={`/trip/${view.id}/metrics`}>Metrics</Link>
+            </>
+          ) : null}
         </div>
       </section>
 
       <section className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="font-serif text-2xl">{viewer ? `Your number, ${viewer.name.split(" ")[0]}` : "Your number"}</h2>
+        <h2 className="font-serif text-2xl">
+          {view.viewerParty && view.viewerParty.travelers.length > 1
+            ? `The ${view.viewerParty.name} party's number`
+            : viewer
+              ? `Your number, ${viewer.name.split(" ")[0]}`
+              : "Your number"}
+        </h2>
         {view.shareLowCents != null && view.shareHighCents != null ? (
           <p className="mt-1 text-sm font-semibold">Flight band {money(view.shareLowCents)}–{money(view.shareHighCents)} around the midpoint.</p>
         ) : null}
         <ShareSummary view={view} />
-        {view.viewer?.bill ? (
+        {view.viewerParty?.bill?.payer ? (
           <p className="mt-2 text-sm text-muted">
-            Even split {money(view.viewer.bill.evenCents)} · lodging {money(view.viewer.bill.lodgingCents)} · optional {money(view.viewer.bill.optionalCents)} · yours {money(view.viewer.bill.individualCents)}
+            Lodging {money(view.viewerParty.bill.lodgingCents)} · shared per-head {money(view.viewerParty.bill.evenCents)} · optional{" "}
+            {money(view.viewerParty.bill.optionalCents + view.viewerParty.bill.ticketCents)} · just yours {money(view.viewerParty.bill.individualCents)}
           </p>
         ) : null}
         {view.saveIfOneMoreCents !== null ? (
-          <p className="mt-2 text-sm">If one more person commits, you save {money(view.saveIfOneMoreCents)}.</p>
+          <p className="mt-2 text-sm">If one more party commits, you save {money(view.saveIfOneMoreCents)}.</p>
         ) : null}
         {view.addIfSomeoneDropsCents !== null ? (
-          <p className="text-sm">If someone drops, you pay {money(view.addIfSomeoneDropsCents)} more. That can put the trip under the minimum.</p>
+          <p className="text-sm">If a party drops, you pay {money(view.addIfSomeoneDropsCents)} more. That can put the trip under the minimum.</p>
         ) : null}
         {view.sensitivityRows.length > 0 ? (
           <ul className="mt-3 grid gap-1 text-sm">
             {view.sensitivityRows.map((row) => (
               <li key={row.payers} className="flex justify-between">
-                <span>{row.expanded ? `N=${row.payers} expanded` : `If ${row.payers} commit`}</span>
+                <span>{row.expanded ? `If ${row.payers} commit (with an approved share)` : `If ${row.payers} parties commit`}</span>
                 <span className="font-semibold">
                   {view.shareLowCents != null && view.shareHighCents != null && view.currentShareCents != null
                     ? `${money(row.totalCents + view.shareLowCents - view.currentShareCents)}–${money(row.totalCents + view.shareHighCents - view.currentShareCents)}`
@@ -115,9 +132,16 @@ export default async function DashboardPage({
             ))}
           </ul>
         ) : null}
-        {view.viewer ? (
+        {view.viewerParty ? (
           <p className="mt-2 text-sm font-semibold">
-            Bed: {view.claims.some((claim) => claim.userId === view.viewer?.userId && claim.status === "approved") ? "claimed" : view.viewer.role === "honoree" ? "reserved" : "unclaimed"}
+            Room:{" "}
+            {view.viewerParty.rooms.length > 0 ? (
+              view.viewerParty.rooms.join(", ")
+            ) : view.viewer?.role === "honoree" ? (
+              "reserved for you"
+            ) : (
+              <Link className="text-accent" href={`/trip/${view.id}/spots`}>pick a room</Link>
+            )}
           </p>
         ) : null}
         <Link href={`/trip/${view.id}/pay`} className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink">
@@ -126,32 +150,54 @@ export default async function DashboardPage({
       </section>
 
       <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className="font-serif text-2xl">Who&apos;s in</h2>
           <p className="text-sm text-muted">
-            {view.payerCount} of {view.minPayerCount} payers · minimum crew {view.minHeadcount}
+            {view.payerCount} of {view.minPayerCount} paying parties committed
+            {view.payerCount >= view.minPayerCount ? " · booking trigger met" : ""}
           </p>
         </div>
+        <p className="mt-1 text-sm text-muted">
+          {view.travelerCount} {view.travelerCount === 1 ? "traveler" : "travelers"} of {view.maxHeadcount} max · {view.bedsNeeded} need a bed
+        </p>
         <ul className="mt-3 divide-y divide-line">
-          {view.members.map((member) => (
-            <li key={member.userId} className="flex items-center justify-between gap-3 py-3">
-              <div>
-                <p className="font-semibold">
-                  {member.name}{" "}
-                  <span className="font-normal text-muted">{roleLabel(member.role)}</span>
-                </p>
-                <p className="text-xs text-muted">{member.contact}</p>
+          {view.parties.map((party) => (
+            <li key={party.payerUserId} className="py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {party.name}
+                    {party.payerUserId === view.viewerParty?.payerUserId ? <span className="font-normal text-accent"> · you</span> : null}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {party.travelers.length > 1 ? `Paid by ${party.payerName.split(" ")[0]} · ` : ""}
+                    {party.rooms.length > 0 ? party.rooms.join(", ") : party.status === "committed" && !party.isHonoreeOnly ? "No room yet" : ""}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <Badge tone={party.status === "committed" ? "good" : party.status === "off_trip" || party.status === "declined" ? "bad" : "warn"}>
+                    {partyStatusLabel(party.status)}
+                  </Badge>
+                  {party.bill?.payer ? (
+                    <p className="mt-1 text-sm font-semibold">{money(party.bill.totalCents)}</p>
+                  ) : party.isHonoreeOnly ? (
+                    <p className="mt-1 text-xs text-muted">Buy-in waived</p>
+                  ) : null}
+                </div>
               </div>
-              <div className="text-right">
-                <Badge tone={member.status === "committed" ? "good" : member.status === "off_trip" ? "bad" : "warn"}>
-                  {statusLabel(member.status)}
-                </Badge>
-                {member.bill?.payer ? (
-                  <p className="mt-1 text-sm font-semibold">{money(member.bill.totalCents)}</p>
-                ) : member.role === "honoree" ? (
-                  <p className="mt-1 text-xs text-muted">Not in the split</p>
-                ) : null}
-              </div>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {party.travelers.map((traveler) => (
+                  <li key={traveler.id} className="rounded-full bg-chip px-2.5 py-1 text-xs">
+                    {traveler.name.split(" ")[0]}
+                    <span className="text-muted">
+                      {" "}
+                      · {traveler.isHonoree ? honoreeRoleLabel(traveler.honoreeRole) : ageBandLabel(traveler.ageBand)}
+                      {!traveler.hasAccount ? " · no app" : ""}
+                    </span>
+                    {view.isOrganizer && traveler.needsNotes ? <span className="text-warn"> · needs note</span> : null}
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>
@@ -184,9 +230,9 @@ export default async function DashboardPage({
 
       {view.isOrganizer && view.underMinimum ? (
         <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-          <h2 className="font-serif text-2xl">The crew is short</h2>
+          <h2 className="font-serif text-2xl">The group is short</h2>
           <p className="mt-1 text-sm text-muted">
-            Extending the deadline does not bring dropped people back. Cancel if you want the test buy-ins to stay refunded.
+            Extending the deadline does not bring dropped parties back. You can also lower the minimum in Settings. Cancel if you want the test buy-ins to stay refunded.
           </p>
           <form action={extendAction} className="mt-3 flex flex-col gap-3 sm:flex-row">
             <input type="hidden" name="tripId" value={view.id} />
@@ -219,22 +265,23 @@ function ShareSummary({ view }: { view: TripView }) {
       </p>
     );
   }
+  if (!viewer.isPayer) {
+    const payer = view.viewerParty?.payerName.split(" ")[0] ?? "Your payer";
+    return (
+      <div className="mt-3">
+        <p className="font-serif text-4xl">{money(view.currentShareCents ?? view.viewerParty?.bill?.totalCents ?? 0)}</p>
+        <p className="mt-2 text-sm text-muted">For the whole party. {payer} pays and manages the party; you can vote and see the plan.</p>
+      </div>
+    );
+  }
   const amount = view.currentShareCents ?? viewer.bill?.totalCents ?? 0;
   return (
     <div className="mt-3">
       <p className="font-serif text-4xl">{money(amount)}</p>
       <p className="mt-2 text-sm text-muted">
-        {view.payerCount} payers now. Minimum to book is {view.minPayerCount}. Buy-in is refundable until the stay is booked.
+        {view.payerCount} paying {view.payerCount === 1 ? "party" : "parties"} now. Minimum to book is {view.minPayerCount}. Buy-in is refundable until the stay is booked.
       </p>
-      {view.isOrganizer ? (
-        <ul className="mt-3 grid gap-1 text-sm">
-          {view.sensitivityRows.map((row) => (
-            <li key={row.payers}>
-              At {row.payers}: {money(row.totalCents)}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+
     </div>
   );
 }
