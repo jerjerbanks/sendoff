@@ -1,8 +1,35 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Shell } from "@/components/shell";
+import { ogCard } from "@/lib/og-copy";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
+
+async function origin() {
+  const headerList = await headers();
+  const proto = headerList.get("x-forwarded-proto") ?? "http";
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747";
+  return `${proto}://${host}`;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
+  const { tripId } = await params;
+  const shell = await loadTripView(tripId, null);
+  const payer = shell?.members.find((member) => member.status === "committed" && member.role !== "honoree");
+  const view = payer ? await loadTripView(tripId, payer.userId) : shell;
+  if (!view) return { title: "Sendoff" };
+  const card = ogCard(view);
+  const base = await origin();
+  const image = `${base}/og/trip/${tripId}`;
+  return {
+    title: card.alt,
+    description: card.alt,
+    openGraph: { title: card.title, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: card.title, description: card.alt, images: [image] },
+  };
+}
 
 export default async function TripLayout({
   children,

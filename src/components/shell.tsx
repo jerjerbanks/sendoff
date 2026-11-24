@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import {
   jumpSecondAction,
   resetClockAction,
@@ -6,13 +7,19 @@ import {
   simulateDeadlineAction,
   switchUserAction,
 } from "@/app/actions";
+import { Identify } from "@/components/identify";
 import { TripNav } from "@/components/nav";
+import { ShareLauncher } from "@/components/share-launcher";
 import { Badge } from "@/components/ui/badge";
 import { roleLabel, statusLabel, tripStatusLabel } from "@/lib/labels";
 import { formatWhen } from "@/lib/format";
 import type { TripView } from "@/lib/view";
 
-export function Shell({ view, children }: { view: TripView; children: ReactNode }) {
+export async function Shell({ view, children }: { view: TripView; children: ReactNode }) {
+  const headerList = await headers();
+  const proto = headerList.get("x-forwarded-proto") ?? "http";
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747";
+  const origin = `${proto}://${host}`;
   const tone =
     view.cancelled || view.underMinimum ? "bad" : view.lockedIn ? "good" : view.buyInOpen ? "warn" : "default";
   return (
@@ -52,10 +59,27 @@ export function Shell({ view, children }: { view: TripView; children: ReactNode 
               ))}
             </div>
           </details>
+          <ShareLauncher
+            origin={origin}
+            view={{
+              id: view.id,
+              name: view.name,
+              inviteToken: view.inviteToken,
+              organizerName: view.organizerName,
+              guestName: view.guestName,
+              buyInDeadline: view.buyInDeadline,
+              currentShareCents: view.currentShareCents,
+            }}
+          />
           <div className="mt-3 hidden md:block">
             <TripNav tripId={view.id} />
           </div>
         </header>
+        <Identify
+          tripId={view.id}
+          hasViewer={!!view.viewer}
+          members={view.members.map((member) => ({ userId: member.userId, name: member.name, role: member.role }))}
+        />
         <div className="px-4 pt-3">
           <QaBar view={view} />
         </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
 import { setViewerCookie } from "@/lib/session";
 import {
@@ -334,5 +335,8 @@ export async function hideOptionAction(formData: FormData) {
 
 export async function resetDemoAction(formData: FormData) {
   const tripId = text(formData, "tripId");
+  if (!demoResetAllowed() || tripId !== "trip_demo") {
+    fail(`/trip/${tripId}`, "Demo reset is only for the seeded trip.");
+  }
   done(tripId, await resetDemoTrip(), `/trip/${tripId}`);
 }

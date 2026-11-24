@@ -1,9 +1,33 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { joinTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
+import { ogCard } from "@/lib/og-copy";
 import { ensureDemoSeed, tripIdForToken } from "@/lib/store";
 import { loadTripView } from "@/lib/view";
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  await ensureDemoSeed();
+  const tripId = await tripIdForToken(token);
+  const shell = tripId ? await loadTripView(tripId, null) : null;
+  const payer = shell?.members.find((member) => member.status === "committed" && member.role !== "honoree");
+  const view = payer && tripId ? await loadTripView(tripId, payer.userId) : shell;
+  if (!view) return { title: "Sendoff invite" };
+  const card = ogCard(view);
+  const headerList = await headers();
+  const proto = headerList.get("x-forwarded-proto") ?? "http";
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747";
+  const image = `${proto}://${host}/og/invite/${token}`;
+  return {
+    title: card.alt,
+    description: card.alt,
+    openGraph: { title: card.title, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: card.title, description: card.alt, images: [image] },
+  };
+}
 
 export default async function JoinPage({
   params,

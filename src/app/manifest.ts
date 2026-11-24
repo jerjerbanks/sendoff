@@ -1,0 +1,17 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Sendoff",
+    short_name: "Sendoff",
+    description: "Plan the bachelor party in the group chat. Vote, see your share, commit.",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#efe6da",
+    theme_color: "#241910",
+    icons: [
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+  };
+}
