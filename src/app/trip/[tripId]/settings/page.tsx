@@ -1,4 +1,5 @@
 import {
+  ackSplitModeAction,
   ageWeightsAction,
   bedPolicyAction,
   headcountsAction,
@@ -28,7 +29,6 @@ export default async function SettingsPage({
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
   const me = view.viewer?.userId ?? "";
-  const anyPaid = view.members.some((member) => member.paidCents > 0);
   const hidden = (
     <>
       <input type="hidden" name="tripId" value={view.id} />
@@ -49,53 +49,106 @@ export default async function SettingsPage({
       <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
         <h3 className="font-serif text-2xl">How lodging splits</h3>
         <p className="text-sm text-muted">Per-head costs follow age weights in every mode. This only changes the lodging bill.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[20rem] text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="py-1 pr-2 font-semibold">Party</th>
-                {modes.map((mode) => (
-                  <th key={mode} className={`py-1 pr-2 font-semibold ${mode === view.splitMode ? "text-accent" : ""}`}>
-                    {splitModeLabel(mode)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {view.splitPreview.map((row) => (
-                <tr key={row.payerUserId} className="border-t border-line">
-                  <td className="py-1.5 pr-2 font-medium">{row.name}</td>
-                  {modes.map((mode) => (
-                    <td key={mode} className={`py-1.5 pr-2 ${mode === view.splitMode ? "font-semibold" : "text-muted"}`}>
-                      {money(row.byMode[mode])}
-                    </td>
-                  ))}
+        {view.splitPreview[0] ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[16rem] text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="py-1 pr-2 font-semibold">Your party</th>
+                  <th className="py-1 pr-2 font-semibold">Now ({splitModeLabel(view.splitMode)})</th>
+                  {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
+                    <th className="py-1 pr-2 font-semibold text-accent">If {splitModeLabel(view.pendingSplitMode)}</th>
+                  ) : (
+                    modes
+                      .filter((mode) => mode !== view.splitMode)
+                      .map((mode) => (
+                        <th key={mode} className="py-1 pr-2 font-semibold">
+                          {splitModeLabel(mode)}
+                        </th>
+                      ))
+                  )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {view.splitPreview.length === 0 ? <p className="text-sm text-muted">The before/after fills in once parties commit.</p> : null}
+              </thead>
+              <tbody>
+                {view.splitPreview.map((row) => (
+                  <tr key={row.payerUserId} className="border-t border-line">
+                    <td className="py-1.5 pr-2 font-medium">{row.name}</td>
+                    <td className="py-1.5 pr-2 font-semibold">{money(row.byMode[view.splitMode])}</td>
+                    {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
+                      <td className="py-1.5 pr-2 text-accent">{money(row.byMode[view.pendingSplitMode])}</td>
+                    ) : (
+                      modes
+                        .filter((mode) => mode !== view.splitMode)
+                        .map((mode) => (
+                          <td key={mode} className="py-1.5 pr-2 text-muted">
+                            {money(row.byMode[mode])}
+                          </td>
+                        ))
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Your before/after fills in once your party can see a share.</p>
+        )}
+        {view.isOrganizer && view.termsLocked ? (
+          <div className="rounded-xl bg-warn-soft px-3 py-2 text-sm">
+            <p className="font-medium text-warn">A change applies only after every committed party agrees.</p>
+            {view.pendingSplitMode ? (
+              <ul className="mt-2 grid gap-1">
+                {view.splitAcks.map((row) => (
+                  <li key={row.payerUserId} className="flex items-center justify-between gap-2">
+                    <span>{row.name}</span>
+                    <span className={row.acknowledged ? "text-good" : "text-muted"}>
+                      {row.acknowledged ? "Agreed" : "Pending"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-muted">No change is waiting on agreement.</p>
+            )}
+          </div>
+        ) : null}
+        {view.pendingSplitMode && view.viewerParty && view.splitAcks.some((row) => row.payerUserId === me) ? (
+          view.splitAcks.find((row) => row.payerUserId === me)?.acknowledged ? (
+            <p className="text-sm text-good">You agreed to switch to {splitModeLabel(view.pendingSplitMode)}.</p>
+          ) : (
+            <form action={ackSplitModeAction} className="grid gap-2 rounded-xl border border-line p-3">
+              {hidden}
+              <p className="text-sm">
+                Your share today is {money(view.splitPreview[0]?.byMode[view.splitMode] ?? view.viewerParty.bill?.totalCents ?? 0)}.
+                If the group switches to {splitModeLabel(view.pendingSplitMode)}, yours becomes{" "}
+                {money(view.splitPreview[0]?.byMode[view.pendingSplitMode] ?? 0)}.
+              </p>
+              <SubmitButton>I agree</SubmitButton>
+            </form>
+          )
+        ) : null}
         {view.isOrganizer ? (
           <form action={splitModeAction} className="grid gap-2">
             {hidden}
             {modes.map((mode) => (
               <label key={mode} className="flex items-start gap-2 text-sm">
-                <input className="mt-1" type="radio" name="splitMode" value={mode} defaultChecked={view.splitMode === mode} />
+                <input
+                  className="mt-1"
+                  type="radio"
+                  name="splitMode"
+                  value={mode}
+                  defaultChecked={(view.pendingSplitMode ?? view.splitMode) === mode}
+                />
                 <span>
                   <span className="font-semibold">{splitModeLabel(mode)}</span>
                   <span className="block text-muted">{splitModeHint(mode)}</span>
                 </span>
               </label>
             ))}
-            {anyPaid ? (
-              <label className="flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">
-                <input className="mt-1" type="checkbox" name="acknowledged" value="yes" />
-                Someone has bought in, so this is locked. Tick only after every committed party has seen its before/after above and agreed.
-              </label>
-            ) : null}
-            <SubmitButton>Save lodging split</SubmitButton>
+            <SubmitButton>{view.termsLocked ? (view.pendingSplitMode ? "Update proposed split" : "Propose this split") : "Save lodging split"}</SubmitButton>
           </form>
+        ) : !view.isOrganizer ? (
+          <p className="text-sm text-muted">Only the organizer can propose a change. You&apos;ll be asked to agree if one is pending.</p>
         ) : null}
       </section>
 

@@ -49,6 +49,7 @@ import {
   travelers,
   polls,
   sleepSpots,
+  splitModeAcks,
   spotClaims,
   spotRequests,
   tripMembers,
@@ -71,6 +72,7 @@ import {
   reconcileTrip,
   milestoneSchedule,
   settledBills,
+  splitChangeReady,
   unclaimedSpots,
   type MathCost,
   type MathClaim,
@@ -86,6 +88,7 @@ import {
   type TripStatus,
   type AgeBand,
   type AgePrices,
+  type AmountRule,
   type AgeWeights,
   type MathTraveler,
   type SplitMode,
@@ -206,6 +209,7 @@ export interface RawTrip {
     bookedAt: string | null;
     preWeddingStyle: string | null;
     splitMode: SplitMode;
+    pendingSplitMode: SplitMode | null;
     ageWeights: AgeWeights;
   };
   spots: SpotRecord[];
@@ -220,6 +224,7 @@ export interface RawTrip {
   costLabels: { id: string; label: string }[];
   milestones: MathMilestone[];
   payments: (MathPayment & { id: string; paidAt: string | null })[];
+  splitAcks: { payerUserId: string; proposedMode: SplitMode; acknowledgedAt: string }[];
 }
 
 function asRole(value: string): Role {
@@ -264,6 +269,11 @@ function asSplit(value: string): SplitType {
   return "shared";
 }
 
+function asAmountRule(value: string): AmountRule {
+  if (value === "pct_of_share" || value === "pct_of_lodging" || value === "fixed") return value;
+  return "fixed";
+}
+
 const lockedPayment = new Set<PaymentStatus>(["paid", "forfeited", "refunded"]);
 
 export function tripNow(raw: RawTrip): string {
@@ -279,7 +289,8 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
   const trip = (await db.select().from(trips).where(eq(trips.id, tripId)))[0];
   if (!trip) return null;
 
-  const memberRows = await db.select({
+  const [memberRows, pollRows, costRows, milestoneRows, spotRows, partyRows, travelerRows, ackRows] = await Promise.all([
+    db.select({
       userId: tripMembers.userId,
       name: users.name,
       contact: users.contact,
@@ -290,37 +301,29 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
     })
     .from(tripMembers)
     .innerJoin(users, eq(users.id, tripMembers.userId))
-    .where(eq(tripMembers.tripId, tripId))
-    ;
-
-  const pollRows = await db.select().from(polls).where(eq(polls.tripId, tripId));
+    .where(eq(tripMembers.tripId, tripId)),
+    db.select().from(polls).where(eq(polls.tripId, tripId)),
+    db.select().from(costItems).where(eq(costItems.tripId, tripId)),
+    db.select().from(milestones).where(eq(milestones.tripId, tripId)),
+    db.select().from(sleepSpots).where(eq(sleepSpots.tripId, tripId)),
+    db.select().from(parties).where(eq(parties.tripId, tripId)),
+    db.select().from(travelers).where(eq(travelers.tripId, tripId)),
+    db.select().from(splitModeAcks).where(eq(splitModeAcks.tripId, tripId)),
+  ]);
   const pollIds = pollRows.map((poll) => poll.id);
-  const optionRows = pollIds.length
-    ? await db.select().from(pollOptions).where(inArray(pollOptions.pollId, pollIds))
-    : [];
+  const costIds = costRows.map((cost) => cost.id);
+  const milestoneIds = milestoneRows.map((milestone) => milestone.id);
+  const spotIds = spotRows.map((spot) => spot.id);
+  const [optionRows, participantRows, paymentRows, claimRows, optInRows] = await Promise.all([
+    pollIds.length ? db.select().from(pollOptions).where(inArray(pollOptions.pollId, pollIds)) : Promise.resolve([]),
+    costIds.length ? db.select().from(costItemParticipants).where(inArray(costItemParticipants.costItemId, costIds)) : Promise.resolve([]),
+    milestoneIds.length ? db.select().from(payments).where(inArray(payments.milestoneId, milestoneIds)) : Promise.resolve([]),
+    spotIds.length ? db.select().from(spotClaims).where(inArray(spotClaims.spotId, spotIds)) : Promise.resolve([]),
+    costIds.length ? db.select().from(travelerOptIns).where(inArray(travelerOptIns.costItemId, costIds)) : Promise.resolve([]),
+  ]);
   const optionIds = optionRows.map((option) => option.id);
   const voteRows = optionIds.length
     ? await db.select().from(votes).where(inArray(votes.pollOptionId, optionIds))
-    : [];
-  const costRows = await db.select().from(costItems).where(eq(costItems.tripId, tripId));
-  const costIds = costRows.map((cost) => cost.id);
-  const participantRows = costIds.length
-    ? await db.select().from(costItemParticipants).where(inArray(costItemParticipants.costItemId, costIds))
-    : [];
-  const milestoneRows = await db.select().from(milestones).where(eq(milestones.tripId, tripId));
-  const milestoneIds = milestoneRows.map((milestone) => milestone.id);
-  const paymentRows = milestoneIds.length
-    ? await db.select().from(payments).where(inArray(payments.milestoneId, milestoneIds))
-    : [];
-  const spotRows = await db.select().from(sleepSpots).where(eq(sleepSpots.tripId, tripId));
-  const spotIds = spotRows.map((spot) => spot.id);
-  const claimRows = spotIds.length
-    ? await db.select().from(spotClaims).where(inArray(spotClaims.spotId, spotIds))
-    : [];
-  const partyRows = await db.select().from(parties).where(eq(parties.tripId, tripId));
-  const travelerRows = await db.select().from(travelers).where(eq(travelers.tripId, tripId));
-  const optInRows = costIds.length
-    ? await db.select().from(travelerOptIns).where(inArray(travelerOptIns.costItemId, costIds))
     : [];
 
   const ageWeights = parseAgeWeights(trip.ageWeights);
@@ -443,6 +446,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       bookedAt: trip.bookedAt,
       preWeddingStyle: trip.preWeddingStyle,
       splitMode: asSplitMode(trip.splitMode),
+      pendingSplitMode: trip.pendingSplitMode ? asSplitMode(trip.pendingSplitMode) : null,
       ageWeights,
     },
     spots: spotRows.map((spot) => {
@@ -499,7 +503,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       name: milestone.name,
       dueDate: milestone.dueDate,
       kind: asMilestoneKind(milestone.kind),
-      amountRule: milestone.amountRule === "pct_of_share" ? "pct_of_share" : "fixed",
+      amountRule: asAmountRule(milestone.amountRule),
       amount: milestone.amount,
       sortOrder: milestone.sortOrder,
     })),
@@ -510,6 +514,11 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       amountCents: payment.amount,
       status: asPaymentStatus(payment.status),
       paidAt: payment.paidAt,
+    })),
+    splitAcks: ackRows.map((ack) => ({
+      payerUserId: ack.payerUserId,
+      proposedMode: asSplitMode(ack.proposedMode),
+      acknowledgedAt: ack.acknowledgedAt,
     })),
   };
 }
@@ -558,9 +567,9 @@ function plainPayments(raw: RawTrip): MathPayment[] {
   }));
 }
 
-export async function persistMath(tripId: string) {
-  const raw = await readRaw(tripId);
-  if (!raw) return;
+export async function persistMath(tripId: string, rawIn?: RawTrip | null): Promise<RawTrip | null> {
+  let raw = rawIn ?? await readRaw(tripId);
+  if (!raw) return null;
   const db = getDb();
   const now = tripNow(raw);
   const outcome = reconcileTrip({
@@ -571,7 +580,9 @@ export async function persistMath(tripId: string) {
     members: mathMembers(raw),
   });
 
+  let dirty = false;
   if (outcome.deadlineRan || outcome.status !== raw.trip.status) {
+    dirty = true;
     await db.update(trips).set({ status: outcome.status }).where(eq(trips.id, tripId));
     for (const member of outcome.members) {
       const previous = raw.members.find((item) => item.userId === member.userId);
@@ -587,66 +598,79 @@ export async function persistMath(tripId: string) {
     }
   }
 
-  await syncLinkedMembers(tripId);
-  const fresh = await readRaw(tripId);
-  if (!fresh) return;
-  if (outcome.refundBuyIns || fresh.trip.status === "under_minimum") await refundBuyIns(fresh);
-  if (fresh.trip.status === "cancelled") await refundCollected(fresh);
-  if (fresh.trip.status === "buy_in_open" || fresh.trip.status === "booking_ready" || fresh.trip.status === "booked") {
-    await syncOpenPayments(tripId, tripNow(fresh));
-  } else {
-    await clearUncollected(tripId);
+  if (await syncLinkedMembers(tripId, raw)) dirty = true;
+  if (dirty) {
+    const fresh = await readRaw(tripId);
+    if (!fresh) return null;
+    raw = fresh;
   }
+  if (outcome.refundBuyIns || raw.trip.status === "under_minimum") {
+    if (await refundBuyIns(raw)) dirty = true;
+  }
+  if (raw.trip.status === "cancelled") {
+    if (await refundCollected(raw)) dirty = true;
+  }
+  if (raw.trip.status === "buy_in_open" || raw.trip.status === "booking_ready" || raw.trip.status === "booked") {
+    if (await syncOpenPayments(raw, tripNow(raw))) dirty = true;
+  } else if (await clearUncollected(raw)) {
+    dirty = true;
+  }
+  if (dirty) return await readRaw(tripId);
+  return raw;
 }
 
 /** Account-holders on a party follow their payer's commitment state. */
-async function syncLinkedMembers(tripId: string) {
-  const raw = await readRaw(tripId);
-  if (!raw) return;
+async function syncLinkedMembers(tripId: string, raw: RawTrip): Promise<boolean> {
   const db = getDb();
+  let dirty = false;
   for (const linked of raw.members.filter((member) => !isPayerMember(member))) {
     const payer = raw.members.find((member) => member.userId === linked.partyUserId);
     if (!payer || payer.status === linked.status) continue;
+    dirty = true;
     await db.update(tripMembers)
       .set({ status: payer.status })
       .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, linked.userId)));
   }
+  return dirty;
 }
 
-async function refundBuyIns(raw: RawTrip) {
+async function refundBuyIns(raw: RawTrip): Promise<boolean> {
   const buyIn = raw.milestones.find((milestone) => milestone.kind === "buy_in");
-  if (!buyIn) return;
+  if (!buyIn) return false;
   const db = getDb();
+  let dirty = false;
   for (const payment of raw.payments) {
     if (payment.milestoneId === buyIn.id && payment.status === "paid") {
+      dirty = true;
       await db.update(payments).set({ status: "refunded" }).where(eq(payments.id, payment.id));
     }
   }
+  return dirty;
 }
 
-async function refundCollected(raw: RawTrip) {
+async function refundCollected(raw: RawTrip): Promise<boolean> {
   const db = getDb();
+  let dirty = false;
   for (const payment of raw.payments) {
     if (payment.status === "paid") {
+      dirty = true;
       await db.update(payments).set({ status: "refunded" }).where(eq(payments.id, payment.id));
     }
   }
+  return dirty;
 }
 
-async function clearUncollected(tripId: string) {
-  const raw = await readRaw(tripId);
-  if (!raw) return;
+async function clearUncollected(raw: RawTrip): Promise<boolean> {
+  const pending = raw.payments.filter((payment) => !lockedPayment.has(payment.status));
+  if (pending.length === 0) return false;
   const db = getDb();
-  for (const payment of raw.payments) {
-    if (!lockedPayment.has(payment.status)) {
-      await db.delete(payments).where(eq(payments.id, payment.id));
-    }
+  for (const payment of pending) {
+    await db.delete(payments).where(eq(payments.id, payment.id));
   }
+  return true;
 }
 
-async function syncOpenPayments(tripId: string, now: string) {
-  const raw = await readRaw(tripId);
-  if (!raw) return;
+async function syncOpenPayments(raw: RawTrip, now: string): Promise<boolean> {
   const db = getDb();
   const members = mathMembers(raw);
   const payList = plainPayments(raw);
@@ -657,9 +681,10 @@ async function syncOpenPayments(tripId: string, now: string) {
 
   for (const member of members) {
     if (isCommittedPayer(member) && (raw.trip.status === "booking_ready" || raw.trip.status === "booked")) {
-      const total = shareOf.get(member.userId)?.totalCents ?? 0;
+      const bill = shareOf.get(member.userId);
       const lines = milestoneSchedule({
-        totalCents: total,
+        totalCents: bill?.totalCents ?? 0,
+        lodgingCents: bill?.lodgingCents ?? 0,
         milestones: raw.milestones,
         payments: payList,
         userId: member.userId,
@@ -709,6 +734,22 @@ async function syncOpenPayments(tripId: string, now: string) {
     if (lockedPayment.has(payment.status)) keep.add(`${payment.milestoneId}:${payment.userId}`);
   }
 
+  let dirty = false;
+  for (const row of desired) {
+    const existing = raw.payments.find(
+      (payment) => payment.milestoneId === row.milestoneId && payment.userId === row.userId,
+    );
+    if (!existing) dirty = true;
+    else if (!lockedPayment.has(existing.status) && (existing.amountCents !== row.amountCents || existing.status !== row.status)) {
+      dirty = true;
+    }
+  }
+  for (const payment of raw.payments) {
+    const key = `${payment.milestoneId}:${payment.userId}`;
+    if (!keep.has(key) && !lockedPayment.has(payment.status)) dirty = true;
+  }
+  if (!dirty) return false;
+
   for (const row of desired) {
     const existing = raw.payments.find(
       (payment) => payment.milestoneId === row.milestoneId && payment.userId === row.userId,
@@ -742,6 +783,7 @@ async function syncOpenPayments(tripId: string, now: string) {
       await db.delete(payments).where(eq(payments.id, payment.id));
     }
   }
+  return true;
 }
 
 export async function tripIdForToken(token: string) {
@@ -750,9 +792,9 @@ export async function tripIdForToken(token: string) {
 }
 
 export async function loadTrip(tripId: string) {
-  if (!(await readRaw(tripId))) return null;
-  await persistMath(tripId);
-  return await readRaw(tripId);
+  const raw = await readRaw(tripId);
+  if (!raw) return null;
+  return await persistMath(tripId, raw);
 }
 
 /** Bump when a fixture changes shape. A stale demo trip is reset to the new seed. */
@@ -863,6 +905,7 @@ async function wipeTrip(tripId: string) {
   await db.delete(travelers).where(eq(travelers.tripId, tripId));
   await db.delete(parties).where(eq(parties.tripId, tripId));
   await db.delete(tripMembers).where(eq(tripMembers.tripId, tripId));
+  await db.delete(splitModeAcks).where(eq(splitModeAcks.tripId, tripId));
   await db.delete(trips).where(eq(trips.id, tripId));
 }
 
@@ -1324,6 +1367,7 @@ export async function payMilestone(tripId: string, userId: string, milestoneId: 
     const bill = settledBills(billInput(raw)).find((item) => item.userId === userId);
     const line = milestoneSchedule({
       totalCents: bill?.totalCents ?? 0,
+      lodgingCents: bill?.lodgingCents ?? 0,
       milestones: raw.milestones,
       payments: plainPayments(raw),
       userId,
@@ -1372,6 +1416,7 @@ export async function removeLateMember(tripId: string, actorId: string, userId: 
   const booked = isBooked(raw.trip.status);
   const late = milestoneSchedule({
     totalCents: bill?.totalCents ?? 0,
+    lodgingCents: bill?.lodgingCents ?? 0,
     milestones: raw.milestones,
     payments: plainPayments(raw),
     userId,
@@ -1990,20 +2035,64 @@ export async function removeTraveler(tripId: string, actorId: string, travelerId
  * Lodging split mode. Free to switch before any buy-in. After one, every committed
  * paying party has to have acknowledged the before/after (recorded by the organizer).
  */
-export async function setSplitMode(tripId: string, userId: string, mode: SplitMode, acknowledged: boolean) {
+export async function setSplitMode(tripId: string, userId: string, mode: SplitMode) {
   const raw = await requireOrganizer(tripId, userId);
   if ("ok" in raw) return raw;
-  if (mode === raw.trip.splitMode) return { ok: true };
-  const anyPaid = raw.payments.some((payment) => payment.status === "paid");
-  if (anyPaid && !acknowledged) {
-    return {
-      ok: false,
-      error: "Someone has already bought in, so the split is locked. Show every committed party the before/after, then confirm they agreed.",
-    };
+  const db = getDb();
+  const locked = buyInTermsLocked(raw);
+  if (!locked) {
+    if (mode === raw.trip.splitMode && !raw.trip.pendingSplitMode) return { ok: true };
+    await db.update(trips).set({ splitMode: mode, pendingSplitMode: null }).where(eq(trips.id, tripId));
+    await db.delete(splitModeAcks).where(eq(splitModeAcks.tripId, tripId));
+    if (mode !== raw.trip.splitMode) {
+      await recordEvent(tripId, userId, "split_mode_changed", `${raw.trip.splitMode}->${mode}`);
+    }
+    await persistMath(tripId);
+    return { ok: true };
   }
-  await getDb().update(trips).set({ splitMode: mode }).where(eq(trips.id, tripId));
-  await recordEvent(tripId, userId, "split_mode_changed", `${raw.trip.splitMode}->${mode}${anyPaid ? " (acknowledged)" : ""}`);
-  await persistMath(tripId);
+  if (mode === raw.trip.splitMode) {
+    if (!raw.trip.pendingSplitMode) return { ok: true };
+    await db.update(trips).set({ pendingSplitMode: null }).where(eq(trips.id, tripId));
+    await db.delete(splitModeAcks).where(eq(splitModeAcks.tripId, tripId));
+    return { ok: true };
+  }
+  if (raw.trip.pendingSplitMode === mode) return { ok: true };
+  await db.delete(splitModeAcks).where(eq(splitModeAcks.tripId, tripId));
+  await db.update(trips).set({ pendingSplitMode: mode }).where(eq(trips.id, tripId));
+  await recordEvent(tripId, userId, "split_mode_proposed", `${raw.trip.splitMode}->${mode}`);
+  return { ok: true };
+}
+
+export async function acknowledgeSplitMode(tripId: string, userId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const pending = raw.trip.pendingSplitMode;
+  if (!pending) return { ok: false, error: "There's no split change waiting on agreement." };
+  const member = memberOf(raw, userId);
+  if (!member || !isPayerMember(member) || !isCommittedPayer(member)) {
+    return { ok: false, error: "Only a committed party's payer can agree to this." };
+  }
+  const db = getDb();
+  const already = raw.splitAcks.find((ack) => ack.payerUserId === userId && ack.proposedMode === pending);
+  if (!already) {
+    await db.insert(splitModeAcks).values({
+      tripId,
+      payerUserId: userId,
+      proposedMode: pending,
+      acknowledgedAt: tripNow(raw),
+    });
+  }
+  const committed = mathMembers(raw).filter((item) => isCommittedPayer(item)).map((item) => item.userId);
+  const acked = new Set([
+    ...raw.splitAcks.filter((ack) => ack.proposedMode === pending).map((ack) => ack.payerUserId),
+    userId,
+  ]);
+  if (splitChangeReady(committed, acked)) {
+    await db.update(trips).set({ splitMode: pending, pendingSplitMode: null }).where(eq(trips.id, tripId));
+    await db.delete(splitModeAcks).where(eq(splitModeAcks.tripId, tripId));
+    await recordEvent(tripId, userId, "split_mode_changed", `${raw.trip.splitMode}->${pending} (all parties agreed)`);
+    await persistMath(tripId);
+  }
   return { ok: true };
 }
 

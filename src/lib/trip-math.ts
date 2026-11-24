@@ -32,7 +32,7 @@ export type TripStatus =
   | "cancelled";
 export type SplitType = "shared" | "individual" | "optional";
 export type MilestoneKind = "buy_in" | "installment" | "final";
-export type AmountRule = "fixed" | "pct_of_share";
+export type AmountRule = "fixed" | "pct_of_share" | "pct_of_lodging";
 export type PaymentStatus = "due" | "paid" | "late" | "forfeited" | "refunded";
 export type SplitMode = "weighted_by_spot" | "even_per_traveler" | "even_per_party";
 export type AgeBand = "adult" | "teen" | "child" | "infant";
@@ -432,15 +432,50 @@ export function partySleeps(spot: MathSpot): number {
 /**
  * Claims if exactly these parties commit. Existing approved claims stay put.
  * A waiting party first takes any spot held for it. A party of one takes the
- * highest-weight vacant spot. A larger party takes the highest-weight vacant
- * room that sleeps all of its travelers (a family is never placed on a couch).
- * Anyone still unseated may take an open share slot (the expanded scenario).
+ * highest-weight vacant spot, but not in a room a larger still-waiting party
+ * can occupy as a whole (unless that party opted into sharing). A larger party
+ * takes the highest-weight vacant room that sleeps all of its travelers (a
+ * family is never placed on a couch). Anyone still unseated may take an open
+ * share slot (the expanded scenario).
  */
+function roomOf(spots: MathSpot[], spot: MathSpot): MathSpot[] {
+  return spots.filter((item) => (item.roomName ?? item.id) === (spot.roomName ?? spot.id));
+}
+
+function roomSleeps(room: MathSpot[]): number {
+  return room.reduce((sum, item) => sum + partySleeps(item), 0);
+}
+
+/**
+ * Skip a vacant room when a larger, still-waiting party can take it as a whole,
+ * unless that party opted into sharing or the organizer marked the spot shareable.
+ */
+function heldForWaitingFamily(
+  spots: MathSpot[],
+  occupied: Map<string, number>,
+  spot: MathSpot,
+  partyNeed: number,
+  waiting: { id: string; need: number; shareOptIn: boolean }[],
+): boolean {
+  const room = roomOf(spots, spot);
+  if (room.some((item) => (occupied.get(item.id) ?? 0) > 0)) return false;
+  const sleeps = roomSleeps(room);
+  for (const other of waiting) {
+    if (other.need <= partyNeed || other.shareOptIn) continue;
+    if (sleeps < other.need) continue;
+    const flagged = room.some((item) => item.reservedForUserId === other.id);
+    const familySized = room.length > 1 || sleeps >= 3 || other.need > 1;
+    if (flagged || familySized) return true;
+  }
+  return false;
+}
+
 export function projectClaims(
   spots: MathSpot[],
   claims: MathClaim[],
   payerIds: string[],
   needs: Map<string, number> = new Map(),
+  shareOptIn: Set<string> = new Set(),
 ): MathClaim[] {
   const wanted = new Set(payerIds);
   const kept = claims.filter((claim) => claim.status === "approved" && wanted.has(claim.userId));
@@ -467,7 +502,17 @@ export function projectClaims(
     }
     const need = Math.max(1, needs.get(id) ?? 1);
     if (need <= 1) {
-      const spot = spots.filter((item) => isOpen(item, id)).sort(byWeight)[0];
+      const later = waiting
+        .slice(waiting.indexOf(id) + 1)
+        .map((other) => ({
+          id: other,
+          need: Math.max(1, needs.get(other) ?? 1),
+          shareOptIn: shareOptIn.has(other),
+        }));
+      const spot = spots
+        .filter((item) => isOpen(item, id))
+        .filter((item) => item.sharingEnabled || !heldForWaitingFamily(spots, occupied, item, need, later))
+        .sort(byWeight)[0];
       if (spot) take(spot, id);
       else still.push(id);
       continue;
@@ -682,6 +727,8 @@ export interface MilestoneLine {
 
 export function milestoneSchedule(args: {
   totalCents: number;
+  /** Party lodging only. Used by pct_of_lodging; ignored otherwise. */
+  lodgingCents?: number;
   milestones: MathMilestone[];
   payments: MathPayment[];
   userId: string;
@@ -707,6 +754,9 @@ export function milestoneSchedule(args: {
       amount = Math.max(0, Math.min(args.buyInAmountCents, Math.max(0, remaining)));
     } else if (milestone.amountRule === "pct_of_share") {
       amount = Math.max(0, Math.min(Math.round((args.totalCents * milestone.amount) / 100), Math.max(0, remaining)));
+    } else if (milestone.amountRule === "pct_of_lodging") {
+      const base = args.lodgingCents ?? 0;
+      amount = Math.max(0, Math.min(Math.round((base * milestone.amount) / 100), Math.max(0, remaining)));
     } else amount = Math.max(0, Math.min(milestone.amount, Math.max(0, remaining)));
     remaining -= amount;
     let status: PaymentStatus = locked ? payment.status : "due";
@@ -724,6 +774,14 @@ export function milestoneSchedule(args: {
       locked,
     };
   });
+}
+
+
+/** True once every committed payer has acknowledged the same proposed split mode. */
+export function splitChangeReady(committedPayerIds: string[], acknowledgedPayerIds: Iterable<string>): boolean {
+  if (committedPayerIds.length === 0) return false;
+  const acked = new Set(acknowledgedPayerIds);
+  return committedPayerIds.every((id) => acked.has(id));
 }
 
 export function nextDue(lines: MilestoneLine[]): MilestoneLine | null {

@@ -340,10 +340,10 @@ export const lakeClaims = [
   { spotId: "lake_spot_loft", userId: "user_noah", status: "approved" },
 ] as const;
 
-/** Lodging share is 50% of the party's all-in; the spec names it but leaves the amount open. */
+/** Lodging share is 50% of the party's lodging cost only; the balance absorbs the rest. */
 export const lakeMilestones = [
   { id: "lake_ms_buyin", name: "Buy-in", dueDate: "2027-04-16T04:59:00.000Z", kind: "buy_in", amountRule: "fixed", amount: LAKE_BUY_IN_CENTS, sortOrder: 0 },
-  { id: "lake_ms_lodging", name: "Lodging share", dueDate: "2027-05-16T04:59:00.000Z", kind: "installment", amountRule: "pct_of_share", amount: 50, sortOrder: 1 },
+  { id: "lake_ms_lodging", name: "Lodging share", dueDate: "2027-05-16T04:59:00.000Z", kind: "installment", amountRule: "pct_of_lodging", amount: 50, sortOrder: 1 },
   { id: "lake_ms_final", name: "Balance", dueDate: "2027-06-16T04:59:00.000Z", kind: "final", amountRule: "fixed", amount: 0, sortOrder: 2 },
 ] as const;
 

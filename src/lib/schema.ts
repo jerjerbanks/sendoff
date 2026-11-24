@@ -28,6 +28,7 @@ export const trips = sqliteTable("trips", {
   preWeddingStyle: text("pre_wedding_style"),
   splitMode: text("split_mode").notNull().default("weighted_by_spot"),
   ageWeights: text("age_weights"),
+  pendingSplitMode: text("pending_split_mode"),
 });
 
 /** One per paying party. Keyed by the payer's user id. */
@@ -229,3 +230,15 @@ export const payments = sqliteTable("payments", {
   status: text("status").notNull(),
   paidAt: text("paid_at"),
 });
+
+/** One row per committed payer who agreed to the current proposed split mode. */
+export const splitModeAcks = sqliteTable(
+  "split_mode_acks",
+  {
+    tripId: text("trip_id").notNull(),
+    payerUserId: text("payer_user_id").notNull(),
+    proposedMode: text("proposed_mode").notNull(),
+    acknowledgedAt: text("acknowledged_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tripId, table.payerUserId] })],
+);

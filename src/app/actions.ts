@@ -47,6 +47,7 @@ import {
   setCoSleep,
   setHeadcounts,
   setHonoreeExclusion,
+  acknowledgeSplitMode,
   setSplitMode,
   toggleTravelerOptIn,
   updateRoom,
@@ -503,9 +504,14 @@ export async function splitModeAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await setSplitMode(tripId, text(formData, "userId"), asSplitMode(text(formData, "splitMode")), text(formData, "acknowledged") === "yes"),
+    await setSplitMode(tripId, text(formData, "userId"), asSplitMode(text(formData, "splitMode"))),
     `/trip/${tripId}/settings`,
   );
+}
+
+export async function ackSplitModeAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await acknowledgeSplitMode(tripId, text(formData, "userId")), `/trip/${tripId}/settings`);
 }
 
 export async function ageWeightsAction(formData: FormData) {

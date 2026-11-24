@@ -6,10 +6,12 @@ import {
   billsFor,
   partyAgeWeight,
   partySpotTravelers,
+  milestoneSchedule,
   projectClaims,
   rawLodgingCents,
   roundUpDollarCents,
   sensitivity,
+  splitChangeReady,
   travelerSharesFor,
   vendorCents,
   type MathClaim,
@@ -194,11 +196,58 @@ describe("spec 2.0.1 fixture B — Harper Lake House", () => {
     expect(projected.find((claim) => claim.userId === "kim")?.spotId).toBe("loft");
   });
 
-  it("spec-literal: a single adult who commits first takes the highest-weight spot, even inside a family room", () => {
+  it("spec-literal: a single adult who commits first does not take a family room from a larger waiting party", () => {
     const chenHasLake = claims.filter((claim) => claim.userId === "chen");
     const projected = projectClaims(spots, chenHasLake, ["chen", "kim", "harper"], new Map([["harper", 4], ["kim", 1]]));
+    expect(projected.find((claim) => claim.userId === "kim")?.spotId).toBe("loft");
+    const harper = projected.filter((claim) => claim.userId === "harper").map((claim) => claim.spotId).sort();
+    expect(harper).toEqual(["fam_q", "fam_t1", "fam_t2"]);
+  });
+
+  it("a family that opts into sharing can give up a bed in their room to a solo who commits first", () => {
+    const chenHasLake = claims.filter((claim) => claim.userId === "chen");
+    const projected = projectClaims(
+      spots,
+      chenHasLake,
+      ["chen", "kim", "harper"],
+      new Map([["harper", 4], ["kim", 1]]),
+      new Set(["harper"]),
+    );
     expect(projected.find((claim) => claim.userId === "kim")?.spotId).toBe("fam_q");
     expect(projected.some((claim) => claim.userId === "harper")).toBe(false);
+  });
+
+  it("lodging share is 50% of lodging only; official all-in totals and the pot stay put", () => {
+    const result = run();
+    expect(result.byId).toEqual({ harper: 1922, chen: 915, rivera: 1036, kim: 639 });
+    expect(result.remainder).toBe(2);
+    const milestones = [
+      { id: "buy", name: "Buy-in", dueDate: "2027-04-16T04:59:00.000Z", kind: "buy_in" as const, amountRule: "fixed" as const, amount: 10_000, sortOrder: 0 },
+      { id: "lodge", name: "Lodging share", dueDate: "2027-05-16T04:59:00.000Z", kind: "installment" as const, amountRule: "pct_of_lodging" as const, amount: 50, sortOrder: 1 },
+      { id: "final", name: "Balance", dueDate: "2027-06-16T04:59:00.000Z", kind: "final" as const, amountRule: "fixed" as const, amount: 0, sortOrder: 2 },
+    ];
+    for (const bill of result.bills.filter((row) => row.payer)) {
+      const lines = milestoneSchedule({
+        totalCents: bill.totalCents,
+        lodgingCents: bill.lodgingCents,
+        milestones,
+        payments: [],
+        userId: bill.userId,
+        buyInAmountCents: 10_000,
+        now: "2027-04-01T00:00:00.000Z",
+      });
+      const byId = Object.fromEntries(lines.map((line) => [line.milestoneId, line.amountCents]));
+      expect(byId.buy).toBe(10_000);
+      expect(byId.lodge).toBe(Math.round((bill.lodgingCents * 50) / 100));
+      expect(byId.lodge).not.toBe(Math.round((bill.totalCents * 50) / 100));
+      expect(byId.buy + byId.lodge + byId.final).toBe(bill.totalCents);
+    }
+  });
+
+  it("a split-mode change is ready only when every committed payer has agreed", () => {
+    expect(splitChangeReady(["harper", "chen", "rivera", "kim"], ["harper", "chen"])).toBe(false);
+    expect(splitChangeReady(["harper", "chen", "rivera", "kim"], ["harper", "chen", "rivera", "kim"])).toBe(true);
+    expect(splitChangeReady([], [])).toBe(false);
   });
 
   it("an accessibility hold is taken only by the party it is held for", () => {

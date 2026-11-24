@@ -33,7 +33,7 @@ export function ogCard(view: Pick<
   const destination = view.polls.find((poll) => poll.kind === "destination");
   const leader = destination?.options.slice().sort((a, b) => b.votes - a.votes)[0];
   const place = destination?.lockedLabel ?? leader?.label ?? view.name;
-  const at = Math.max(view.minHeadcount, view.payerCount);
+  const at = view.payerCount;
   const forecast = view.sensitivityRows.find((row) => row.payers === at)?.totalCents ?? view.currentShareCents;
   const amount = forecast != null ? `~${wholeDollars(forecast)} per party` : "share still open";
   const when = view.buyInDeadline ? `commit by ${formatDay(view.buyInDeadline)}` : "commit date not set";
@@ -46,7 +46,11 @@ export function ogCard(view: Pick<
           ? "bachelorette"
           : "weekend";
   const title = `${place.split(",")[0]} ${kind}`;
-  const line = `${view.payerCount} of ${view.minHeadcount} parties in · ${view.travelerCount} going · ${amount}`;
+  const inLine =
+    view.payerCount < view.minHeadcount
+      ? `${view.payerCount} of ${view.minHeadcount} parties in`
+      : `${view.payerCount} ${view.payerCount === 1 ? "party" : "parties"} in`;
+  const line = `${inLine} · ${view.travelerCount} going · ${amount}`;
   return {
     eyebrow: "SENDOFF",
     title,

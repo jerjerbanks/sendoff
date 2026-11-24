@@ -165,6 +165,9 @@ export interface TripView {
   lodgingTotalCents: number;
   /** Each paying party's all-in under every lodging split mode, for the before/after. */
   splitPreview: { payerUserId: string; name: string; byMode: Record<SplitMode, number> }[];
+  pendingSplitMode: SplitMode | null;
+  /** Organizer-facing agreement status. No dollar amounts. */
+  splitAcks: { payerUserId: string; name: string; acknowledged: boolean }[];
   dateWindow: string;
   status: TripStatus;
   buyInAmountCents: number;
@@ -265,6 +268,7 @@ function buildMember(raw: RawTrip, member: MemberRecord, bill: PersonBill | unde
   } else if (isCommittedPayer(member) && (raw.trip.status === "booking_ready" || raw.trip.status === "booked") && bill) {
     base = milestoneSchedule({
       totalCents: bill.totalCents,
+      lodgingCents: bill.lodgingCents,
       milestones: raw.milestones,
       payments: raw.payments,
       userId: member.userId,
@@ -514,7 +518,7 @@ function buildView(
     splitPreview: (() => {
       const modes: SplitMode[] = ["weighted_by_spot", "even_per_traveler", "even_per_party"];
       const byMode = new Map(modes.map((mode) => [mode, settledBills({ ...billArgs, splitMode: mode })]));
-      return bills
+      const rows = bills
         .filter((bill) => bill.payer)
         .map((bill) => ({
           payerUserId: bill.userId,
@@ -523,6 +527,21 @@ function buildView(
             modes.map((mode) => [mode, byMode.get(mode)?.find((item) => item.userId === bill.userId)?.totalCents ?? 0]),
           ) as Record<SplitMode, number>,
         }));
+      // Privacy: a party only gets its own before/after in this payload.
+      if (viewerPartyId) return rows.filter((row) => row.payerUserId === viewerPartyId);
+      return [];
+    })(),
+    pendingSplitMode: raw.trip.pendingSplitMode,
+    splitAcks: (() => {
+      const pending = raw.trip.pendingSplitMode;
+      const committed = raw.members.filter((member) => member.partyUserId === member.userId && isCommittedPayer(member));
+      return committed.map((member) => ({
+        payerUserId: member.userId,
+        name: raw.parties.find((party) => party.payerUserId === member.userId)?.name ?? member.name,
+        acknowledged: pending
+          ? raw.splitAcks.some((ack) => ack.payerUserId === member.userId && ack.proposedMode === pending)
+          : false,
+      }));
     })(),
     lodgingTotalCents: raw.trip.actualLodgingTotal ?? lodgingCents(raw.costs),
     dateWindow: raw.trip.dateWindow,
@@ -695,9 +714,13 @@ function buildNotices(args: {
 
 export const loadTripView = cache(async (tripId: string, viewerUserId: string | null): Promise<TripView | null> => {
   await ensureDemoSeed();
-  const raw = await loadTrip(tripId);
+  const [raw, budgets, flights] = await Promise.all([
+    loadTrip(tripId),
+    listBudgets(tripId),
+    listFlightQuotes(),
+  ]);
   if (!raw) return null;
-  return buildView(raw, viewerUserId, await listBudgets(tripId), await listFlightQuotes());
+  return buildView(raw, viewerUserId, budgets, flights);
 });
 
 function optionFit(
