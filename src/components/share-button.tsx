@@ -34,7 +34,7 @@ export function ShareButton({
       <button
         type="button"
         onClick={() => void share()}
-        className="inline-flex h-12 items-center rounded-2xl bg-accent px-4 text-sm font-semibold text-accent-ink"
+        className="inline-flex h-12 items-center rounded-2xl border border-line bg-chip px-4 text-sm font-semibold text-ink"
       >
         Send to group chat
       </button>

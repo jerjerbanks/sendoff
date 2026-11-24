@@ -2,6 +2,8 @@ import { cache } from "react";
 import { money } from "./format";
 import { DEMO_TRIP_ID } from "./constants";
 import { LAKE_TRIP_ID } from "./constants";
+import { formatDay } from "./format";
+import { journey as journeyFor, nextStep as nextStepFor, type JourneyStep, type NextStep } from "./next-step";
 import { fitForOption, medianWeight, privateFit, type BedOption } from "./budgets";
 import {
   buyInTermsLocked,
@@ -9,6 +11,7 @@ import {
   isPayerMember,
   listBudgets,
   listFlightQuotes,
+  listSpotRequests,
   loadTrip,
   mathMembers,
   travelersOf,
@@ -212,6 +215,13 @@ export interface TripView {
   shareHighCents: number | null;
   addIfSomeoneDropsCents: number | null;
   isDemo: boolean;
+  /** Only the viewer's own party: whether it saved a budget. Never another party's. */
+  viewerHasBudget: boolean;
+  pendingApprovals: number;
+  /** Locked destination, else the leading option, else the trip name. */
+  place: string;
+  nextStep: NextStep;
+  journey: JourneyStep[];
 }
 
 function historyLines(raw: RawTrip, userId: string): MilestoneLine[] {
@@ -612,6 +622,17 @@ function buildView(
     shareHighCents: flightBand(raw, billArgs, viewerPartyId, "high"),
     addIfSomeoneDropsCents: sense?.ifSomeoneDropsAddsCents ?? null,
     isDemo: raw.trip.id === DEMO_TRIP_ID || raw.trip.id === LAKE_TRIP_ID,
+    viewerHasBudget: !!viewerPartyId && budgets.some((budget) => budget.userId === viewerPartyId),
+    pendingApprovals: 0,
+    place: (() => {
+      const destination = polls.find((poll) => poll.kind === "destination");
+      if (destination?.lockedLabel) return destination.lockedLabel;
+      const leader = destination?.options.filter((option) => !option.hidden).slice().sort((a, b) => b.votes - a.votes)[0];
+      return leader && leader.votes > 0 ? leader.label : raw.trip.name;
+    })(),
+    // Filled in by withNextStep once the pending request count is known.
+    nextStep: { eyebrow: "", title: "", body: "", cta: null, href: null, tone: "calm" },
+    journey: [],
   };
 }
 
@@ -714,13 +735,15 @@ function buildNotices(args: {
 
 export const loadTripView = cache(async (tripId: string, viewerUserId: string | null): Promise<TripView | null> => {
   await ensureDemoSeed();
-  const [raw, budgets, flights] = await Promise.all([
+  const [raw, budgets, flights, requests] = await Promise.all([
     loadTrip(tripId),
     listBudgets(tripId),
     listFlightQuotes(),
+    listSpotRequests(tripId),
   ]);
   if (!raw) return null;
-  return buildView(raw, viewerUserId, budgets, flights);
+  const view = buildView(raw, viewerUserId, budgets, flights);
+  return withNextStep(view, requests.filter((request) => request.status === "pending").length);
 });
 
 function optionFit(
@@ -866,4 +889,32 @@ function flightBand(
   const amount = end === "low" ? flight.lowEstimate : flight.highEstimate;
   const costs = billArgs.costs.map((cost) => (cost.id === flight.id ? { ...cost, amountCents: amount } : cost));
   return settledBills({ ...billArgs, costs }).find((bill) => bill.userId === viewerId)?.totalCents ?? null;
+}
+
+/** Adds the viewer's next step and journey. Kept separate so the logic stays pure and testable. */
+function withNextStep(view: TripView, pendingApprovals: number): TripView {
+  const viewer = view.viewer;
+  const unvotedPolls = view.polls
+    .filter((poll) => !poll.closed && poll.options.some((option) => !option.hidden))
+    .filter((poll) => !poll.options.some((option) => option.votedByMe))
+    .map((poll) => (poll.kind === "destination" ? "Where" : poll.kind === "dates" ? "When" : "What we'll do"));
+  const input = {
+    viewer: viewer ? { isPayer: viewer.isPayer, role: viewer.role, status: viewer.status, forfeitedCents: viewer.forfeitedCents } : null,
+    payerFirstName: view.viewerParty?.payerName.split(" ")[0] ?? null,
+    partySize: view.viewerParty?.travelers.length ?? 1,
+    tripStatus: view.status,
+    hasBudget: view.viewerHasBudget,
+    unvotedPolls: viewer && viewer.status !== "invited" ? unvotedPolls : [],
+    hasRoom: (view.viewerParty?.rooms.length ?? 0) > 0,
+    buyInLabel: money(view.buyInAmountCents).replace(/\.00$/, ""),
+    deadlineLabel: view.buyInDeadline ? formatDay(view.buyInDeadline) : null,
+    nextPayment: view.nextPayment
+      ? { name: view.nextPayment.name, amountLabel: money(view.nextPayment.amountCents), dueLabel: formatDay(view.nextPayment.dueDate) }
+      : null,
+    isOrganizer: view.isOrganizer,
+    pendingApprovals,
+    payerCount: view.payerCount,
+    minPayers: view.minPayerCount,
+  };
+  return { ...view, pendingApprovals, nextStep: nextStepFor(input), journey: journeyFor(input) };
 }

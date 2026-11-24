@@ -51,10 +51,17 @@ export default async function SpotPickerPage({
         ) : null}
       </div>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
-      {committed && myBeds.length === 0 ? (
-        <p className="rounded-xl bg-good-soft px-3 py-2 text-sm text-good">
-          You&apos;re in. Test payment recorded — no card charged. Now pick where your party sleeps; parties pick in the order they bought in.
-        </p>
+      {committed ? (
+        <section className="rounded-3xl border-2 border-good/50 bg-good-soft p-5 text-center">
+          <p className="font-serif text-4xl text-good">You&apos;re in.</p>
+          <p className="mt-2 text-sm text-good">
+            {view.payerCount >= view.minPayerCount
+              ? `${view.payerCount} parties committed — enough to book.`
+              : `Party ${view.payerCount} of the ${view.minPayerCount} needed to book.`}{" "}
+            Test payment only; no card charged.
+          </p>
+          <p className="mt-3 text-sm text-ink">{myBeds.length === 0 ? "Now pick where you sleep. Earlier commits pick first." : "Your bed is saved below."}</p>
+        </section>
       ) : null}
 
       {requests.map((request) => (

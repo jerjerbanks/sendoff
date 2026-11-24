@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { cancelAction, extendAction } from "@/app/actions";
-import { CopyLink, SubmitButton } from "@/components/bits";
-import { PaymentGrid } from "@/components/payment-grid";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { formatWhen, money, utcToZonedInput } from "@/lib/format";
-import { ageBandLabel, honoreeRoleLabel, partyStatusLabel, pollKindLabel } from "@/lib/labels";
+import { headers } from "next/headers";
+import { CopyLink } from "@/components/bits";
+import { ShareLauncher } from "@/components/share-launcher";
+import { money } from "@/lib/format";
+import { ageBandLabel, honoreeRoleLabel, pollKindLabel } from "@/lib/labels";
+import type { JourneyStep, NextStep } from "@/lib/next-step";
 import { getViewerId } from "@/lib/session";
-import { loadTripView, type TripView } from "@/lib/view";
+import { loadTripView, type PartyView, type TripView } from "@/lib/view";
 
+/** S3, rebuilt around one question: what should I do next? Everything else is one tap away. */
 export default async function DashboardPage({
   params,
   searchParams,
@@ -20,283 +20,367 @@ export default async function DashboardPage({
   const { error } = await searchParams;
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
-  const viewer = view.viewer;
-  const plan = view.polls.map((poll) => ({
-    kind: poll.kind,
-    label: poll.lockedLabel,
-  }));
+  const headerList = await headers();
+  const origin = `${headerList.get("x-forwarded-proto") ?? "http"}://${headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747"}`;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
-      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad md:col-span-2">{error}</p> : null}
-      <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Notices stay in the app. Nothing is emailed.</p>
-        <div className="mt-3 grid gap-2">
-          {view.notices.length === 0 ? <p className="text-sm text-muted">Nothing needs you right now.</p> : null}
-          {view.notices.map((notice) => (
-            <p
-              key={notice.text}
-              className={
-                notice.tone === "bad"
-                  ? "rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad"
-                  : notice.tone === "warn"
-                    ? "rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn"
-                    : notice.tone === "good"
-                      ? "rounded-xl bg-good-soft px-3 py-2 text-sm text-good"
-                      : "rounded-xl bg-chip px-3 py-2 text-sm"
-              }
-            >
-              {notice.text}
-            </p>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="font-serif text-2xl">The plan</h2>
-        <p className="mt-1 text-sm text-muted">{view.dateWindow}</p>
-        <ul className="mt-4 grid gap-3">
-          {plan.map((item) => (
-            <li key={item.kind} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted">{pollKindLabel(item.kind)}</span>
-              <span className="text-right text-sm font-semibold">{item.label ?? "Still voting"}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-sm">
-          {view.honoreeNames.length > 0
-            ? `Guest${view.honoreeNames.length > 1 ? "s" : ""} of honor: ${view.honoreeNames.join(" and ")}${view.honoreeExcluded ? " · the group covers their share" : ""}`
-            : "No guest of honor. Everyone who commits pays."}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-sm font-semibold text-accent">
-          <Link href={`/trip/${view.id}/party`}>Your party</Link>
-          <Link href={`/trip/${view.id}/vote`}>Polls</Link>
-          <Link href={`/trip/${view.id}/spots`}>Rooms</Link>
-          {view.viewer?.isPayer ? <Link href={`/trip/${view.id}/budget`}>Private budget</Link> : null}
-          {view.isOrganizer ? (
-            <>
-              <Link href={`/trip/${view.id}/sleep`}>Room setup</Link>
-              <Link href={`/trip/${view.id}/approvals`}>Approvals</Link>
-              <Link href={`/trip/${view.id}/book`}>Book stay</Link>
-              <Link href={`/trip/${view.id}/settings`}>Settings</Link>
-              <Link href={`/trip/${view.id}/metrics`}>Metrics</Link>
-            </>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="font-serif text-2xl">
-          {view.viewerParty && view.viewerParty.travelers.length > 1
-            ? `The ${view.viewerParty.name} party's number`
-            : viewer
-              ? `Your number, ${viewer.name.split(" ")[0]}`
-              : "Your number"}
-        </h2>
-        {view.shareLowCents != null && view.shareHighCents != null ? (
-          <p className="mt-1 text-sm font-semibold">Flight band {money(view.shareLowCents)}–{money(view.shareHighCents)} around the midpoint.</p>
-        ) : null}
-        <ShareSummary view={view} />
-        {view.viewerParty?.bill?.payer ? (
-          <p className="mt-2 text-sm text-muted">
-            Lodging {money(view.viewerParty.bill.lodgingCents)} · shared per-head {money(view.viewerParty.bill.evenCents)} · optional{" "}
-            {money(view.viewerParty.bill.optionalCents + view.viewerParty.bill.ticketCents)} · just yours {money(view.viewerParty.bill.individualCents)}
-          </p>
-        ) : null}
-        {view.saveIfOneMoreCents !== null ? (
-          <p className="mt-2 text-sm">If one more party commits, you save {money(view.saveIfOneMoreCents)}.</p>
-        ) : null}
-        {view.addIfSomeoneDropsCents !== null ? (
-          <p className="text-sm">If a party drops, you pay {money(view.addIfSomeoneDropsCents)} more. That can put the trip under the minimum.</p>
-        ) : null}
-        {view.sensitivityRows.length > 0 ? (
-          <ul className="mt-3 grid gap-1 text-sm">
-            {view.sensitivityRows.map((row) => (
-              <li key={row.payers} className="flex justify-between">
-                <span>{row.expanded ? `If ${row.payers} commit (with an approved share)` : `If ${row.payers} parties commit`}</span>
-                <span className="font-semibold">
-                  {view.shareLowCents != null && view.shareHighCents != null && view.currentShareCents != null
-                    ? `${money(row.totalCents + view.shareLowCents - view.currentShareCents)}–${money(row.totalCents + view.shareHighCents - view.currentShareCents)}`
-                    : money(row.totalCents)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {view.rebase.length > 0 ? (
-          <ul className="mt-3 grid gap-1 text-sm">
-            {view.rebase.map((row) => (
-              <li key={row.userId}>
-                {row.name.split(" ")[0]}: {money(row.beforeCents)} → {money(row.afterCents)}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {view.viewerParty ? (
-          <p className="mt-2 text-sm font-semibold">
-            Room:{" "}
-            {view.viewerParty.rooms.length > 0 ? (
-              view.viewerParty.rooms.join(", ")
-            ) : view.viewer?.role === "honoree" ? (
-              "reserved for you"
-            ) : (
-              <Link className="text-accent" href={`/trip/${view.id}/spots`}>pick a room</Link>
-            )}
-          </p>
-        ) : null}
-        <Link href={`/trip/${view.id}/pay`} className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink">
-          {view.nextPayment ? `Next: ${view.nextPayment.name}` : "Payment details"}
-        </Link>
-      </section>
-
-      <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="font-serif text-2xl">Who&apos;s in</h2>
-          <p className="text-sm text-muted">
-            {view.payerCount} paying {view.payerCount === 1 ? "party" : "parties"} committed ·{" "}
-            {view.payerCount >= view.minPayerCount ? `${view.minPayerCount} needed to book, met` : `${view.minPayerCount} needed to book`}
-          </p>
-        </div>
-        <p className="mt-1 text-sm text-muted">
-          {view.travelerCount} {view.travelerCount === 1 ? "traveler" : "travelers"} of {view.maxHeadcount} max · {view.bedsNeeded} need a bed
-        </p>
-        <ul className="mt-3 divide-y divide-line">
-          {view.parties.map((party) => (
-            <li key={party.payerUserId} className="py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold">
-                    {party.name}
-                    {party.payerUserId === view.viewerParty?.payerUserId ? <span className="font-normal text-accent"> · you</span> : null}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {party.travelers.length > 1 ? `Paid by ${party.payerName.split(" ")[0]} · ` : ""}
-                    {party.rooms.length > 0 ? party.rooms.join(", ") : party.status === "committed" && !party.isHonoreeOnly ? "No room yet" : ""}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <Badge tone={party.status === "committed" ? "good" : party.status === "off_trip" || party.status === "declined" ? "bad" : "warn"}>
-                    {partyStatusLabel(party.status)}
-                  </Badge>
-                  {party.bill?.payer ? (
-                    <p className="mt-1 text-sm font-semibold">{money(party.bill.totalCents)}</p>
-                  ) : party.isHonoreeOnly ? (
-                    <p className="mt-1 text-xs text-muted">Buy-in waived</p>
-                  ) : null}
-                </div>
-              </div>
-              {party.travelers.length > 1 || party.travelers.some((traveler) => traveler.isHonoree || traveler.needsNotes) ? (
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {party.travelers.map((traveler) => (
-                  <li key={traveler.id} className="rounded-full bg-chip px-2.5 py-1 text-xs">
-                    {traveler.name.split(" ")[0]}
-                    <span className="text-muted">
-                      {" "}
-                      · {traveler.isHonoree ? honoreeRoleLabel(traveler.honoreeRole) : ageBandLabel(traveler.ageBand)}
-                      {!traveler.hasAccount ? " · no app" : ""}
-                    </span>
-                    {view.isOrganizer && traveler.needsNotes ? <span className="text-warn"> · needs note</span> : null}
-                  </li>
-                ))}
-              </ul>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="md:col-span-2">
-        <h2 className="mb-3 font-serif text-2xl">Payment status</h2>
-        <PaymentGrid view={view} />
-        {view.roundingCents > 0 ? (
-          <p className="mt-2 text-sm text-muted">
-            Rounding up leaves {money(view.roundingCents)} in the trip pot. It is not assigned to anyone.
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-muted">These shares divide evenly. Nothing extra is sitting in the pot from rounding.</p>
-        )}
-        {view.forfeitedPotCents > 0 ? (
-          <p className="mt-1 text-sm text-muted">
-            {money(view.forfeitedPotCents)} forfeited after lock-in came off the base pool only.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-        <h2 className="font-serif text-2xl">Invite link</h2>
-        <p className="mt-1 text-sm text-muted">Anyone with the link can join with a name and a phone or email. There&apos;s no real login.</p>
-        <div className="mt-3">
-          <CopyLink path={`/join/${view.inviteToken}`} />
-        </div>
-      </section>
-
-      {view.isOrganizer && view.underMinimum ? (
-        <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
-          <h2 className="font-serif text-2xl">The group is short</h2>
-          <p className="mt-1 text-sm text-muted">
-            Extending the deadline does not bring dropped parties back. You can also lower the minimum in Settings. Cancel if you want the test buy-ins to stay refunded.
-          </p>
-          <form action={extendAction} className="mt-3 flex flex-col gap-3 sm:flex-row">
-            <input type="hidden" name="tripId" value={view.id} />
-            <input type="hidden" name="userId" value={viewer?.userId ?? ""} />
-            <Input type="datetime-local" name="deadline" required defaultValue={view.buyInDeadline ? utcToZonedInput(view.buyInDeadline) : undefined} />
-            <SubmitButton variant="secondary">Extend deadline</SubmitButton>
-          </form>
-          <form action={cancelAction} className="mt-3">
-            <input type="hidden" name="tripId" value={view.id} />
-            <input type="hidden" name="userId" value={viewer?.userId ?? ""} />
-            <SubmitButton variant="destructive">Cancel the trip</SubmitButton>
-          </form>
+    <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
+      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+      <Hero view={view} />
+      {view.journey.some((step) => step.state === "current" || step.state === "todo") ? <Journey tripId={view.id} steps={view.journey} /> : null}
+      <NextStepCard tripId={view.id} step={view.nextStep} />
+      <NumberCard view={view} />
+      <WhoCard view={view} />
+      <PlanCard view={view} />
+      {view.isOrganizer ? <OrganizerCard view={view} /> : null}
+      {!view.cancelled && !view.lockedIn ? (
+        <section className="rounded-3xl border border-line bg-card p-4">
+          <h2 className="font-serif text-xl">Bring people in</h2>
+          <p className="mt-1 text-sm text-muted">One link. They join, add who they&apos;re bringing, and see their number. No app to install.</p>
+          <ShareLauncher
+            origin={origin}
+            view={{
+              id: view.id,
+              name: view.name,
+              inviteToken: view.inviteToken,
+              organizerName: view.organizerName,
+              guestName: view.guestName,
+              buyInDeadline: view.buyInDeadline,
+              currentShareCents: view.currentShareCents,
+            }}
+          />
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-semibold text-muted">Copy the link · code {view.inviteToken}</summary>
+            <div className="mt-2">
+              <CopyLink path={`/join/${view.inviteToken}`} />
+            </div>
+          </details>
         </section>
-      ) : null}
-
-      {view.buyInDeadline ? (
-        <p className="text-sm text-muted md:col-span-2">Buy-in deadline {formatWhen(view.buyInDeadline)}. Times are US Central.</p>
       ) : null}
     </div>
   );
 }
 
-function ShareSummary({ view }: { view: TripView }) {
-  const viewer = view.viewer;
-  if (!viewer) return <p className="mt-2 text-sm">Pick who you&apos;re viewing as.</p>;
-  if (viewer.role === "honoree") {
-    return (
-      <p className="mt-3 text-sm leading-relaxed">
-        You&apos;re the guest of honor. Your room is reserved, you don&apos;t pay a buy-in, and you can&apos;t be dropped.
+/** The trip as an event page: where, when, and the faces of who's in. */
+function Hero({ view }: { view: TripView }) {
+  const dates = view.polls.find((poll) => poll.kind === "dates");
+  const when = dates?.lockedLabel ?? dates?.options.filter((option) => option.votes > 0).sort((a, b) => b.votes - a.votes)[0]?.label ?? null;
+  const decided = !!view.polls.find((poll) => poll.kind === "destination")?.lockedLabel;
+  const faces = view.parties.filter((party) => party.status === "committed");
+  const shown = faces.slice(0, 6);
+  return (
+    <section className="pt-1">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        {decided ? "We're going to" : view.place !== view.name ? "Leading the vote" : "Where to?"}
       </p>
-    );
-  }
-  if (!viewer.isPayer) {
-    const payer = view.viewerParty?.payerName.split(" ")[0] ?? "Your payer";
-    return (
-      <div className="mt-3">
-        <p className="font-serif text-4xl">{money(view.currentShareCents ?? view.viewerParty?.bill?.totalCents ?? 0)}</p>
-        <p className="mt-2 text-sm text-muted">For the whole party. {payer} pays and manages the party; you can vote and see the plan.</p>
-      </div>
-    );
-  }
-  if (view.currentShareCents == null && view.ifYouCommitCents != null) {
-    const n = view.payerCount + 1;
-    return (
-      <div className="mt-3">
-        <p className="font-serif text-4xl">{money(view.ifYouCommitCents)}</p>
-        <p className="mt-2 text-sm text-muted">
-          If your party commits now, as party {n}
-          {n < view.minPayerCount ? `. Unofficial until ${view.minPayerCount} parties commit` : ""}. The number moves as parties commit or drop;
-          the range below shows where it lands.
+      <p className="font-serif text-5xl leading-[0.95]">{view.place.split(",")[0]}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <div className="flex -space-x-2" aria-hidden>
+          {shown.map((party) => (
+            <span key={party.payerUserId} className="flex size-8 items-center justify-center rounded-full border-2 border-paper bg-accent font-serif text-sm text-accent-ink">
+              {party.name.charAt(0)}
+            </span>
+          ))}
+          {faces.length > shown.length ? (
+            <span className="flex size-8 items-center justify-center rounded-full border-2 border-paper bg-chip text-xs">+{faces.length - shown.length}</span>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted">
+          {when ? `${when} · ` : ""}
+          {view.travelerCount} going
         </p>
       </div>
-    );
-  }
-  const amount = view.currentShareCents ?? viewer.bill?.totalCents ?? 0;
-  return (
-    <div className="mt-3">
-      <p className="font-serif text-4xl">{money(amount)}</p>
-      <p className="mt-2 text-sm text-muted">
-        {view.payerCount} paying {view.payerCount === 1 ? "party" : "parties"} now. Minimum to book is {view.minPayerCount}. Buy-in is refundable until the stay is booked.
-      </p>
+    </section>
+  );
+}
 
-    </div>
+const stepHref: Record<JourneyStep["key"], string> = {
+  party: "/party",
+  budget: "/budget",
+  vote: "/vote",
+  commit: "/pay",
+  room: "/spots",
+};
+
+function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
+  const done = steps.filter((step) => step.state === "done" || step.state === "skipped").length;
+  return (
+    <nav aria-label={`Your progress: ${done} of ${steps.length} steps`}>
+      <ol className="relative flex justify-between">
+        <span className="absolute inset-x-4 top-3 h-px bg-line" aria-hidden />
+        {steps.map((step) => (
+          <li key={step.key} className="relative z-10 flex flex-col items-center gap-1">
+            <Link
+              href={`/trip/${tripId}${stepHref[step.key]}`}
+              aria-current={step.state === "current" ? "step" : undefined}
+              className={`flex size-6 items-center justify-center rounded-full text-[11px] font-bold ${
+                step.state === "done"
+                  ? "bg-accent text-accent-ink"
+                  : step.state === "current"
+                    ? "bg-paper text-accent ring-2 ring-accent"
+                    : "bg-chip text-muted"
+              }`}
+            >
+              {step.state === "done" ? "✓" : step.state === "skipped" ? "–" : ""}
+            </Link>
+            <span className={`text-[11px] ${step.state === "current" ? "font-semibold text-ink" : "text-muted"}`}>{step.label}</span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
+  const frame =
+    step.tone === "action"
+      ? "border-2 border-accent"
+      : step.tone === "bad"
+        ? "border border-bad/40 bg-bad-soft"
+        : step.tone === "warn"
+          ? "border border-warn/40 bg-warn-soft"
+          : "border border-line";
+  return (
+    <section className={`rounded-3xl bg-card p-5 ${frame}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{step.eyebrow}</p>
+      <h2 className="mt-1 font-serif text-3xl leading-tight">{step.title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-muted">{step.body}</p>
+      {step.cta && step.href !== null ? (
+        <Link
+          href={step.href.startsWith("?") ? `/trip/${tripId}${step.href}` : `/trip/${tripId}${step.href}`}
+          className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-accent text-base font-semibold text-accent-ink"
+        >
+          {step.cta}
+        </Link>
+      ) : null}
+    </section>
+  );
+}
+
+function NumberCard({ view }: { view: TripView }) {
+  const viewer = view.viewer;
+  const party = view.viewerParty;
+  if (!viewer || !party || viewer.role === "honoree" || viewer.status === "off_trip" || viewer.status === "declined") return null;
+  const preview = view.currentShareCents == null && view.ifYouCommitCents != null;
+  const amount = preview ? view.ifYouCommitCents : (view.currentShareCents ?? party.bill?.totalCents ?? null);
+  if (amount == null) return null;
+  const bill = party.bill;
+  const many = party.travelers.length > 1;
+  const official = view.payerCount >= view.minPayerCount;
+  const band = view.shareLowCents != null && view.shareHighCents != null && view.currentShareCents != null;
+  return (
+    <section className="rounded-3xl border border-line bg-card p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        {many ? `The ${party.name} party's share` : "Your share"}
+        {preview ? " if you commit now" : ""}
+      </p>
+      <p className="mt-1 font-serif text-5xl leading-none">{money(amount).replace(/\.00$/, "")}</p>
+      {band ? (
+        <p className="mt-2 text-sm text-accent">
+          {money(view.shareLowCents!).replace(/\.00$/, "")}–{money(view.shareHighCents!).replace(/\.00$/, "")} with your flight
+        </p>
+      ) : null}
+      <p className="mt-2 text-sm text-muted">
+        {!official
+          ? `Estimate until ${view.minPayerCount} parties commit. It moves as people join or drop.`
+          : view.saveIfOneMoreCents
+            ? `If one more party commits, you save ${money(view.saveIfOneMoreCents).replace(/\.00$/, "")}.`
+            : view.lockedIn
+              ? "Final unless someone drops or a room changes."
+              : "Official. It moves only if parties join or drop."}
+        {!viewer.isPayer ? ` ${party.payerName.split(" ")[0]} pays it.` : ""}
+      </p>
+      <details className="mt-3 border-t border-line pt-3">
+        <summary className="cursor-pointer text-sm font-semibold text-accent">How this is figured</summary>
+        {bill?.payer ? (
+          <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+            <dt className="text-muted">Lodging{party.rooms.length ? `, ${party.rooms.join(", ")}` : ""}</dt>
+            <dd>{money(bill.lodgingCents)}</dd>
+            <dt className="text-muted">Shared food and activities</dt>
+            <dd>{money(bill.evenCents)}</dd>
+            {bill.optionalCents + bill.ticketCents > 0 ? (
+              <>
+                <dt className="text-muted">Extras you opted into</dt>
+                <dd>{money(bill.optionalCents + bill.ticketCents)}</dd>
+              </>
+            ) : null}
+            {bill.individualCents > 0 ? (
+              <>
+                <dt className="text-muted">Just yours (flights)</dt>
+                <dd>{money(bill.individualCents)}</dd>
+              </>
+            ) : null}
+          </dl>
+        ) : null}
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          Lodging is priced by the beds {many ? "your party claims" : "you claim"}: nicer rooms cost more, a couch costs less. Food and activities
+          split per person{many ? ", with kids at a reduced share" : ""}. Shares round up to the dollar; the spare change stays in the trip pot.
+        </p>
+        {view.sensitivityRows.length > 0 ? (
+          <ul className="mt-3 grid gap-1 text-sm">
+            {view.sensitivityRows.map((row) => (
+              <li key={row.payers} className="flex justify-between">
+                <span className="text-muted">{row.expanded ? `${row.payers} parties, with a shared bed` : `If ${row.payers} parties commit`}</span>
+                <span>{money(row.totalCents).replace(/\.00$/, "")}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {view.rebase.length > 0 ? (
+          <p className="mt-3 text-sm">
+            The real lodging bill came in, so shares moved:{" "}
+            {view.rebase.map((row) => `${row.name.split(" ")[0]} ${money(row.beforeCents)} → ${money(row.afterCents)}`).join("; ")}.
+          </p>
+        ) : null}
+        <Link href={`/trip/${view.id}/costs`} className="mt-3 inline-block text-sm font-semibold text-accent">
+          See the whole cost sheet →
+        </Link>
+      </details>
+    </section>
+  );
+}
+
+function statusWord(party: PartyView): { text: string; tone: string } {
+  if (party.isHonoreeOnly) return { text: "Guest of honor", tone: "text-accent" };
+  if (party.status === "committed") return { text: "In", tone: "text-good" };
+  if (party.status === "joined") return { text: "Deciding", tone: "text-warn" };
+  if (party.status === "invited") return { text: "Invited", tone: "text-muted" };
+  if (party.status === "declined") return { text: "Declined", tone: "text-muted" };
+  return { text: "Dropped", tone: "text-bad" };
+}
+
+function Avatar({ party }: { party: PartyView }) {
+  const committed = party.status === "committed";
+  const out = party.status === "off_trip" || party.status === "declined";
+  return (
+    <span
+      className={`flex size-9 shrink-0 items-center justify-center rounded-full font-serif text-base ${
+        committed ? "bg-accent text-accent-ink" : out ? "bg-chip text-muted line-through" : "border border-accent/60 text-accent"
+      }`}
+      aria-hidden
+    >
+      {party.name.charAt(0)}
+    </span>
+  );
+}
+
+function WhoCard({ view }: { view: TripView }) {
+  const committed = view.payerCount;
+  const need = view.minPayerCount;
+  const pct = Math.min(100, Math.round((committed / Math.max(1, need)) * 100));
+  const active = view.parties.filter((party) => party.status !== "off_trip" && party.status !== "declined");
+  const gone = view.parties.length - active.length;
+  return (
+    <section className="rounded-3xl border border-line bg-card p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-serif text-xl">Who&apos;s going</h2>
+        <span className="rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-ink">
+          {committed} of {need}
+        </span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-chip" role="progressbar" aria-valuenow={committed} aria-valuemax={need} aria-label="Parties committed">
+        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-2 text-sm text-muted">
+        {committed >= need
+          ? `${committed} ${committed === 1 ? "party" : "parties"} committed. Enough to book.`
+          : `${need - committed} more ${need - committed === 1 ? "party" : "parties"} to commit before the stay can be booked.`}{" "}
+        {view.travelerCount} people in all.
+      </p>
+      <ul className="mt-3 grid gap-1">
+        {active.map((party) => {
+          const word = statusWord(party);
+          const mine = party.payerUserId === view.viewerParty?.payerUserId;
+          const showPeople = party.travelers.length > 1 || party.travelers.some((traveler) => traveler.isHonoree);
+          const row = (
+            <span className="flex items-center gap-3">
+              <Avatar party={party} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">
+                  {party.name}
+                  {mine ? <span className="font-normal text-accent"> · you</span> : null}
+                </span>
+                <span className="block truncate text-xs text-muted">
+                  {party.travelers.length > 1 ? `${party.travelers.length} people` : party.isHonoreeOnly ? "Covered by the group" : "Solo"}
+                  {party.rooms.length > 0 ? ` · ${party.rooms.join(", ")}` : ""}
+                </span>
+              </span>
+              <span className={`text-sm font-semibold ${word.tone}`}>{word.text}</span>
+            </span>
+          );
+          return (
+            <li key={party.payerUserId}>
+              {showPeople ? (
+                <details className="rounded-2xl px-2 py-2 open:bg-chip/50">
+                  <summary className="cursor-pointer list-none">{row}</summary>
+                  <ul className="mt-2 flex flex-wrap gap-1.5 pl-12">
+                    {party.travelers.map((traveler) => (
+                      <li key={traveler.id} className="rounded-full bg-chip px-2.5 py-1 text-xs">
+                        {traveler.name.split(" ")[0]}
+                        <span className="text-muted">
+                          {" · "}
+                          {traveler.isHonoree ? honoreeRoleLabel(traveler.honoreeRole) : ageBandLabel(traveler.ageBand)}
+                          {!traveler.hasAccount ? " · no app" : ""}
+                        </span>
+                        {view.isOrganizer && traveler.needsNotes ? <span className="text-warn"> · has a note</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <div className="px-2 py-2">{row}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {gone > 0 ? <p className="mt-2 px-2 text-xs text-muted">{gone} {gone === 1 ? "party is" : "parties are"} off the trip.</p> : null}
+    </section>
+  );
+}
+
+function PlanCard({ view }: { view: TripView }) {
+  const open = view.polls.some((poll) => !poll.lockedLabel && !poll.closed);
+  return (
+    <section className="rounded-3xl border border-line bg-card p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-serif text-xl">The plan</h2>
+        <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent">
+          {open ? "Vote →" : "Polls →"}
+        </Link>
+      </div>
+      <dl className="mt-3 grid gap-2">
+        {view.polls.map((poll) => {
+          const leader = poll.options.filter((option) => !option.hidden).slice().sort((a, b) => b.votes - a.votes)[0];
+          return (
+            <div key={poll.id} className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-muted">{pollKindLabel(poll.kind)}</dt>
+              <dd className="text-right text-sm font-semibold">
+                {poll.lockedLabel ?? (leader && leader.votes > 0 ? <span>{leader.label} <span className="font-normal text-muted">leads</span></span> : "Still voting")}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
+  );
+}
+
+function OrganizerCard({ view }: { view: TripView }) {
+  const items = [
+    view.status === "booking_ready" ? "ready to book" : null,
+    view.underMinimum ? "short of the minimum" : null,
+    view.pendingApprovals > 0 ? `${view.pendingApprovals} room ${view.pendingApprovals === 1 ? "request" : "requests"}` : null,
+  ].filter(Boolean);
+  return (
+    <Link href={`/trip/${view.id}/organize`} className="flex items-center justify-between gap-3 rounded-3xl border border-line bg-card p-5">
+      <span>
+        <span className="block font-serif text-xl">Organizer tools</span>
+        <span className="block text-sm text-muted">{items.length ? items.join(" · ") : "Rooms, costs, payments, settings"}</span>
+      </span>
+      <span className="text-xl text-accent" aria-hidden>
+        →
+      </span>
+    </Link>
   );
 }

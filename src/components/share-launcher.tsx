@@ -18,8 +18,8 @@ export function ShareLauncher({ origin, view }: { origin: string; view: ShareTri
     moment === "vote" ? "Vote now" : moment === "commit" ? "Commit reminder" : moment === "resplit" ? "New share" : "Invite";
 
   return (
-    <div className="mt-3 rounded-2xl border border-line bg-card px-3 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
+    <div className="mt-1">
+      <p className="sr-only">{label}</p>
       <ShareButton title={draft.title} text={draft.text} url={draft.url} smsHref={smsHref(draft.text, draft.url)} />
     </div>
   );

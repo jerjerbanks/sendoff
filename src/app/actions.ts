@@ -128,6 +128,11 @@ export async function switchUserAction(formData: FormData) {
   const userId = text(formData, "userId");
   await setViewerCookie(userId);
   revalidatePath(`/trip/${tripId}`, "layout");
+  // Demo stories land on the screen that tells the story.
+  const next = text(formData, "next");
+  if (/^\/[a-z]*$/.test(next) || next === "") {
+    if (formData.has("next")) redirect(`/trip/${tripId}${next}`);
+  }
 }
 
 export async function voteAction(formData: FormData) {
