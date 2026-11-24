@@ -751,7 +751,7 @@ const loadTripData = cache(async (tripId: string) => {
   const [raw, budgets, flights, requests] = await Promise.all([
     loadTrip(tripId),
     listBudgets(tripId),
-    listFlightQuotes(),
+    listFlightQuotes(tripId),
     listSpotRequests(tripId),
   ]);
   if (!raw) return null;

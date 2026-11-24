@@ -1892,8 +1892,14 @@ export async function listBudgets(tripId: string) {
   return getDb().select().from(privateBudgets).where(eq(privateBudgets.tripId, tripId));
 }
 
-export async function listFlightQuotes() {
-  return getDb().select().from(flightQuotes);
+/** This trip's flight quotes only (by its poll options), not every trip's. */
+export async function listFlightQuotes(tripId: string) {
+  return getDb()
+    .select({ userId: flightQuotes.userId, optionId: flightQuotes.optionId, highCents: flightQuotes.highCents })
+    .from(flightQuotes)
+    .innerJoin(pollOptions, eq(pollOptions.id, flightQuotes.optionId))
+    .innerJoin(polls, eq(polls.id, pollOptions.pollId))
+    .where(eq(polls.tripId, tripId));
 }
 
 export async function jumpPastSecondPayment(tripId: string) {
