@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { claimRoomAction, claimSpotAction, coSleepAction, optInShareAction, releaseSpotAction, requestSpotAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { CommitCelebration } from "@/components/confetti";
 import { fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { bedLabel, splitModeLabel } from "@/lib/labels";
@@ -69,6 +70,7 @@ export default async function RoomsPage({
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
 
       {committed && isCommitted ? (
+        <CommitCelebration>
         <section className="rounded-3xl border-2 border-good/50 bg-good-soft p-5 text-center">
           <p className="font-serif text-4xl text-good">You&apos;re in.</p>
           <p className="mt-2 text-sm text-good">
@@ -79,6 +81,7 @@ export default async function RoomsPage({
           </p>
           <p className="mt-3 text-sm text-ink">{myBeds.length === 0 ? "Now pick where you sleep." : "Your bed is saved below."}</p>
         </section>
+        </CommitCelebration>
       ) : null}
 
       {!canPick && viewer && viewer.role !== "honoree" && party?.status === "joined" && viewer.isPayer ? (

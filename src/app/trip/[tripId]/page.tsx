@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { CopyLink } from "@/components/bits";
+import { ForecastSlider } from "@/components/forecast-slider";
 import { ShareLauncher } from "@/components/share-launcher";
 import { money } from "@/lib/format";
 import { ageBandLabel, honoreeRoleLabel, pollKindLabel } from "@/lib/labels";
@@ -141,7 +142,7 @@ function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
           ? "border border-warn/40 bg-warn-soft"
           : "border border-line";
   return (
-    <section className={`rounded-3xl bg-card p-5 ${frame}`}>
+    <section className={`rise-in rounded-3xl bg-card p-5 ${frame}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{step.eyebrow}</p>
       <h2 className="mt-1 font-serif text-3xl leading-tight">{step.title}</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">{step.body}</p>
@@ -168,26 +169,49 @@ function NumberCard({ view }: { view: TripView }) {
   const many = party.travelers.length > 1;
   const official = view.payerCount >= view.minPayerCount;
   const band = view.shareLowCents != null && view.shareHighCents != null && view.currentShareCents != null;
+  const slider = (() => {
+    if (view.lockedIn || view.sensitivityRows.length === 0) return null;
+    const rows = [...view.sensitivityRows];
+    const committed = party.status === "committed";
+    // Below the minimum, today's unofficial share is the honest starting point.
+    if (committed && view.currentShareCents != null && !rows.some((row) => row.payers === view.payerCount)) {
+      rows.unshift({ payers: view.payerCount, totalCents: view.currentShareCents, expanded: false });
+    }
+    if (rows.length < 2) return null;
+    const wanted = committed ? view.payerCount : Math.max(view.minPayerCount, view.payerCount + 1);
+    const start = rows.some((row) => row.payers === wanted) ? wanted : (rows[0]?.payers ?? wanted);
+    return { rows, start };
+  })();
   return (
     <section className="rounded-3xl border border-line bg-card p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
         {many ? `The ${party.name} party's share` : "Your share"}
         {preview ? " if you commit now" : ""}
       </p>
-      <p className="mt-1 font-serif text-5xl leading-none">{money(amount).replace(/\.00$/, "")}</p>
-      {band ? (
-        <p className="mt-2 text-sm text-accent">
-          {money(view.shareLowCents!).replace(/\.00$/, "")}–{money(view.shareHighCents!).replace(/\.00$/, "")} with your flight
-        </p>
-      ) : null}
+      {slider ? (
+        <ForecastSlider
+          rows={slider.rows}
+          startPayers={slider.start}
+          nowPayers={view.payerCount}
+          bandLowDeltaCents={band ? view.shareLowCents! - view.currentShareCents! : null}
+          bandHighDeltaCents={band ? view.shareHighCents! - view.currentShareCents! : null}
+        />
+      ) : (
+        <>
+          <p className="mt-1 font-serif text-5xl leading-none">{money(amount).replace(/\.00$/, "")}</p>
+          {band ? (
+            <p className="mt-2 text-sm text-accent">
+              {money(view.shareLowCents!).replace(/\.00$/, "")}–{money(view.shareHighCents!).replace(/\.00$/, "")} with your flight
+            </p>
+          ) : null}
+        </>
+      )}
       <p className="mt-2 text-sm text-muted">
         {!official
-          ? `Estimate until ${view.minPayerCount} parties commit. It moves as people join or drop.`
-          : view.saveIfOneMoreCents
-            ? `If one more party commits, you save ${money(view.saveIfOneMoreCents).replace(/\.00$/, "")}.`
-            : view.lockedIn
-              ? "Final unless someone drops or a room changes."
-              : "Official. It moves only if parties join or drop."}
+          ? `Estimate until ${view.minPayerCount} parties commit.`
+          : view.lockedIn
+            ? "Final unless someone drops or a room changes."
+            : "Official at today's count."}
         {!viewer.isPayer ? ` ${party.payerName.split(" ")[0]} pays it.` : ""}
       </p>
       <details className="mt-3 border-t border-line pt-3">
@@ -216,16 +240,6 @@ function NumberCard({ view }: { view: TripView }) {
           Lodging is priced by the beds {many ? "your party claims" : "you claim"}: nicer rooms cost more, a couch costs less. Food and activities
           split per person{many ? ", with kids at a reduced share" : ""}. Shares round up to the dollar; the spare change stays in the trip pot.
         </p>
-        {view.sensitivityRows.length > 0 ? (
-          <ul className="mt-3 grid gap-1 text-sm">
-            {view.sensitivityRows.map((row) => (
-              <li key={row.payers} className="flex justify-between">
-                <span className="text-muted">{row.expanded ? `${row.payers} parties, with a shared bed` : `If ${row.payers} parties commit`}</span>
-                <span>{money(row.totalCents).replace(/\.00$/, "")}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
         {view.rebase.length > 0 ? (
           <p className="mt-3 text-sm">
             The real lodging bill came in, so shares moved:{" "}
@@ -279,7 +293,7 @@ function WhoCard({ view }: { view: TripView }) {
         </span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-chip" role="progressbar" aria-valuenow={committed} aria-valuemax={need} aria-label="Parties committed">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+        <div className="fill-in h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-2 text-sm text-muted">
         {committed >= need
