@@ -247,6 +247,8 @@ export async function payAction(formData: FormData) {
     fail(`/trip/${tripId}/pay`, "Check the box. The buy-in is refundable until the stay is booked, and forfeited after.");
   }
   done(tripId, await payMilestone(tripId, userId, milestoneId), `/trip/${tripId}/pay`);
+  // S9: after the buy-in, the payer goes straight to the room picker (S14).
+  if (kind === "buy_in") redirect(`/trip/${tripId}/spots?committed=1`);
 }
 
 export async function removeMemberAction(formData: FormData) {

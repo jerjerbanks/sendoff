@@ -153,8 +153,8 @@ export default async function DashboardPage({
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className="font-serif text-2xl">Who&apos;s in</h2>
           <p className="text-sm text-muted">
-            {view.payerCount} of {view.minPayerCount} paying parties committed
-            {view.payerCount >= view.minPayerCount ? " · booking trigger met" : ""}
+            {view.payerCount} paying {view.payerCount === 1 ? "party" : "parties"} committed ·{" "}
+            {view.payerCount >= view.minPayerCount ? `${view.minPayerCount} needed to book, met` : `${view.minPayerCount} needed to book`}
           </p>
         </div>
         <p className="mt-1 text-sm text-muted">
@@ -185,6 +185,7 @@ export default async function DashboardPage({
                   ) : null}
                 </div>
               </div>
+              {party.travelers.length > 1 || party.travelers.some((traveler) => traveler.isHonoree || traveler.needsNotes) ? (
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {party.travelers.map((traveler) => (
                   <li key={traveler.id} className="rounded-full bg-chip px-2.5 py-1 text-xs">
@@ -198,6 +199,7 @@ export default async function DashboardPage({
                   </li>
                 ))}
               </ul>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -271,6 +273,19 @@ function ShareSummary({ view }: { view: TripView }) {
       <div className="mt-3">
         <p className="font-serif text-4xl">{money(view.currentShareCents ?? view.viewerParty?.bill?.totalCents ?? 0)}</p>
         <p className="mt-2 text-sm text-muted">For the whole party. {payer} pays and manages the party; you can vote and see the plan.</p>
+      </div>
+    );
+  }
+  if (view.currentShareCents == null && view.ifYouCommitCents != null) {
+    const n = view.payerCount + 1;
+    return (
+      <div className="mt-3">
+        <p className="font-serif text-4xl">{money(view.ifYouCommitCents)}</p>
+        <p className="mt-2 text-sm text-muted">
+          If your party commits now, as party {n}
+          {n < view.minPayerCount ? `. Unofficial until ${view.minPayerCount} parties commit` : ""}. The number moves as parties commit or drop;
+          the range below shows where it lands.
+        </p>
       </div>
     );
   }

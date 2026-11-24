@@ -35,6 +35,8 @@ import {
   lodgingCents,
   milestoneSchedule,
   nextDue,
+  billsFor,
+  committedPayerIds,
   sensitivity,
   settledBills,
   vendorCents,
@@ -200,6 +202,8 @@ export interface TripView {
   sensitivityRows: SensitivityRow[];
   rebase: { userId: string; name: string; beforeCents: number; afterCents: number }[];
   currentShareCents: number | null;
+  /** For a party that hasn't committed: its all-in if it committed now. Unofficial below the minimum. */
+  ifYouCommitCents: number | null;
   saveIfOneMoreCents: number | null;
   shareLowCents: number | null;
   shareHighCents: number | null;
@@ -574,6 +578,16 @@ function buildView(
           }))
       : [],
     currentShareCents: sense?.currentCents ?? viewer?.bill?.totalCents ?? null,
+    ifYouCommitCents: (() => {
+      if (!viewerPayer || isHonoree(viewerPayer) || viewerPayer.status !== "joined") return null;
+      const ids = [...committedPayerIds(membersMath), viewerPayer.userId];
+      const needs = new Map(membersMath.map((member) => [member.userId, member.spotTravelers ?? 1]));
+      return (
+        billsFor({ ...billArgs, payerIds: ids, claims: projectClaims(raw.spots, raw.claims, ids, needs) }).find(
+          (bill) => bill.userId === viewerPayer.userId,
+        )?.totalCents ?? null
+      );
+    })(),
     saveIfOneMoreCents: sense?.ifOneMoreSavesCents ?? null,
     shareLowCents: flightBand(raw, billArgs, viewerPartyId, "low"),
     shareHighCents: flightBand(raw, billArgs, viewerPartyId, "high"),

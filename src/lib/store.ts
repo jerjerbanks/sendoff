@@ -995,6 +995,14 @@ export async function joinTrip(input: {
     return { ok: false, error: "The buy-in deadline has passed. Nobody can join after that." };
   }
 
+  const onTrip = raw.travelers.filter((traveler) => {
+    const payer = memberOf(raw, traveler.partyId);
+    return payer && payer.status !== "off_trip" && payer.status !== "declined";
+  }).length;
+  if (onTrip >= raw.trip.maxHeadcount) {
+    return { ok: false, error: `This trip is full at ${raw.trip.maxHeadcount} travelers. Ask the organizer to raise the cap.` };
+  }
+
   const userId = crypto.randomUUID();
   await db.insert(users).values({ id: userId, name: input.name, contact: input.contact.trim() });
   await db.insert(tripMembers)
