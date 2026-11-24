@@ -17,8 +17,7 @@ async function origin() {
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
   const shell = await loadTripView(tripId, null);
-  const payer = shell?.members.find((member) => member.isPayer && member.status === "committed" && member.role !== "honoree");
-  const view = payer ? await loadTripView(tripId, payer.userId) : shell;
+  const view = shell;
   if (!view) return { title: "Sendoff" };
   const card = ogCard(view);
   const base = await origin();

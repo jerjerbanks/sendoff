@@ -26,7 +26,7 @@ export default async function SettingsPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadTripView(tripId, await getViewerId(), true);
   if (!view) return null;
   const me = view.viewer?.userId ?? "";
   const hidden = (

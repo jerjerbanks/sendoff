@@ -591,23 +591,20 @@ export function sensitivity(args: {
   const cap = args.maxHeadcount ?? sequence.length;
   const base = unsharedCapacity(args.spots);
   const needs = new Map(args.members.map((member) => [member.userId, member.spotTravelers ?? 1]));
-  const quote = (ids: string[]) =>
+  const quote = (ids: string[], projected = projectClaims(args.spots, args.claims, ids, needs)) =>
     billsFor({
       ...args,
       payerIds: ids,
-      claims: projectClaims(args.spots, args.claims, ids, needs),
+      claims: projected,
     }).find((bill) => bill.userId === args.userId)?.totalCents ?? null;
-  /** A row only exists if the beds can hold every party in it. */
-  const seatsAll = (ids: string[]) => {
-    const projected = projectClaims(args.spots, args.claims, ids, needs);
-    return ids.every((id) => projected.some((claim) => claim.userId === id));
-  };
 
   const rows: SensitivityRow[] = [];
   for (let count = args.minimumCommitters; count <= Math.min(cap, sequence.length); count += 1) {
     const ids = sequence.slice(0, count);
-    if (!seatsAll(ids)) break;
-    const total = quote(ids);
+    const projected = projectClaims(args.spots, args.claims, ids, needs);
+    // A row only exists if the beds can hold every party in it.
+    if (!ids.every((id) => projected.some((claim) => claim.userId === id))) break;
+    const total = quote(ids, projected);
     if (total === null) continue;
     rows.push({ payers: count, totalCents: total, expanded: count > base });
   }

@@ -11,10 +11,13 @@ const bachelor = {
   maxHeadcount: 9,
   travelerCount: 5,
   buyInDeadline: "2026-12-16T05:59:00.000Z",
-  currentShareCents: 1414_00,
-  sensitivityRows: [
-    { payers: 4, totalCents: 1414_00, expanded: false },
-    { payers: 5, totalCents: 1278_00, expanded: false },
+  parties: [
+    { status: "committed", bill: { payer: true, totalCents: 1414_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 1312_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 1120_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 1060_00 } },
+    { status: "committed", bill: { payer: false, totalCents: 0 } },
+    { status: "joined", bill: null },
   ],
   polls: [],
 };
@@ -29,16 +32,20 @@ const lake = {
   maxHeadcount: 4,
   travelerCount: 10,
   buyInDeadline: "2027-04-16T04:59:00.000Z",
-  currentShareCents: 1922_00,
-  sensitivityRows: [{ payers: 4, totalCents: 1922_00, expanded: false }],
+  parties: [
+    { status: "committed", bill: { payer: true, totalCents: 1922_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 915_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 1036_00 } },
+    { status: "committed", bill: { payer: true, totalCents: 639_00 } },
+  ],
   polls: [],
 };
 
 describe("og card copy", () => {
-  it("uses the live payer count for Chris at 4 in, not the five-party forecast", () => {
+  it("shows the spread across committed parties at today's count, never one party's number", () => {
     const card = ogCard(bachelor as never);
-    expect(card.line).toContain("$1,414");
-    expect(card.line).not.toContain("$1,278");
+    expect(card.line).toContain("$1,060–$1,414 per party");
+    expect(card.line).not.toContain("~$1,414 per party");
     expect(card.line).toContain("4 of 5 parties in");
   });
 
@@ -46,6 +53,6 @@ describe("og card copy", () => {
     const card = ogCard(lake as never);
     expect(card.line).toContain("4 parties in");
     expect(card.line).not.toContain("of 3");
-    expect(card.line).toContain("$1,922");
+    expect(card.line).toContain("$639–$1,922 per party");
   });
 });

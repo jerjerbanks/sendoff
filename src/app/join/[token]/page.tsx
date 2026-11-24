@@ -13,8 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   await ensureDemoSeed();
   const tripId = await tripIdForToken(token);
   const shell = tripId ? await loadTripView(tripId, null) : null;
-  const payer = shell?.members.find((member) => member.isPayer && member.status === "committed" && member.role !== "honoree");
-  const view = payer && tripId ? await loadTripView(tripId, payer.userId) : shell;
+  const view = shell;
   if (!view) return { title: "Sendoff invite" };
   const card = ogCard(view);
   const headerList = await headers();

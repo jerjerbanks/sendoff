@@ -349,6 +349,7 @@ function buildView(
   viewerUserId: string | null,
   budgets: { userId: string; maxAllIn: number; flexNote: string | null; mustHaves: string | null }[],
   quotes: { userId: string; optionId: string; highCents: number }[],
+  options: { withSplitPreview?: boolean } = {},
 ): TripView {
   const now = tripNow(raw);
   const forecastOrder = ["user_taylor", "user_riley", "user_casey", "user_morgan"];
@@ -526,6 +527,9 @@ function buildView(
     bedsNeeded: partySpotTravelers(activeTravelers),
     spotPrices: raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw) : null,
     splitPreview: (() => {
+      // Privacy: a party only gets its own row, so there is nothing to compute without one.
+      // Three full re-splits: only the Settings page asks for this.
+      if (!viewerPartyId || !options.withSplitPreview) return [];
       const modes: SplitMode[] = ["weighted_by_spot", "even_per_traveler", "even_per_party"];
       const byMode = new Map(modes.map((mode) => [mode, settledBills({ ...billArgs, splitMode: mode })]));
       const rows = bills
@@ -618,8 +622,8 @@ function buildView(
       );
     })(),
     saveIfOneMoreCents: sense?.ifOneMoreSavesCents ?? null,
-    shareLowCents: flightBand(raw, billArgs, viewerPartyId, "low"),
-    shareHighCents: flightBand(raw, billArgs, viewerPartyId, "high"),
+    shareLowCents: flightBand(raw, bills, viewerPartyId, "low"),
+    shareHighCents: flightBand(raw, bills, viewerPartyId, "high"),
     addIfSomeoneDropsCents: sense?.ifSomeoneDropsAddsCents ?? null,
     isDemo: raw.trip.id === DEMO_TRIP_ID || raw.trip.id === LAKE_TRIP_ID,
     viewerHasBudget: !!viewerPartyId && budgets.some((budget) => budget.userId === viewerPartyId),
@@ -733,7 +737,12 @@ function buildNotices(args: {
   return notices;
 }
 
-export const loadTripView = cache(async (tripId: string, viewerUserId: string | null): Promise<TripView | null> => {
+/**
+ * One database load per trip per request, shared by every view built from it
+ * (the page, the layout, and link-preview metadata). Workers Free allows 10 ms
+ * of CPU per request, so a page must not load and reconcile the trip twice.
+ */
+const loadTripData = cache(async (tripId: string) => {
   await ensureDemoSeed();
   const [raw, budgets, flights, requests] = await Promise.all([
     loadTrip(tripId),
@@ -742,8 +751,14 @@ export const loadTripView = cache(async (tripId: string, viewerUserId: string | 
     listSpotRequests(tripId),
   ]);
   if (!raw) return null;
-  const view = buildView(raw, viewerUserId, budgets, flights);
-  return withNextStep(view, requests.filter((request) => request.status === "pending").length);
+  return { raw, budgets, flights, pending: requests.filter((request) => request.status === "pending").length };
+});
+
+export const loadTripView = cache(async (tripId: string, viewerUserId: string | null, withSplitPreview = false): Promise<TripView | null> => {
+  const data = await loadTripData(tripId);
+  if (!data) return null;
+  const view = buildView(data.raw, viewerUserId, data.budgets, data.flights, { withSplitPreview });
+  return withNextStep(view, data.pending);
 });
 
 function optionFit(
@@ -847,7 +862,18 @@ function roomOptions(raw: RawTrip, partyId: string, need: number): BedOption[] {
  * not declined or dropped). Lodging uses forecast placement; the per-head pool
  * uses each party's age weight over W_age of the N_ref parties.
  */
+const basisCache = new WeakMap<RawTrip, ReturnType<typeof computeFeasibilityBasis>>();
+
+/** Same raw trip, same basis: computed once per page, not once per poll option. */
 function feasibilityBasis(raw: RawTrip) {
+  const hit = basisCache.get(raw);
+  if (hit !== undefined) return hit;
+  const basis = computeFeasibilityBasis(raw);
+  basisCache.set(raw, basis);
+  return basis;
+}
+
+function computeFeasibilityBasis(raw: RawTrip) {
   const honorees = honoreeIdsOf(raw);
   const math = mathMembers(raw);
   const people = raw.members
@@ -877,18 +903,17 @@ function feasibilityBasis(raw: RawTrip) {
   return { even, weightSum, median: medianWeight(weights), people, evenShare };
 }
 
-function flightBand(
-  raw: RawTrip,
-  billArgs: Parameters<typeof settledBills>[0],
-  viewerId: string | null,
-  end: "low" | "high",
-) {
+/**
+ * The viewer's all-in at the low or high end of their flight estimate.
+ * Flights are added after rounding, so this is the total plus the fare difference.
+ */
+function flightBand(raw: RawTrip, bills: PersonBill[], viewerId: string | null, end: "low" | "high") {
   if (!viewerId) return null;
   const flight = raw.costs.find((cost) => cost.splitType === "individual" && cost.memberId === viewerId && cost.lowEstimate && cost.highEstimate);
   if (!flight?.lowEstimate || !flight.highEstimate) return null;
-  const amount = end === "low" ? flight.lowEstimate : flight.highEstimate;
-  const costs = billArgs.costs.map((cost) => (cost.id === flight.id ? { ...cost, amountCents: amount } : cost));
-  return settledBills({ ...billArgs, costs }).find((bill) => bill.userId === viewerId)?.totalCents ?? null;
+  const bill = bills.find((item) => item.userId === viewerId && item.payer);
+  if (!bill) return null;
+  return bill.totalCents - flight.amountCents + (end === "low" ? flight.lowEstimate : flight.highEstimate);
 }
 
 /** Adds the viewer's next step and journey. Kept separate so the logic stays pure and testable. */
