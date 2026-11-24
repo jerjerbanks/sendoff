@@ -8,6 +8,7 @@ import {
   splitModeAction,
 } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { isDemoTrip } from "@/lib/demo-tour";
 import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandHint, ageBandLabel, splitModeHint, splitModeLabel } from "@/lib/labels";
@@ -227,7 +228,7 @@ export default async function SettingsPage({
         )}
       </section>
 
-      {view.isOrganizer ? (
+      {view.isOrganizer && isDemoTrip(view.id) ? (
         <form action={simulateDeadlineAction} className="rounded-3xl border border-line bg-card p-4">
           <input type="hidden" name="tripId" value={view.id} />
           <p className="mb-3 text-sm text-muted">Prototype only. Runs the commit deadline now and drops every party that has not bought in.</p>

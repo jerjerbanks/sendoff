@@ -2154,3 +2154,41 @@ export async function setHeadcounts(tripId: string, userId: string, minPayers: n
   await persistMath(tripId);
   return { ok: true };
 }
+
+/** True when this user is on this trip. Used to refuse a demo switch to a stranger. */
+export async function isMemberOf(tripId: string, userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const row = (await getDb().select({ id: tripMembers.userId }).from(tripMembers).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId))))[0];
+  return !!row;
+}
+
+/**
+ * Put the seeded demo trip in the state a tour step expects, so Back and Next
+ * never strand someone. Only ever touches the demo trips.
+ */
+export async function prepareTourStep(step: number) {
+  if (step === 1) {
+    await resetDemoTrip();
+    return;
+  }
+  if (step < 5) return;
+  if (step > 6) return;
+  const tripId = DEMO_TRIP_ID;
+  let raw = await loadTrip(tripId);
+  if (!raw) return;
+  // Steps 5 and 6 tell the story from after Taylor commits and takes the sofa.
+  const taylor = raw.members.find((member) => member.userId === "user_taylor");
+  const buyIn = raw.milestones.find((milestone) => milestone.kind === "buy_in");
+  if (taylor?.status === "joined" && buyIn && (raw.trip.status === "buy_in_open" || raw.trip.status === "booking_ready")) {
+    await payMilestone(tripId, "user_taylor", buyIn.id);
+    raw = await loadTrip(tripId);
+  }
+  if (raw && !raw.claims.some((claim) => claim.userId === "user_taylor" && claim.status === "approved")) {
+    const loftFree = !raw.claims.some((claim) => claim.spotId === "spot_loft" && claim.status === "approved");
+    if (loftFree) await claimSpot(tripId, "user_taylor", "spot_loft");
+  }
+  if (step === 6) {
+    raw = await loadTrip(tripId);
+    if (raw?.trip.status === "buy_in_open") await simulateDeadline(tripId);
+  }
+}

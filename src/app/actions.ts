@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
-import { setViewerCookie } from "@/lib/session";
+import { getViewerId, setViewerCookie } from "@/lib/session";
+import { isDemoTrip } from "@/lib/demo-tour";
 import {
   addCost,
   addPollOption,
@@ -35,6 +36,7 @@ import {
   simulateDeadline,
   toggleOptional,
   toggleVote,
+  isMemberOf,
   addTraveler,
   asAgeBand,
   asSplitMode,
@@ -56,6 +58,11 @@ import {
   type PreWeddingStyle,
 } from "@/lib/store";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "@/lib/constants";
+
+/** The person acting is whoever this browser is signed in as. Never trust an id sent in the form. */
+async function me(): Promise<string> {
+  return (await getViewerId()) ?? "";
+}
 
 function fail(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -125,26 +132,28 @@ export async function joinTripAction(formData: FormData) {
 
 export async function switchUserAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
-  await setViewerCookie(userId);
+  const target = text(formData, "userId");
+  // Becoming someone else is a demo-only tool. A real trip has no person switcher.
+  if (!isDemoTrip(tripId) || !(await isMemberOf(tripId, target))) {
+    fail(`/trip/${tripId}`, "Switching people only works in the demo.");
+  }
+  await setViewerCookie(target);
   revalidatePath(`/trip/${tripId}`, "layout");
   // Demo stories land on the screen that tells the story.
   const next = text(formData, "next");
-  if (/^\/[a-z]*$/.test(next) || next === "") {
-    if (formData.has("next")) redirect(`/trip/${tripId}${next}`);
-  }
+  if (formData.has("next") && /^\/[a-z]*$|^$/.test(next)) redirect(`/trip/${tripId}${next}`);
 }
 
 export async function voteAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const optionId = text(formData, "optionId");
   done(tripId, await toggleVote(tripId, userId, optionId), `/trip/${tripId}/vote`);
 }
 
 export async function addOptionAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const pollId = text(formData, "pollId");
   const label = text(formData, "label");
   const link = text(formData, "link");
@@ -156,19 +165,19 @@ export async function addOptionAction(formData: FormData) {
 
 export async function lockOptionAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await lockPollOption(tripId, userId, text(formData, "optionId")), `/trip/${tripId}/vote`);
 }
 
 export async function clearLockAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await clearPollLock(tripId, userId, text(formData, "pollId")), `/trip/${tripId}/vote`);
 }
 
 export async function pollDeadlineAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const when = text(formData, "deadline");
   if (!when) fail(`/trip/${tripId}/vote`, "Pick a deadline.");
   done(tripId, await setPollDeadline(tripId, userId, text(formData, "pollId"), zonedToUtc(when)), `/trip/${tripId}/vote`);
@@ -176,7 +185,7 @@ export async function pollDeadlineAction(formData: FormData) {
 
 export async function addCostAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const label = text(formData, "label");
   const category = text(formData, "category") || "other";
   const splitType = text(formData, "splitType");
@@ -210,26 +219,26 @@ export async function travelerOptAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await toggleTravelerOptIn(tripId, text(formData, "userId"), text(formData, "costId"), text(formData, "travelerId")),
+    await toggleTravelerOptIn(tripId, await me(), text(formData, "costId"), text(formData, "travelerId")),
     `/trip/${tripId}/costs`,
   );
 }
 
 export async function deleteCostAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await deleteCost(tripId, userId, text(formData, "costId")), `/trip/${tripId}/costs`);
 }
 
 export async function optAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await toggleOptional(tripId, userId, text(formData, "costId")), `/trip/${tripId}/costs`);
 }
 
 export async function openBuyInAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const amount = dollars(formData, "amount");
   const minHeadcount = Number(text(formData, "minHeadcount"));
   const when = text(formData, "deadline");
@@ -245,7 +254,7 @@ export async function openBuyInAction(formData: FormData) {
 
 export async function payAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const milestoneId = text(formData, "milestoneId");
   const ack = text(formData, "ack");
   const kind = text(formData, "kind");
@@ -259,14 +268,13 @@ export async function payAction(formData: FormData) {
 
 export async function removeMemberAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const actorId = text(formData, "actorId");
-  const userId = text(formData, "userId");
-  done(tripId, await removeLateMember(tripId, actorId, userId), `/trip/${tripId}/pay`);
+  const target = text(formData, "userId");
+  done(tripId, await removeLateMember(tripId, await me(), target), `/trip/${tripId}/pay`);
 }
 
 export async function extendAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const when = text(formData, "deadline");
   if (!when) fail(`/trip/${tripId}`, "Pick a new deadline.");
   done(tripId, await extendDeadline(tripId, userId, zonedToUtc(when)), `/trip/${tripId}`);
@@ -274,45 +282,48 @@ export async function extendAction(formData: FormData) {
 
 export async function cancelAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await cancelTrip(tripId, userId), `/trip/${tripId}`);
 }
 
 export async function simulateDeadlineAction(formData: FormData) {
   const tripId = text(formData, "tripId");
+  if (!isDemoTrip(tripId)) fail(`/trip/${tripId}`, "The clock only moves in the demo. Real trips run on real time.");
   done(tripId, await simulateDeadline(tripId), `/trip/${tripId}`);
 }
 
 export async function jumpSecondAction(formData: FormData) {
   const tripId = text(formData, "tripId");
+  if (!isDemoTrip(tripId)) fail(`/trip/${tripId}`, "The clock only moves in the demo. Real trips run on real time.");
   done(tripId, await jumpPastSecondPayment(tripId), `/trip/${tripId}`);
 }
 
 export async function resetClockAction(formData: FormData) {
   const tripId = text(formData, "tripId");
+  if (!isDemoTrip(tripId)) fail(`/trip/${tripId}`, "The clock only moves in the demo. Real trips run on real time.");
   done(tripId, await setClock(tripId, null), `/trip/${tripId}`);
 }
 
 export async function claimSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await claimSpot(tripId, userId, text(formData, "spotId"), text(formData, "acceptShare") === "yes"), `/trip/${tripId}/spots`);
 }
 
 export async function claimRoomAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  done(tripId, await claimRoom(tripId, text(formData, "userId"), text(formData, "roomName")), `/trip/${tripId}/spots`);
+  done(tripId, await claimRoom(tripId, await me(), text(formData, "roomName")), `/trip/${tripId}/spots`);
 }
 
 export async function coSleepAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const spotId = text(formData, "spotId") || null;
-  done(tripId, await setCoSleep(tripId, text(formData, "userId"), text(formData, "travelerId"), spotId), `/trip/${tripId}/spots`);
+  done(tripId, await setCoSleep(tripId, await me(), text(formData, "travelerId"), spotId), `/trip/${tripId}/spots`);
 }
 
 export async function optInShareAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  done(tripId, await optInToShare(tripId, text(formData, "userId"), text(formData, "requestId")), `/trip/${tripId}/spots`);
+  done(tripId, await optInToShare(tripId, await me(), text(formData, "requestId")), `/trip/${tripId}/spots`);
 }
 
 export async function updateRoomAction(formData: FormData) {
@@ -322,7 +333,7 @@ export async function updateRoomAction(formData: FormData) {
     tripId,
     await updateRoom({
       tripId,
-      userId: text(formData, "userId"),
+      userId: await me(),
       roomName: text(formData, "roomName"),
       groundFloor: yes("groundFloor"),
       noStairs: yes("noStairs"),
@@ -340,20 +351,20 @@ export async function assignRoomAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await assignRoom(tripId, text(formData, "userId"), text(formData, "roomName"), text(formData, "partyUserId")),
+    await assignRoom(tripId, await me(), text(formData, "roomName"), text(formData, "partyUserId")),
     `/trip/${tripId}/sleep`,
   );
 }
 
 export async function releaseSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   done(tripId, await releaseSpot(tripId, userId, text(formData, "spotId")), `/trip/${tripId}/spots`);
 }
 
 export async function addSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const weight = Number(text(formData, "weight"));
   if (!text(formData, "roomName") || !Number.isFinite(weight)) fail(`/trip/${tripId}/sleep`, "Name the room and its weight.");
   done(
@@ -379,7 +390,7 @@ export async function addSpotAction(formData: FormData) {
 
 export async function bookStayAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  const userId = text(formData, "userId");
+  const userId = await me();
   const amount = dollars(formData, "actual");
   const confirmation = text(formData, "confirmation");
   if (amount === null || !confirmation) fail(`/trip/${tripId}/book`, "Add a confirmation number and the actual lodging total.");
@@ -391,7 +402,7 @@ export async function requestSpotAction(formData: FormData) {
   const type = text(formData, "type") === "share" ? "share" : "switch";
   done(
     tripId,
-    await requestSpot({ tripId, userId: text(formData, "userId"), toSpotId: text(formData, "spotId"), type }),
+    await requestSpot({ tripId, userId: await me(), toSpotId: text(formData, "spotId"), type }),
     `/trip/${tripId}/spots`,
   );
 }
@@ -400,7 +411,7 @@ export async function resolveRequestAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await resolveSpotRequest(tripId, text(formData, "userId"), text(formData, "requestId"), text(formData, "decision") === "approve"),
+    await resolveSpotRequest(tripId, await me(), text(formData, "requestId"), text(formData, "decision") === "approve"),
     `/trip/${tripId}/approvals`,
   );
 }
@@ -408,7 +419,7 @@ export async function resolveRequestAction(formData: FormData) {
 export async function bedPolicyAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const policy = text(formData, "policy") === "locked" ? "locked" : "member_requests";
-  done(tripId, await setBedPolicy(tripId, text(formData, "userId"), policy), `/trip/${tripId}/settings`);
+  done(tripId, await setBedPolicy(tripId, await me(), policy), `/trip/${tripId}/settings`);
 }
 
 export async function saveBudgetAction(formData: FormData) {
@@ -420,7 +431,7 @@ export async function saveBudgetAction(formData: FormData) {
     tripId,
     await saveBudget({
       tripId,
-      userId: text(formData, "userId"),
+      userId: await me(),
       maxAllInCents: amount,
       flexNote: text(formData, "flexNote"),
       mustHaves: musts,
@@ -432,7 +443,7 @@ export async function saveBudgetAction(formData: FormData) {
 
 export async function outOfPocketAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  await recordEvent(tripId, text(formData, "userId"), "out_of_pocket", `previous=${text(formData, "previous")};current=${text(formData, "current")}`);
+  await recordEvent(tripId, await me(), "out_of_pocket", `previous=${text(formData, "previous")};current=${text(formData, "current")}`);
   redirect(`/trip/${tripId}/metrics`);
 }
 
@@ -440,7 +451,7 @@ export async function hideOptionAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await setOptionHidden(tripId, text(formData, "userId"), text(formData, "optionId"), text(formData, "hidden") === "yes"),
+    await setOptionHidden(tripId, await me(), text(formData, "optionId"), text(formData, "hidden") === "yes"),
     `/trip/${tripId}/vote`,
   );
 }
@@ -458,7 +469,7 @@ export async function savePartyAction(formData: FormData) {
   const comfort = text(formData, "shareComfort");
   const result = await saveParty({
     tripId,
-    actorId: text(formData, "userId"),
+    actorId: await me(),
     partyUserId: text(formData, "partyUserId"),
     name: text(formData, "name"),
     shareComfort: comfort === "no_share" || comfort === "note_only" ? comfort : "any",
@@ -474,7 +485,7 @@ export async function addTravelerAction(formData: FormData) {
     tripId,
     await addTraveler({
       tripId,
-      actorId: text(formData, "userId"),
+      actorId: await me(),
       partyUserId: text(formData, "partyUserId"),
       name: text(formData, "name"),
       ageBand: asAgeBand(text(formData, "ageBand")),
@@ -490,7 +501,7 @@ export async function updateTravelerAction(formData: FormData) {
     tripId,
     await updateTraveler({
       tripId,
-      actorId: text(formData, "userId"),
+      actorId: await me(),
       travelerId: text(formData, "travelerId"),
       name: text(formData, "name"),
       ageBand: asAgeBand(text(formData, "ageBand")),
@@ -502,21 +513,21 @@ export async function updateTravelerAction(formData: FormData) {
 
 export async function removeTravelerAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  done(tripId, await removeTraveler(tripId, text(formData, "userId"), text(formData, "travelerId")), `/trip/${tripId}/party`);
+  done(tripId, await removeTraveler(tripId, await me(), text(formData, "travelerId")), `/trip/${tripId}/party`);
 }
 
 export async function splitModeAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await setSplitMode(tripId, text(formData, "userId"), asSplitMode(text(formData, "splitMode"))),
+    await setSplitMode(tripId, await me(), asSplitMode(text(formData, "splitMode"))),
     `/trip/${tripId}/settings`,
   );
 }
 
 export async function ackSplitModeAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  done(tripId, await acknowledgeSplitMode(tripId, text(formData, "userId")), `/trip/${tripId}/settings`);
+  done(tripId, await acknowledgeSplitMode(tripId, await me()), `/trip/${tripId}/settings`);
 }
 
 export async function ageWeightsAction(formData: FormData) {
@@ -524,7 +535,7 @@ export async function ageWeightsAction(formData: FormData) {
   const num = (key: string) => Number(text(formData, key));
   done(
     tripId,
-    await setAgeWeights(tripId, text(formData, "userId"), {
+    await setAgeWeights(tripId, await me(), {
       adult: num("adult"),
       teen: num("teen"),
       child: num("child"),
@@ -536,14 +547,14 @@ export async function ageWeightsAction(formData: FormData) {
 
 export async function honoreeExclusionAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  done(tripId, await setHonoreeExclusion(tripId, text(formData, "userId"), text(formData, "excluded") === "yes"), `/trip/${tripId}/settings`);
+  done(tripId, await setHonoreeExclusion(tripId, await me(), text(formData, "excluded") === "yes"), `/trip/${tripId}/settings`);
 }
 
 export async function headcountsAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(
     tripId,
-    await setHeadcounts(tripId, text(formData, "userId"), Number(text(formData, "minPayers")), Number(text(formData, "maxTravelers"))),
+    await setHeadcounts(tripId, await me(), Number(text(formData, "minPayers")), Number(text(formData, "maxTravelers"))),
     `/trip/${tripId}/settings`,
   );
 }

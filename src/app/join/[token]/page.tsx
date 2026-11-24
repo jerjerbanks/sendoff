@@ -6,6 +6,8 @@ import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
 import { ensureDemoSeed, tripIdForToken } from "@/lib/store";
+import { DemoBanner } from "@/components/demo-panel";
+import { isDemoTrip } from "@/lib/demo-tour";
 import { loadTripView } from "@/lib/view";
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -33,17 +35,24 @@ export default async function JoinPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; tour?: string }>;
 }) {
   const { token } = await params;
-  const { error } = await searchParams;
+  const { error, tour } = await searchParams;
   await ensureDemoSeed();
   const tripId = await tripIdForToken(token);
   const view = tripId ? await loadTripView(tripId, null) : null;
+  // The tour's step 2 pre-fills Taylor; a real invite never pre-fills anyone.
+  const onTour = tour === "2" && isDemoTrip(tripId);
   const closed = !!view && (view.lockedIn || view.underMinimum || view.cancelled);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10">
+      {isDemoTrip(tripId) && tripId ? (
+        <div className="fixed inset-x-0 top-0 z-30 mx-auto max-w-lg px-4">
+          <DemoBanner view={null} tripId={tripId} viewerName={onTour ? "Taylor" : null} />
+        </div>
+      ) : null}
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
       {view ? (
         <>
@@ -79,11 +88,11 @@ export default async function JoinPage({
               {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
               <label className="text-sm font-medium">
                 Your name
-                <Input className="mt-1.5" name="name" required placeholder="Taylor Nguyen" />
+                <Input className="mt-1.5" name="name" required placeholder="Your name" defaultValue={onTour ? "Taylor Nguyen" : undefined} />
               </label>
               <label className="text-sm font-medium">
                 Phone or email
-                <Input className="mt-1.5" name="contact" required placeholder="taylor@example.com" />
+                <Input className="mt-1.5" name="contact" required placeholder="you@example.com" defaultValue={onTour ? "taylor@example.com" : undefined} />
               </label>
               <SubmitButton>Join the trip</SubmitButton>
               <p className="text-center text-xs text-muted">No app to install. No password: your phone or email is just how we recognize you next time.</p>

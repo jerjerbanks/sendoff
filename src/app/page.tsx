@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input, fieldClass } from "@/components/ui/input";
-import { LAKE_TRIP_ID } from "@/lib/constants";
 import { ensureDemoSeed } from "@/lib/store";
 
 export default async function HomePage({
@@ -23,22 +22,17 @@ export default async function HomePage({
         and collect a buy-in that is part of the share — not a fee on top. It stays refundable until the stay is booked.
       </p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Link
-          href="/demo"
-          className="flex min-h-12 flex-col justify-center rounded-xl bg-accent px-5 py-3 font-semibold text-accent-ink"
-        >
-          Pre-wedding demo
-          <span className="text-xs font-normal opacity-80">Alex&apos;s Bachelor Party · 9 people</span>
-        </Link>
-        <Link
-          href={`/demo?trip=${LAKE_TRIP_ID}`}
-          className="flex min-h-12 flex-col justify-center rounded-xl border border-line bg-card px-5 py-3 font-semibold"
-        >
-          Family demo
-          <span className="text-xs font-normal text-muted">Harper Lake House · 4 households, kids, grandparents</span>
+        <a href="#start" className="flex min-h-14 items-center justify-center rounded-xl bg-accent px-5 font-semibold text-accent-ink">
+          Start a trip
+        </a>
+        <Link href="/demo" className="flex min-h-14 flex-col justify-center rounded-xl border border-line bg-card px-5 py-3 font-semibold">
+          Take the 2-minute tour
+          <span className="text-xs font-normal text-muted">7 steps through a sample bachelor party</span>
         </Link>
       </div>
-      <a href="#start" className="mt-3 text-sm font-semibold text-accent">Start a new trip</a>
+      <Link href="/demo/7" className="mt-3 text-sm font-semibold text-muted">
+        Or see a family trip: four households, kids, and grandparents →
+      </Link>
       <ol className="mt-8 grid gap-3 md:grid-cols-3">
         {[
           ["1", "Vote", "Approve any place, weekend, or plan you'd actually do. A private budget shows whether it fits the group without telling anyone your number."],

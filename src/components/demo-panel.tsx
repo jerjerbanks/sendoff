@@ -1,122 +1,140 @@
 import Link from "next/link";
-import {
-  jumpSecondAction,
-  resetClockAction,
-  resetDemoAction,
-  simulateDeadlineAction,
-  switchUserAction,
-} from "@/app/actions";
-import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "@/lib/constants";
+import { cookies } from "next/headers";
+import { jumpSecondAction, resetClockAction, simulateDeadlineAction, switchUserAction } from "@/app/actions";
+import { DEMO_STEP_COOKIE, TOUR, tourStep } from "@/lib/demo-tour";
 import { formatWhen } from "@/lib/format";
 import { roleLabel } from "@/lib/labels";
 import type { TripView } from "@/lib/view";
 
-/** Guided entry points into each demo, told from one person's side. */
-const stories: Record<string, { userId: string; next: string; title: string; line: string }[]> = {
-  [DEMO_TRIP_ID]: [
-    { userId: "user_taylor", next: "", title: "Taylor", line: "Undecided. Can you afford Nashville?" },
-    { userId: "user_drew", next: "/vote", title: "Drew", line: "Cabo is over your private budget." },
-    { userId: "user_chris", next: "", title: "Chris", line: "The organizer, usually stuck with the bill." },
-    { userId: "user_alex", next: "", title: "Alex", line: "Guest of honor. The group covers you." },
-  ],
-  [LAKE_TRIP_ID]: [
-    { userId: "user_maya", next: "", title: "Maya", line: "Organizes for four households." },
-    { userId: "user_helen", next: "/spots", title: "Helen", line: "Grandparents with a ground-floor hold." },
-    { userId: "user_priya", next: "/costs", title: "Priya", line: "Brings a baby; kids pay less of the food." },
-    { userId: "user_noah", next: "", title: "Noah", line: "Solo on a family trip." },
-  ],
-};
+/** Which tour step this browser is on, if any. */
+export async function currentTourStep(): Promise<number | null> {
+  const value = (await cookies()).get(DEMO_STEP_COOKIE)?.value;
+  const n = Number(value);
+  return tourStep(n) ? n : null;
+}
 
-/** All demo and prototype controls, folded into one chip so the trip comes first. */
-export function DemoPanel({ view }: { view: TripView }) {
-  const list = stories[view.id] ?? [];
-  const who = view.viewer ? view.viewer.name.split(" ")[0] : "nobody";
+/**
+ * The guided demo's banner. Only ever rendered on the seeded demo trips: it says
+ * who you are and what to tap, with Back/Next. Demo-only controls fold inside.
+ */
+export async function DemoBanner({ view, tripId, viewerName }: { view: TripView | null; tripId: string; viewerName: string | null }) {
+  const n = await currentTourStep();
+  const step = n ? tourStep(n) : null;
+  const total = TOUR.length;
+  const who = viewerName ?? step?.name ?? "nobody";
+  // Before booking, the deadline still has work to do while anyone hasn't paid.
+  const deadlinePending =
+    !!view &&
+    (view.status === "buy_in_open" || view.status === "booking_ready") &&
+    view.parties.some((party) => party.status === "joined" || party.status === "invited");
   return (
-    <details className="group mt-3">
-      <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-dashed border-line px-3 text-xs font-semibold text-muted">
-        <span className="size-1.5 rounded-full bg-accent" aria-hidden />
-        {view.isDemo ? "Demo" : "Prototype"} · viewing as {who}
-        <span className="transition group-open:rotate-180" aria-hidden>
-          ▾
-        </span>
-      </summary>
-      <div className="mt-2 grid gap-4 rounded-3xl border border-line bg-card p-3">
-        {list.length > 0 ? (
-          <section>
-            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Try it as</p>
-            <div className="mt-2 grid gap-2">
-              {list.map((story) => (
-                <form key={story.userId} action={switchUserAction}>
-                  <input type="hidden" name="tripId" value={view.id} />
-                  <input type="hidden" name="userId" value={story.userId} />
-                  <input type="hidden" name="next" value={story.next} />
-                  <button
-                    type="submit"
-                    className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left ${story.userId === view.viewer?.userId ? "bg-accent text-accent-ink" : "bg-chip"}`}
-                  >
-                    <span className="font-serif text-lg">{story.title}</span>
-                    <span className={`text-sm ${story.userId === view.viewer?.userId ? "" : "text-muted"}`}>{story.line}</span>
-                  </button>
-                </form>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <details>
-          <summary className="cursor-pointer px-1 text-xs font-semibold uppercase tracking-wide text-muted">Everyone on the trip</summary>
-          <div className="mt-2 grid gap-1">
-            {view.parties.map((party) =>
-              view.members
-                .filter((member) => member.partyUserId === party.payerUserId)
-                .map((member) => (
-                  <form key={member.userId} action={switchUserAction}>
-                    <input type="hidden" name="tripId" value={view.id} />
-                    <input type="hidden" name="userId" value={member.userId} />
-                    <button type="submit" className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-sm hover:bg-chip">
-                      <span>
-                        {member.name}
-                        <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
-                      </span>
-                      {member.userId === view.viewer?.userId ? <span className="text-xs text-accent">You</span> : null}
-                    </button>
-                  </form>
-                )),
+    <div className="sticky top-0 z-30 -mx-4 border-b border-accent/40 bg-[#1b1611]/95 px-4 py-3 backdrop-blur">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+          Demo{step ? ` · Step ${step.n} of ${total}` : ""}
+        </p>
+        <Link href="/" className="text-xs font-semibold text-muted">
+          Exit demo
+        </Link>
+      </div>
+      {step ? (
+        <>
+          <p className="mt-1 font-serif text-xl leading-tight">
+            You&apos;re {who}. <span className="text-ink/90">{step.goal}</span>
+          </p>
+          <p className="mt-1 text-sm text-muted">{step.why}</p>
+          <div className="mt-3 flex items-center gap-2">
+            {step.n > 1 ? (
+              <Link href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold">
+                Back
+              </Link>
+            ) : null}
+            {step.n === 5 && deadlinePending ? (
+              <form action={simulateDeadlineAction}>
+                <input type="hidden" name="tripId" value={tripId} />
+                <button type="submit" className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+                  Run the deadline
+                </button>
+              </form>
+            ) : null}
+            {step.n < total ? (
+              <Link
+                href={`/demo/${step.n + 1}`}
+                className={`ml-auto inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold ${step.n === 5 && deadlinePending ? "border border-line" : "bg-accent text-accent-ink"}`}
+              >
+                Next step →
+              </Link>
+            ) : (
+              <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+                Start your own trip →
+              </Link>
             )}
           </div>
-        </details>
+        </>
+      ) : (
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
+          <Link href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+            Start the tour
+          </Link>
+        </div>
+      )}
+      {view ? <DemoControls view={view} /> : null}
+    </div>
+  );
+}
 
-        <section>
-          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-            Clock · {view.simulated ? formatWhen(view.now) : "real time"}
-          </p>
+/** Off-script tools for poking around: anyone on the trip, the clock, a reset. Demo trips only. */
+function DemoControls({ view }: { view: TripView }) {
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-xs font-semibold text-muted">Demo controls · viewing as {view.viewer?.name.split(" ")[0] ?? "nobody"}</summary>
+      <div className="mt-2 grid gap-3 rounded-2xl border border-line bg-card p-3">
+        <div className="grid gap-1">
+          {view.parties.map((party) =>
+            view.members
+              .filter((member) => member.partyUserId === party.payerUserId)
+              .map((member) => (
+                <form key={member.userId} action={switchUserAction}>
+                  <input type="hidden" name="tripId" value={view.id} />
+                  <input type="hidden" name="userId" value={member.userId} />
+                  <button type="submit" className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-sm hover:bg-chip">
+                    <span>
+                      {member.name}
+                      <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
+                    </span>
+                    {member.userId === view.viewer?.userId ? <span className="text-xs text-accent">You</span> : null}
+                  </button>
+                </form>
+              )),
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Clock · {view.simulated ? formatWhen(view.now) : "real time"}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <form action={simulateDeadlineAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full bg-ink px-3 text-xs font-semibold text-card" type="submit">Run the deadline</button>
+              <button className="min-h-9 rounded-full bg-ink px-3 text-xs font-semibold text-card" type="submit">
+                Run the deadline
+              </button>
             </form>
             <form action={jumpSecondAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">Skip past a payment</button>
+              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">
+                Skip past a payment
+              </button>
             </form>
             <form action={resetClockAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">Real time</button>
+              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">
+                Real time
+              </button>
             </form>
-            {view.isDemo ? (
-              <form action={resetDemoAction}>
-                <input type="hidden" name="tripId" value={view.id} />
-                <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">Reset demo</button>
-              </form>
-            ) : null}
+            <Link href="/demo/1" className="inline-flex min-h-9 items-center rounded-full border border-line px-3 text-xs font-semibold">
+              Restart the tour
+            </Link>
           </div>
-        </section>
-
-        {view.isDemo ? (
-          <Link className="px-1 text-sm font-semibold text-accent" href={`/demo?trip=${view.id === LAKE_TRIP_ID ? DEMO_TRIP_ID : LAKE_TRIP_ID}`}>
-            Switch to the {view.id === LAKE_TRIP_ID ? "pre-wedding" : "family"} demo →
-          </Link>
-        ) : null}
+        </div>
       </div>
     </details>
   );
