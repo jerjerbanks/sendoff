@@ -1501,6 +1501,11 @@ function roomForParty(raw: RawTrip, partyUserId: string): boolean {
   return free >= need;
 }
 
+/** S14: parties pick in buy-in order, so only a committed party picks. */
+function partyCommitted(raw: RawTrip, partyUserId: string): boolean {
+  return memberOf(raw, partyUserId)?.status === "committed";
+}
+
 function spotHeldForOther(spot: SpotRecord, partyUserId: string): boolean {
   return !!spot.reservedForUserId && spot.reservedForUserId !== partyUserId;
 }
@@ -1515,6 +1520,9 @@ export async function claimSpot(tripId: string, userId: string, spotId: string, 
   const party = actor.partyUserId;
   if (spot.reservedForHonoree) return { ok: false, error: "That room is reserved for the guest of honor." };
   const isOrganizer = actor.role === "organizer";
+  if (!isOrganizer && !partyCommitted(raw, party)) {
+    return { ok: false, error: "Commit first. Parties pick rooms in the order they bought in." };
+  }
   if (spotHeldForOther(spot, party) && !isOrganizer) return { ok: false, error: "That room is reserved." };
   const approvedHere = raw.claims.filter((claim) => claim.spotId === spotId && claim.status === "approved");
   const openShare = spot.sharingEnabled && approvedHere.length > 0 && approvedHere.length < (spot.capacity || 2) && !approvedHere.some((claim) => claim.userId === party);
@@ -1557,6 +1565,9 @@ export async function claimRoom(tripId: string, userId: string, roomName: string
   const room = raw.spots.filter((spot) => (spot.roomName ?? spot.id) === roomName);
   if (room.length === 0) return { ok: false, error: "That room isn't on this trip." };
   const isOrganizer = actor.role === "organizer";
+  if (!isOrganizer && !partyCommitted(raw, party)) {
+    return { ok: false, error: "Commit first. Parties pick rooms in the order they bought in." };
+  }
   if (room.some((spot) => spot.reservedForHonoree)) return { ok: false, error: "That room is reserved for the guest of honor." };
   if (!isOrganizer && room.some((spot) => spotHeldForOther(spot, party))) return { ok: false, error: "That room is reserved." };
   if (!isOrganizer && (raw.trip.bedChangePolicy === "locked" || raw.trip.status === "booked")) {
