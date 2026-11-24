@@ -1,13 +1,22 @@
 /**
- * Bachelor-party money, spec v1.2.
+ * Group-trip money, spec 2.0.1.
  *
- * Lodging splits by effective bed weight. Sharers split that bed's weight.
- * The honoree's reserved room is outside W_P unless a payer is sharing it,
- * in which case only the payer's slice counts. Other shared costs, including
- * the honoree's own flight, split evenly. Optional items split only across
- * opted-in payers. A forfeited buy-in, after booking, pays down lodging first.
- * The shared piece (lodging + even + optional) rounds UP to the next dollar.
- * Flights and other individual items are added after that and are not rounded.
+ * The money unit is a paying party (a household, couple, or single adult).
+ * In this code a party is keyed by its payer's user id, so `userId` on a
+ * MathMember, claim, or payment means "the party whose payer is this user".
+ * A single adult is a party of one, which is why the v1.3 numbers still hold.
+ *
+ * Lodging splits by the weight of the sleep spots a party occupies (or evenly
+ * per party / per traveler when Trip.splitMode says so). Sharers from two
+ * parties split that spot's weight. The honoree's reserved room is outside W_P
+ * unless a payer is sharing it, in which case only the payer's slice counts.
+ * Other shared costs, including an excluded honoree's own flight, split by the
+ * age-share weights of travelers on paying parties (all adults at 1.0 is an even
+ * split). Optional items split only across opted-in travelers on paying parties,
+ * by age price when one is set, else by age weight. A forfeited buy-in, after
+ * booking, pays down lodging first. The shared piece (lodging + per-head +
+ * weight-split optional) rounds UP to the next dollar. Age-priced tickets,
+ * flights, and other individual items are added after that and are not rounded.
  * The extra dollars stay in the trip pot.
  */
 
@@ -25,6 +34,12 @@ export type SplitType = "shared" | "individual" | "optional";
 export type MilestoneKind = "buy_in" | "installment" | "final";
 export type AmountRule = "fixed" | "pct_of_share";
 export type PaymentStatus = "due" | "paid" | "late" | "forfeited" | "refunded";
+export type SplitMode = "weighted_by_spot" | "even_per_traveler" | "even_per_party";
+export type AgeBand = "adult" | "teen" | "child" | "infant";
+export type AgeWeights = Record<AgeBand, number>;
+
+/** Spec 2.0.1 defaults. Organizer-editable per trip. Per-head costs only, never lodging. */
+export const DEFAULT_AGE_WEIGHTS: AgeWeights = { adult: 1, teen: 1, child: 0.5, infant: 0 };
 
 export interface MathMember {
   userId: string;
@@ -33,6 +48,16 @@ export interface MathMember {
   committedAt?: string | null;
   /** Order for people who have not bought in yet. Lower picks the next bed. */
   forecastOrder?: number;
+  /**
+   * Sum of age-share weights of this party's travelers who pay per-head costs
+   * (excluded honorees left out). Default 1: a party of one adult.
+   */
+  ageWeight?: number;
+  /**
+   * Travelers who need a paid sleep spot: not a crib infant, not a co-sleeper.
+   * Default 1. Used by even_per_traveler and by forecast room placement.
+   */
+  spotTravelers?: number;
 }
 
 export interface MathCost {
@@ -45,6 +70,14 @@ export interface MathCost {
   isLodging: boolean;
   lowEstimate?: number | null;
   highEstimate?: number | null;
+  /**
+   * Per-traveler roster for an optional item. `userId` is the traveler's party.
+   * When present it replaces participantIds. `priceCents` is the age price for
+   * that traveler when the item is age-priced, else null.
+   */
+  travelerShares?: { userId: string; weight: number; priceCents: number | null }[];
+  /** True when age prices are the source of truth for this item. */
+  agePriced?: boolean;
 }
 
 export type ClaimStatus = "pending" | "approved" | "denied";
@@ -62,6 +95,8 @@ export interface MathSpot {
   sortOrder?: number;
   roomName?: string;
   bedType?: string;
+  /** Organizer hold for one party (usually accessibility), keyed by payer id. */
+  reservedForUserId?: string | null;
 }
 
 export interface MathClaim {
@@ -93,6 +128,8 @@ export interface PersonBill {
   evenCents: number;
   lodgingCents: number;
   optionalCents: number;
+  /** Age-priced optional tickets. Exact, not rounded. */
+  ticketCents: number;
   individualCents: number;
   totalCents: number;
 }
@@ -190,7 +227,20 @@ export function rawLodgingCents(
   spots: MathSpot[],
   claims: MathClaim[],
   payerIds: string[],
+  mode: SplitMode = "weighted_by_spot",
+  spotTravelers: Map<string, number> = new Map(),
 ): Map<string, number> {
+  if (mode === "even_per_party") {
+    const map = new Map<string, number>();
+    for (const id of payerIds) map.set(id, payerIds.length > 0 ? lodgeCents / payerIds.length : 0);
+    return map;
+  }
+  if (mode === "even_per_traveler") {
+    const map = new Map<string, number>();
+    const heads = payerIds.reduce((sum, id) => sum + (spotTravelers.get(id) ?? 1), 0);
+    for (const id of payerIds) map.set(id, heads > 0 ? (lodgeCents * (spotTravelers.get(id) ?? 1)) / heads : 0);
+    return map;
+  }
   const payers = new Set(payerIds);
   const resolved = claimedWeight(spots, claims, payers);
   const weightSum = resolved.reduce((sum, claim) => sum + claim.weight, 0);
@@ -220,6 +270,51 @@ export function lodgingBasisCents(costs: MathCost[], payments: MathPayment[], bo
   return Math.max(0, base - forfeitedCents(payments));
 }
 
+/** The opted-in roster for an optional item, as {party, weight, price} rows. */
+export function optionalRoster(cost: MathCost): { userId: string; weight: number; priceCents: number | null }[] {
+  if (cost.travelerShares) return cost.travelerShares;
+  return cost.participantIds.map((userId) => ({ userId, weight: 1, priceCents: null }));
+}
+
+/**
+ * Each paying party's piece of optional items.
+ * `weighted` joins the rounded shared total. `tickets` (age prices) stay exact.
+ * Rows whose party is not paying drop out and the item re-splits.
+ */
+export function optionalSplit(
+  costs: MathCost[],
+  payerIds: string[],
+): { weighted: Map<string, number>; tickets: Map<string, number>; vendorCents: number } {
+  const payerSet = new Set(payerIds);
+  const weighted = new Map<string, number>();
+  const tickets = new Map<string, number>();
+  for (const id of payerIds) {
+    weighted.set(id, 0);
+    tickets.set(id, 0);
+  }
+  let vendor = 0;
+  for (const cost of costs) {
+    if (cost.splitType !== "optional") continue;
+    const rows = optionalRoster(cost).filter((row) => payerSet.has(row.userId));
+    if (rows.length === 0) continue;
+    if (cost.agePriced) {
+      for (const row of rows) {
+        const price = row.priceCents ?? 0;
+        tickets.set(row.userId, (tickets.get(row.userId) ?? 0) + price);
+        vendor += price;
+      }
+      continue;
+    }
+    const weightSum = rows.reduce((sum, row) => sum + row.weight, 0);
+    if (weightSum <= 0) continue;
+    vendor += cost.amountCents;
+    for (const row of rows) {
+      weighted.set(row.userId, (weighted.get(row.userId) ?? 0) + (cost.amountCents * row.weight) / weightSum);
+    }
+  }
+  return { weighted, tickets, vendorCents: vendor };
+}
+
 export function billsFor(args: {
   members: MathMember[];
   costs: MathCost[];
@@ -230,37 +325,34 @@ export function billsFor(args: {
   booked: boolean;
   lodgeOverrideCents?: number | null;
   extras?: ForecastExtra[];
+  splitMode?: SplitMode;
 }): PersonBill[] {
   const payerIds = [...new Set(args.payerIds)];
   const honoreeIds = args.members.filter(isHonoree).map((member) => member.userId);
   const payerSet = new Set(payerIds);
+  const memberOf = new Map(args.members.map((member) => [member.userId, member]));
+  const ageWeightOf = (id: string) => memberOf.get(id)?.ageWeight ?? 1;
   const evenPool = sharedEvenCents(args.costs, honoreeIds);
-  const evenRaw = payerIds.length > 0 ? evenPool / payerIds.length : 0;
+  const ageWeightSum = payerIds.reduce((sum, id) => sum + ageWeightOf(id), 0);
   const lodgeBase =
     args.lodgeOverrideCents != null
       ? Math.max(0, args.lodgeOverrideCents - (args.booked ? forfeitedCents(args.payments) : 0))
       : lodgingBasisCents(args.costs, args.payments, args.booked);
-  const lodge = rawLodgingCents(lodgeBase, args.spots, args.claims, payerIds);
-  const optional = new Map<string, number>();
-  for (const id of payerIds) optional.set(id, 0);
-  for (const cost of args.costs) {
-    if (cost.splitType !== "optional") continue;
-    const sharing = cost.participantIds.filter((id) => payerSet.has(id));
-    if (sharing.length === 0) continue;
-    const each = cost.amountCents / sharing.length;
-    for (const id of sharing) optional.set(id, (optional.get(id) ?? 0) + each);
-  }
+  const spotTravelers = new Map(payerIds.map((id) => [id, memberOf.get(id)?.spotTravelers ?? 1]));
+  const lodge = rawLodgingCents(lodgeBase, args.spots, args.claims, payerIds, args.splitMode, spotTravelers);
+  const { weighted: optional, tickets } = optionalSplit(args.costs, payerIds);
   const extraFlight = new Map((args.extras ?? []).map((extra) => [extra.userId, extra.individualCents]));
   const known = new Set(args.members.map((member) => member.userId));
   const bills: PersonBill[] = [];
   const emit = (userId: string, paying: boolean) => {
     const lodgingRaw = paying ? (lodge.get(userId) ?? 0) : 0;
     const optionalRaw = paying ? (optional.get(userId) ?? 0) : 0;
-    const evenPart = paying ? evenRaw : 0;
+    const evenPart = paying && ageWeightSum > 0 ? (evenPool * ageWeightOf(userId)) / ageWeightSum : 0;
     const shared = roundUpDollarCents(lodgingRaw + evenPart + optionalRaw);
     const shownEven = Math.round(evenPart);
     const shownOptional = Math.round(optionalRaw);
     const shownLodging = shared - shownEven - shownOptional;
+    const ticket = paying ? (tickets.get(userId) ?? 0) : 0;
     const individual =
       (paying ? individualCentsFor(args.costs, userId, honoreeIds) : 0) + (paying ? (extraFlight.get(userId) ?? 0) : 0);
     bills.push({
@@ -269,8 +361,9 @@ export function billsFor(args: {
       evenCents: shownEven,
       lodgingCents: shownLodging,
       optionalCents: shownOptional,
+      ticketCents: ticket,
       individualCents: individual,
-      totalCents: shared + individual,
+      totalCents: shared + ticket + individual,
     });
   };
   for (const member of args.members) {
@@ -299,9 +392,7 @@ export function vendorCents(args: {
     args.lodgeOverrideCents != null
       ? Math.max(0, args.lodgeOverrideCents - (args.booked ? forfeitedCents(args.payments) : 0))
       : lodgingBasisCents(args.costs, args.payments, args.booked);
-  const optional = args.costs
-    .filter((cost) => cost.splitType === "optional" && cost.participantIds.some((id) => payers.has(id)))
-    .reduce((sum, cost) => sum + cost.amountCents, 0);
+  const optional = optionalSplit(args.costs, args.payerIds).vendorCents;
   const individual =
     args.costs
       .filter((cost) => cost.splitType === "individual" && cost.memberId && payers.has(cost.memberId) && !honoreeIds.includes(cost.memberId))
@@ -327,12 +418,30 @@ export function settledBills(args: {
   booked: boolean;
   lodgeOverrideCents?: number | null;
   extras?: ForecastExtra[];
+  splitMode?: SplitMode;
 }): PersonBill[] {
   return billsFor({ ...args, payerIds: committedPayerIds(args.members) });
 }
 
-/** Share if exactly these payers commit. Extra people keep whatever bed they already claimed. */
-export function projectClaims(spots: MathSpot[], claims: MathClaim[], payerIds: string[]): MathClaim[] {
+/** How many travelers from one party a spot sleeps. A king or queen fits a couple. */
+export function partySleeps(spot: MathSpot): number {
+  const bed = (spot.bedType ?? "").toLowerCase();
+  return bed === "king" || bed === "queen" ? 2 : 1;
+}
+
+/**
+ * Claims if exactly these parties commit. Existing approved claims stay put.
+ * A waiting party first takes any spot held for it. A party of one takes the
+ * highest-weight vacant spot. A larger party takes the highest-weight vacant
+ * room that sleeps all of its travelers (a family is never placed on a couch).
+ * Anyone still unseated may take an open share slot (the expanded scenario).
+ */
+export function projectClaims(
+  spots: MathSpot[],
+  claims: MathClaim[],
+  payerIds: string[],
+  needs: Map<string, number> = new Map(),
+): MathClaim[] {
   const wanted = new Set(payerIds);
   const kept = claims.filter((claim) => claim.status === "approved" && wanted.has(claim.userId));
   const seated = new Set(kept.map((claim) => claim.userId));
@@ -340,32 +449,59 @@ export function projectClaims(spots: MathSpot[], claims: MathClaim[], payerIds: 
   for (const claim of kept) occupied.set(claim.spotId, (occupied.get(claim.spotId) ?? 0) + 1);
   const result = [...kept];
   const waiting = payerIds.filter((id) => !seated.has(id));
-  const vacant = spots
-    .filter((spot) => !spot.reservedForHonoree && (occupied.get(spot.id) ?? 0) === 0)
-    .slice()
-    .sort((a, b) => b.weight - a.weight || (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const still: string[] = [];
-  waiting.forEach((id, index) => {
-    const spot = vacant[index];
-    if (!spot) {
-      still.push(id);
-      return;
-    }
+  const isOpen = (spot: MathSpot, id: string) =>
+    !spot.reservedForHonoree &&
+    (occupied.get(spot.id) ?? 0) === 0 &&
+    (!spot.reservedForUserId || spot.reservedForUserId === id);
+  const byWeight = (a: MathSpot, b: MathSpot) => b.weight - a.weight || (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  const take = (spot: MathSpot, id: string) => {
     result.push({ spotId: spot.id, userId: id, status: "approved" });
     occupied.set(spot.id, 1);
-  });
+  };
+  const still: string[] = [];
+  for (const id of waiting) {
+    const held = spots.filter((spot) => spot.reservedForUserId === id && isOpen(spot, id));
+    if (held.length > 0) {
+      held.forEach((spot) => take(spot, id));
+      continue;
+    }
+    const need = Math.max(1, needs.get(id) ?? 1);
+    if (need <= 1) {
+      const spot = spots.filter((item) => isOpen(item, id)).sort(byWeight)[0];
+      if (spot) take(spot, id);
+      else still.push(id);
+      continue;
+    }
+    const rooms = new Map<string, MathSpot[]>();
+    for (const spot of spots) {
+      const key = spot.roomName ?? spot.id;
+      rooms.set(key, [...(rooms.get(key) ?? []), spot]);
+    }
+    const fits = [...rooms.values()]
+      .filter((room) => room.every((spot) => isOpen(spot, id)))
+      .filter((room) => room.reduce((sum, spot) => sum + partySleeps(spot), 0) >= need)
+      .sort(
+        (a, b) =>
+          b.reduce((sum, spot) => sum + spot.weight, 0) - a.reduce((sum, spot) => sum + spot.weight, 0) ||
+          (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0),
+      );
+    if (fits[0]) fits[0].forEach((spot) => take(spot, id));
+    else still.push(id);
+  }
   const shares = spots
     .filter((spot) => !spot.reservedForHonoree && spot.sharingEnabled)
     .filter((spot) => {
       const taken = occupied.get(spot.id) ?? 0;
       return taken > 0 && taken < bedCapacity(spot);
     })
-    .sort((a, b) => b.weight - a.weight || (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  still.forEach((id, index) => {
-    const spot = shares[index];
-    if (!spot) return;
-    result.push({ spotId: spot.id, userId: id, status: "approved" });
-  });
+    .sort(byWeight);
+  still
+    .filter((id) => (needs.get(id) ?? 1) <= 1)
+    .forEach((id, index) => {
+      const spot = shares[index];
+      if (!spot) return;
+      result.push({ spotId: spot.id, userId: id, status: "approved" });
+    });
   return result;
 }
 
@@ -391,6 +527,7 @@ export function sensitivity(args: {
   maxHeadcount?: number;
   extras?: ForecastExtra[];
   lodgeOverrideCents?: number | null;
+  splitMode?: SplitMode;
 }): {
   rows: SensitivityRow[];
   currentCents: number | null;
@@ -408,16 +545,24 @@ export function sensitivity(args: {
   const sequence = [...committed, ...pipeline, ...extraIds];
   const cap = args.maxHeadcount ?? sequence.length;
   const base = unsharedCapacity(args.spots);
+  const needs = new Map(args.members.map((member) => [member.userId, member.spotTravelers ?? 1]));
   const quote = (ids: string[]) =>
     billsFor({
       ...args,
       payerIds: ids,
-      claims: projectClaims(args.spots, args.claims, ids),
+      claims: projectClaims(args.spots, args.claims, ids, needs),
     }).find((bill) => bill.userId === args.userId)?.totalCents ?? null;
+  /** A row only exists if the beds can hold every party in it. */
+  const seatsAll = (ids: string[]) => {
+    const projected = projectClaims(args.spots, args.claims, ids, needs);
+    return ids.every((id) => projected.some((claim) => claim.userId === id));
+  };
 
   const rows: SensitivityRow[] = [];
   for (let count = args.minimumCommitters; count <= Math.min(cap, sequence.length); count += 1) {
-    const total = quote(sequence.slice(0, count));
+    const ids = sequence.slice(0, count);
+    if (!seatsAll(ids)) break;
+    const total = quote(ids);
     if (total === null) continue;
     rows.push({ payers: count, totalCents: total, expanded: count > base });
   }
@@ -583,4 +728,59 @@ export function milestoneSchedule(args: {
 
 export function nextDue(lines: MilestoneLine[]): MilestoneLine | null {
   return lines.find((line) => (line.status === "due" || line.status === "late") && line.amountCents > 0) ?? null;
+}
+
+/** A person on a party. Kids and some older adults have no account; the payer acts for them. */
+export interface MathTraveler {
+  id: string;
+  /** The party, keyed by its payer's user id. */
+  partyId: string;
+  ageBand: AgeBand;
+  isHonoree: boolean;
+  /** Attached to a spot the party already claims, at $0 incremental lodging. */
+  coSleep?: boolean;
+}
+
+export type AgePrices = Partial<Record<AgeBand, number | null>>;
+
+/** Sum of per-head weights for a party. Excluded honorees and weight-0 infants add nothing. */
+export function partyAgeWeight(travelers: MathTraveler[], weights: AgeWeights, honoreeExcluded: boolean): number {
+  return travelers
+    .filter((traveler) => !(honoreeExcluded && traveler.isHonoree))
+    .reduce((sum, traveler) => sum + (weights[traveler.ageBand] ?? 0), 0);
+}
+
+/** Travelers who need a paid spot: infants sleep in a crib, co-sleepers ride along. */
+export function partySpotTravelers(travelers: MathTraveler[]): number {
+  return travelers.filter((traveler) => traveler.ageBand !== "infant" && !traveler.coSleep).length;
+}
+
+/** True when an item carries any age price. Age prices then replace a weight split. */
+export function hasAgePrices(prices: AgePrices | null | undefined): boolean {
+  return !!prices && Object.values(prices).some((value) => value != null);
+}
+
+/**
+ * The per-traveler roster for an optional item. An excluded honoree's seat is
+ * covered by the other opted-in payers, so it is left out here.
+ */
+export function travelerSharesFor(args: {
+  optedIn: MathTraveler[];
+  weights: AgeWeights;
+  honoreeExcluded: boolean;
+  prices: AgePrices | null;
+}): { userId: string; weight: number; priceCents: number | null }[] {
+  const priced = hasAgePrices(args.prices);
+  return args.optedIn
+    .filter((traveler) => !(args.honoreeExcluded && traveler.isHonoree))
+    .map((traveler) => ({
+      userId: traveler.partyId,
+      weight: args.weights[traveler.ageBand] ?? 0,
+      priceCents: priced ? (args.prices?.[traveler.ageBand] ?? 0) : null,
+    }));
+}
+
+/** Sum of age prices for these travelers: what an age-priced item costs the vendor. */
+export function agePricedAmount(optedIn: MathTraveler[], prices: AgePrices): number {
+  return optedIn.reduce((sum, traveler) => sum + (prices[traveler.ageBand] ?? 0), 0);
 }
