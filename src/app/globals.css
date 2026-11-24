@@ -3,37 +3,37 @@
 @theme inline {
   --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
-  --color-paper: #efe6da;
-  --color-card: #fffdf9;
-  --color-ink: #241910;
-  --color-muted: #74685c;
-  --color-line: #e4d5c4;
-  --color-chip: #f6efe6;
-  --color-accent: #9c3418;
-  --color-accent-ink: #fff8f4;
-  --color-good: #1c6b43;
-  --color-good-soft: #e4f5eb;
-  --color-warn: #8a5a00;
-  --color-warn-soft: #fff3d4;
-  --color-bad: #9f1239;
-  --color-bad-soft: #fde7ee;
+  --color-paper: #0c0b0a;
+  --color-card: #221c18;
+  --color-ink: #f6f1e8;
+  --color-muted: #b3a89c;
+  --color-line: #3a322c;
+  --color-chip: #2a241f;
+  --color-accent: #e4c48a;
+  --color-accent-ink: #1a120c;
+  --color-good: #b7e0c8;
+  --color-good-soft: #1a2e24;
+  --color-warn: #e4c48a;
+  --color-warn-soft: #2c2416;
+  --color-bad: #f0b4c2;
+  --color-bad-soft: #3a1822;
 }
 
 html {
   background: var(--color-paper);
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(1200px 500px at 50% -10%, rgba(156, 52, 24, 0.08), transparent 50%),
-    var(--color-paper);
+  background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
 
 ::selection {
-  background: #f3c7b6;
+  background: #e4c48a;
+  color: #1a120c;
 }
 
 :focus-visible {

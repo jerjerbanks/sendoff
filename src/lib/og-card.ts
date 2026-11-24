@@ -85,13 +85,13 @@ export function paintCard(lines: { eyebrow: string; title: string; line: string;
   const width = 1200;
   const height = 630;
   const image = new Uint8ClampedArray(width * height * 4);
-  fill(image, width, 0, 0, width, height, [28, 20, 16]);
-  fill(image, width, 0, 0, 28, height, [226, 91, 42]);
-  fill(image, width, 72, 168, 180, 8, [226, 91, 42]);
-  blitText(image, width, atlas.label, lines.eyebrow, 72, 130, [232, 196, 176]);
-  blitText(image, width, atlas.display, lines.title.slice(0, 28), 72, 280, [255, 247, 240]);
-  blitText(image, width, atlas.body, lines.line.slice(0, 48), 72, 390, [255, 228, 210]);
-  blitText(image, width, atlas.body, lines.foot.slice(0, 48), 72, 500, [232, 196, 176]);
+  fill(image, width, 0, 0, width, height, [12, 11, 10]);
+  fill(image, width, 0, 0, 28, height, [228, 196, 138]);
+  fill(image, width, 72, 168, 180, 8, [228, 196, 138]);
+  blitText(image, width, atlas.label, lines.eyebrow, 72, 130, [228, 196, 138]);
+  blitText(image, width, atlas.display, lines.title.slice(0, 28), 72, 280, [246, 241, 232]);
+  blitText(image, width, atlas.body, lines.line.slice(0, 48), 72, 390, [228, 196, 138]);
+  blitText(image, width, atlas.body, lines.foot.slice(0, 48), 72, 500, [179, 168, 156]);
   return image;
 }
 

@@ -22,7 +22,7 @@ export function Identify({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-30 flex items-end bg-ink/40 p-3 md:items-center md:justify-center">
+    <div className="fixed inset-0 z-30 flex items-end bg-black/70 p-3 md:items-center md:justify-center">
       <div className="w-full max-w-lg rounded-3xl bg-card p-4 shadow-xl">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Who are you?</p>
         <h2 className="mt-1 font-serif text-3xl">One tap, then you&apos;re in.</h2>
@@ -32,7 +32,7 @@ export function Identify({
             <form key={member.userId} action={switchUserAction}>
               <input type="hidden" name="tripId" value={tripId} />
               <input type="hidden" name="userId" value={member.userId} />
-              <button className="flex w-full items-center justify-between rounded-2xl border border-line px-3 py-3 text-left" type="submit">
+              <button className="flex min-h-12 w-full items-center justify-between rounded-2xl border border-line px-3 py-3 text-left" type="submit">
                 <span className="font-semibold">{member.name}</span>
                 <span className="text-xs text-muted">{roleLabel(member.role)}</span>
               </button>

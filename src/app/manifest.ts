@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Plan the bachelor party in the group chat. Vote, see your share, commit.",
     start_url: "/",
     display: "standalone",
-    background_color: "#efe6da",
-    theme_color: "#241910",
+    background_color: "#0c0b0a",
+    theme_color: "#0c0b0a",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
