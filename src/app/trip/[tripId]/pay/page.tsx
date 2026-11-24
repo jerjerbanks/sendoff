@@ -23,7 +23,7 @@ export default async function PayPage({
   const owed = viewer?.isPayer ? viewer.lines.filter((line) => line.canPay) : [];
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
       <div>
         <h2 className="font-serif text-3xl">Nobody fronts the bill</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">

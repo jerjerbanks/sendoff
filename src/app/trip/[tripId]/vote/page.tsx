@@ -22,7 +22,7 @@ export default async function VotePage({
   const canVote = !!viewer && viewer.status !== "off_trip" && viewer.status !== "invited" && !view.cancelled;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
       <div>
         <h2 className="font-serif text-3xl">Approve anything you&apos;d actually do</h2>
         <p className="mt-1 text-sm text-muted">Pick as many options as you want. The organizer locks one winner per poll.</p>
@@ -113,23 +113,23 @@ export default async function VotePage({
               })}
             </div>
             {view.isOrganizer ? (
-              <div className="mt-4 grid gap-3 border-t border-line pt-4">
+              <div className="mt-4 grid grid-cols-1 gap-3 border-t border-line pt-4 [&>*]:min-w-0">
                 <form action={addOptionAction} className="grid gap-2">
                   <input type="hidden" name="tripId" value={view.id} />
                   <input type="hidden" name="userId" value={viewer?.userId} />
                   <input type="hidden" name="pollId" value={poll.id} />
                   <Input name="label" placeholder="Add an option" required />
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
                     <Input name="estCost" inputMode="decimal" placeholder="Estimate $" />
                     <Input name="link" placeholder="https://…" />
                   </div>
                   <SubmitButton variant="outline">Add option</SubmitButton>
                 </form>
-                <form action={pollDeadlineAction} className="flex gap-2">
+                <form action={pollDeadlineAction} className="flex gap-2 [&>*]:min-w-0">
                   <input type="hidden" name="tripId" value={view.id} />
                   <input type="hidden" name="userId" value={viewer?.userId} />
                   <input type="hidden" name="pollId" value={poll.id} />
-                  <input className={fieldClass} type="datetime-local" name="deadline" defaultValue={utcToZonedInput(poll.deadline)} required />
+                  <input className={`${fieldClass} min-w-0 flex-1`} type="datetime-local" name="deadline" defaultValue={utcToZonedInput(poll.deadline)} required />
                   <SubmitButton variant="secondary">Set deadline</SubmitButton>
                 </form>
               </div>

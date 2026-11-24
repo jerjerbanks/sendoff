@@ -27,7 +27,7 @@ export default async function DashboardPage({
   }));
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad md:col-span-2">{error}</p> : null}
       <section className="rounded-3xl border border-line bg-card p-4 md:col-span-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Notices stay in the app. Nothing is emailed.</p>
