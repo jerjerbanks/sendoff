@@ -6,7 +6,10 @@ import {
   demoOptions,
   demoPayments,
   demoPolls,
+  demoAirports,
+  demoBudgets,
   demoClaims,
+  demoQuotes,
   demoSpots,
   demoTeeParticipants,
   demoTrip,
@@ -50,7 +53,7 @@ for (const poll of demoPolls) {
 
 for (const option of demoOptions) {
   lines.push(
-    `INSERT OR IGNORE INTO poll_options (id, poll_id, label, est_cost, link, sort_order) VALUES (${sql(option.id)}, ${sql(option.pollId)}, ${sql(option.label)}, ${sql(option.estCost)}, ${sql(option.link)}, ${sql(option.sortOrder)});`,
+    `INSERT OR IGNORE INTO poll_options (id, poll_id, label, est_cost, link, sort_order, lodging_estimate, hidden_by_organizer) VALUES (${sql(option.id)}, ${sql(option.pollId)}, ${sql(option.label)}, ${sql(option.estCost)}, ${sql(option.link)}, ${sql(option.sortOrder)}, ${sql(option.lodgingEstimate)}, ${sql(option.hiddenByOrganizer)});`,
   );
 }
 
@@ -62,7 +65,7 @@ for (const vote of demoVotes) {
 
 for (const cost of demoCosts) {
   lines.push(
-    `INSERT OR IGNORE INTO cost_items (id, trip_id, label, category, split_type, amount, member_id, is_lodging) VALUES (${sql(cost.id)}, ${sql(demoTrip.id)}, ${sql(cost.label)}, ${sql(cost.category)}, ${sql(cost.splitType)}, ${sql(cost.amount)}, ${sql(cost.memberId)}, ${sql(cost.isLodging)});`,
+    `INSERT OR IGNORE INTO cost_items (id, trip_id, label, category, split_type, amount, member_id, is_lodging, home_airport, low_estimate, high_estimate) VALUES (${sql(cost.id)}, ${sql(demoTrip.id)}, ${sql(cost.label)}, ${sql(cost.category)}, ${sql(cost.splitType)}, ${sql(cost.amount)}, ${sql(cost.memberId)}, ${sql(cost.isLodging)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].airport || null : null)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].low : null)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].high : null)});`,
   );
 }
 
@@ -87,6 +90,18 @@ for (const spot of demoSpots) {
 for (const claim of demoClaims) {
   lines.push(
     `INSERT OR IGNORE INTO spot_claims (spot_id, user_id, status) VALUES (${sql(claim.spotId)}, ${sql(claim.userId)}, ${sql(claim.status)});`,
+  );
+}
+
+for (const budget of demoBudgets) {
+  lines.push(
+    `INSERT OR IGNORE INTO private_budgets (trip_id, user_id, max_all_in, flex_note, must_haves, updated_at) VALUES (${sql(demoTrip.id)}, ${sql(budget.userId)}, ${sql(budget.maxAllIn)}, ${sql(budget.flexNote)}, ${sql(budget.mustHaves)}, '2026-11-20T16:00:00.000Z');`,
+  );
+}
+
+for (const [userId, optionId, highCents] of demoQuotes) {
+  lines.push(
+    `INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES (${sql(userId)}, ${sql(optionId)}, ${sql(highCents)});`,
   );
 }
 
