@@ -610,7 +610,11 @@ function buildView(
             afterCents: bill.totalCents,
           }))
       : [],
-    currentShareCents: sense?.currentCents ?? viewer?.bill?.totalCents ?? null,
+    // Today's number is the real bill (what /book and the payment schedule use), not the forecast's
+    // projection, which assumes every committed party has already picked a bed.
+    currentShareCents: (viewerPartyId ? billOf.get(viewerPartyId)?.payer : false)
+      ? (billOf.get(viewerPartyId as string)?.totalCents ?? null)
+      : (sense?.currentCents ?? null),
     ifYouCommitCents: (() => {
       if (!viewerPayer || isHonoree(viewerPayer) || viewerPayer.status !== "joined") return null;
       const ids = [...committedPayerIds(membersMath), viewerPayer.userId];

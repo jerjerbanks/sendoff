@@ -17,6 +17,8 @@ export default async function BookPage({
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
   const lodging = view.costs.find((cost) => cost.splitType === "shared" && cost.category === "lodging");
+  // A committed party with no bed carries no lodging; booking now would quietly shift it onto everyone else.
+  const bedless = view.parties.filter((party) => party.status === "committed" && !party.isHonoreeOnly && party.rooms.length === 0);
   return (
     <div className="grid gap-4">
       <div>
@@ -29,6 +31,12 @@ export default async function BookPage({
       <p className="text-sm">
         {view.payerCount} of {view.minPayerCount} payers committed. Estimate {lodging ? money(lodging.amountCents) : "not set"}.
       </p>
+      {bedless.length > 0 && view.status !== "booked" ? (
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">
+          {bedless.map((party) => party.name).join(", ")} {bedless.length === 1 ? "hasn't" : "haven't"} picked a bed yet, so{" "}
+          {bedless.length === 1 ? "that party pays" : "those parties pay"} no lodging and everyone else covers it. Ask them to pick a room before you book.
+        </p>
+      ) : null}
       {view.status === "booked" ? (
         <div className="rounded-2xl bg-good-soft px-3 py-3 text-sm text-good">
           <p>The stay is booked. Buy-ins are no longer refundable.</p>
