@@ -1,6 +1,8 @@
-import { DEMO_INVITE_TOKEN, DEMO_TRIP_ID } from "./constants";
+import { DEMO_INVITE_TOKEN, DEMO_TRIP_ID, LAKE_INVITE_TOKEN, LAKE_TRIP_ID } from "./constants";
 
 /**
+ * Fixture A, spec 2.0.1 section 7.1.1. Each single adult is their own party of
+ * one adult traveler; travelers are read from the payer when no rows exist.
  * Seed from spec v1.2 section 7.1.
  * Lodging $2,400 by bed weight. Equal-shared pool $890 (activities $600 + Alex's
  * flight $290). Tee times $480 optional for Chris, Sam, Jordan, and Drew.
@@ -26,8 +28,9 @@ export const demoUsers = [
 
 export const demoTrip = {
   id: DEMO_TRIP_ID,
-  name: "Alex's bachelor party",
-  tripType: "bachelor",
+  name: "Alex's Bachelor Party",
+  tripType: "pre_wedding",
+  preWeddingStyle: "bachelor",
   organizerId: "user_chris",
   guestOfHonorUserId: "user_alex",
   dateWindow: "A long weekend in May 2027",
@@ -35,7 +38,8 @@ export const demoTrip = {
   buyInAmount: BUY_IN_CENTS,
   buyInDeadline: "2026-12-16T05:59:00.000Z",
   minHeadcount: 5,
-  maxHeadcount: 8,
+  /** Travelers: 8 paying adults + 1 honoree. */
+  maxHeadcount: 9,
   bedChangePolicy: "member_requests",
   honoreeExcludedFromSplit: 1,
   inviteToken: DEMO_INVITE_TOKEN,
@@ -92,6 +96,16 @@ export const demoQuotes = [
   ["user_casey", "opt_scotts", 32000],
   ["user_pat", "opt_scotts", 32000],
   ["user_alex", "opt_scotts", 33000],
+  // Austin highs: spec 2.0 adds these (the v1.3 gap). Austin badge = Fits everyone.
+  ["user_chris", "opt_austin", 33000],
+  ["user_sam", "opt_austin", 28000],
+  ["user_jordan", "opt_austin", 30000],
+  ["user_drew", "opt_austin", 35000],
+  ["user_taylor", "opt_austin", 20000],
+  ["user_riley", "opt_austin", 34000],
+  ["user_casey", "opt_austin", 33000],
+  ["user_pat", "opt_austin", 36000],
+  ["user_alex", "opt_austin", 34000],
   ["user_chris", "opt_cabo", 70000],
   ["user_sam", "opt_cabo", 72000],
   ["user_jordan", "opt_cabo", 58000],
@@ -188,4 +202,162 @@ export const demoPayments = [
   { id: "pay_sam", milestoneId: "ms_buyin", userId: "user_sam", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T15:00:00.000Z" },
   { id: "pay_jordan", milestoneId: "ms_buyin", userId: "user_jordan", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T20:00:00.000Z" },
   { id: "pay_drew", milestoneId: "ms_buyin", userId: "user_drew", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-20T16:00:00.000Z" },
+] as const;
+
+/**
+ * Fixture B, spec 2.0.1 section 7.1.2: "Harper Lake House".
+ * Four paying parties, ten travelers, zero honorees, everyone drives.
+ * Official all-in: Harpers $1,922 / Chens $915 / Riveras $1,036 / Kim $639.
+ */
+export const LAKE_BUY_IN_CENTS = 10_000;
+
+export const lakeUsers = [
+  { id: "user_maya", name: "Maya Harper", contact: "maya@example.com" },
+  { id: "user_alexh", name: "Alex Harper", contact: "alex.harper@example.com" },
+  { id: "user_priya", name: "Priya Chen", contact: "priya@example.com" },
+  { id: "user_luis", name: "Luis Chen", contact: "luis@example.com" },
+  { id: "user_helen", name: "Helen Rivera", contact: "helen@example.com" },
+  { id: "user_noah", name: "Noah Kim", contact: "noah@example.com" },
+] as const;
+
+export const lakeTrip = {
+  id: LAKE_TRIP_ID,
+  name: "Harper Lake House",
+  tripType: "family",
+  preWeddingStyle: null as string | null,
+  organizerId: "user_maya",
+  guestOfHonorUserId: "",
+  dateWindow: "Lake Geneva, WI · July 1–5, 2027 (4 nights)",
+  status: "booking_ready",
+  buyInAmount: LAKE_BUY_IN_CENTS,
+  buyInDeadline: "2027-04-16T04:59:00.000Z",
+  minHeadcount: 3,
+  maxHeadcount: 10,
+  bedChangePolicy: "member_requests",
+  honoreeExcludedFromSplit: 0,
+  inviteToken: LAKE_INVITE_TOKEN,
+  simulatedNow: null as string | null,
+};
+
+/** Payers have partyUserId null. Other account-holders point at their payer. */
+export const lakeMembers = [
+  { userId: "user_maya", role: "organizer", status: "committed", committedAt: "2026-11-10T18:00:00.000Z", partyUserId: null },
+  { userId: "user_alexh", role: "member", status: "committed", committedAt: null, partyUserId: "user_maya" },
+  { userId: "user_priya", role: "member", status: "committed", committedAt: "2026-11-12T18:00:00.000Z", partyUserId: null },
+  { userId: "user_luis", role: "member", status: "committed", committedAt: null, partyUserId: "user_priya" },
+  { userId: "user_helen", role: "member", status: "committed", committedAt: "2026-11-13T18:00:00.000Z", partyUserId: null },
+  { userId: "user_noah", role: "member", status: "committed", committedAt: "2026-11-15T18:00:00.000Z", partyUserId: null },
+] as const;
+
+export const lakeParties = [
+  { payerUserId: "user_maya", name: "Harpers", shareComfort: "no_share", shareComfortNote: null },
+  { payerUserId: "user_priya", name: "Chens", shareComfort: "any", shareComfortNote: null },
+  { payerUserId: "user_helen", name: "Riveras", shareComfort: "no_share", shareComfortNote: null },
+  { payerUserId: "user_noah", name: "Kim", shareComfort: "any", shareComfortNote: null },
+] as const;
+
+export const lakeTravelers = [
+  { id: "trav_maya", partyUserId: "user_maya", name: "Maya Harper", ageBand: "adult", userId: "user_maya", needsNotes: null, sortOrder: 0 },
+  { id: "trav_alexh", partyUserId: "user_maya", name: "Alex Harper", ageBand: "adult", userId: "user_alexh", needsNotes: null, sortOrder: 1 },
+  { id: "trav_rileyh", partyUserId: "user_maya", name: "Riley Harper", ageBand: "teen", userId: null, needsNotes: null, sortOrder: 2 },
+  { id: "trav_quinn", partyUserId: "user_maya", name: "Quinn Harper", ageBand: "child", userId: null, needsNotes: null, sortOrder: 3 },
+  { id: "trav_priya", partyUserId: "user_priya", name: "Priya Chen", ageBand: "adult", userId: "user_priya", needsNotes: null, sortOrder: 0 },
+  { id: "trav_luis", partyUserId: "user_priya", name: "Luis Chen", ageBand: "adult", userId: "user_luis", needsNotes: null, sortOrder: 1 },
+  { id: "trav_noor", partyUserId: "user_priya", name: "Noor Chen", ageBand: "infant", userId: null, needsNotes: "Sleeps in a travel crib.", sortOrder: 2 },
+  { id: "trav_helen", partyUserId: "user_helen", name: "Helen Rivera", ageBand: "adult", userId: "user_helen", needsNotes: null, sortOrder: 0 },
+  { id: "trav_george", partyUserId: "user_helen", name: "George Rivera", ageBand: "adult", userId: null, needsNotes: "Mobility — needs a ground-floor room, no stairs.", sortOrder: 1 },
+  { id: "trav_noah", partyUserId: "user_noah", name: "Noah Kim", ageBand: "adult", userId: "user_noah", needsNotes: null, sortOrder: 0 },
+] as const;
+
+export const lakePolls = [
+  { id: "lake_poll_destination", kind: "destination", deadline: "2026-11-20T05:59:00.000Z", lockedOptionId: "lake_opt_geneva" },
+  { id: "lake_poll_dates", kind: "dates", deadline: "2026-11-20T05:59:00.000Z", lockedOptionId: "lake_opt_july1" },
+  { id: "lake_poll_activity", kind: "activity", deadline: "2026-11-20T05:59:00.000Z", lockedOptionId: "lake_opt_boat" },
+] as const;
+
+export const lakeOptions = [
+  { id: "lake_opt_geneva", pollId: "lake_poll_destination", label: "Lake Geneva, WI", estCost: 320000, link: "", sortOrder: 0, lodgingEstimate: 320000, hiddenByOrganizer: 0 },
+  { id: "lake_opt_door", pollId: "lake_poll_destination", label: "Door County, WI", estCost: 380000, link: "", sortOrder: 1, lodgingEstimate: 380000, hiddenByOrganizer: 0 },
+  { id: "lake_opt_july1", pollId: "lake_poll_dates", label: "July 1–5, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "lake_opt_aug", pollId: "lake_poll_dates", label: "August 5–9, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "lake_opt_boat", pollId: "lake_poll_activity", label: "Lake boat day", estCost: 51000, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "lake_opt_golf", pollId: "lake_poll_activity", label: "Mini golf night", estCost: 12000, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
+] as const;
+
+const lakeVotePairs: [string, string][] = [
+  ["lake_opt_geneva", "user_maya"],
+  ["lake_opt_geneva", "user_alexh"],
+  ["lake_opt_geneva", "user_priya"],
+  ["lake_opt_door", "user_luis"],
+  ["lake_opt_geneva", "user_helen"],
+  ["lake_opt_geneva", "user_noah"],
+  ["lake_opt_july1", "user_maya"],
+  ["lake_opt_july1", "user_priya"],
+  ["lake_opt_july1", "user_helen"],
+  ["lake_opt_aug", "user_noah"],
+  ["lake_opt_boat", "user_maya"],
+  ["lake_opt_boat", "user_priya"],
+  ["lake_opt_boat", "user_helen"],
+  ["lake_opt_golf", "user_noah"],
+];
+
+export const lakeVotes = lakeVotePairs.map(([optionId, userId]) => ({ optionId, userId }));
+
+/** Boat day amount is derived from age prices of opted-in travelers on read. */
+export const lakeCosts = [
+  { id: "lake_cost_house", label: "Lake house — 4 nights", category: "lodging", splitType: "shared", amount: 320_000, memberId: null, isLodging: 1, agePriceAdult: null, agePriceTeen: null, agePriceChild: null, agePriceInfant: null },
+  { id: "lake_cost_fund", label: "House groceries and fund", category: "other", splitType: "shared", amount: 80_000, memberId: null, isLodging: 0, agePriceAdult: null, agePriceTeen: null, agePriceChild: null, agePriceInfant: null },
+  { id: "lake_cost_boat", label: "Lake boat day", category: "activities", splitType: "optional", amount: 51_000, memberId: null, isLodging: 0, agePriceAdult: 6_000, agePriceTeen: 6_000, agePriceChild: 3_000, agePriceInfant: 0 },
+] as const;
+
+export const lakeBoatRiders = [
+  "trav_maya",
+  "trav_alexh",
+  "trav_rileyh",
+  "trav_quinn",
+  "trav_priya",
+  "trav_luis",
+  "trav_helen",
+  "trav_george",
+  "trav_noah",
+] as const;
+
+export const lakeSpots = [
+  { id: "lake_spot_suite", roomName: "Ground-floor suite", bedType: "king", privateBath: 1, privateRoom: 1, weight: 1500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 1, groundFloor: 1, noStairs: 1, accessibleBath: 1, cribSpace: 0, reservedForUserId: "user_helen" },
+  { id: "lake_spot_lake", roomName: "Lake bedroom", bedType: "queen", privateBath: 1, privateRoom: 1, weight: 1250, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 2, groundFloor: 0, noStairs: 0, accessibleBath: 0, cribSpace: 1, reservedForUserId: null },
+  { id: "lake_spot_fam_q", roomName: "Family bedroom", bedType: "queen", privateBath: 0, privateRoom: 1, weight: 1250, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 3, groundFloor: 0, noStairs: 0, accessibleBath: 0, cribSpace: 0, reservedForUserId: null },
+  { id: "lake_spot_fam_t1", roomName: "Family bedroom", bedType: "twin", privateBath: 0, privateRoom: 1, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 4, groundFloor: 0, noStairs: 0, accessibleBath: 0, cribSpace: 0, reservedForUserId: null },
+  { id: "lake_spot_fam_t2", roomName: "Family bedroom", bedType: "twin", privateBath: 0, privateRoom: 1, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 5, groundFloor: 0, noStairs: 0, accessibleBath: 0, cribSpace: 0, reservedForUserId: null },
+  { id: "lake_spot_loft", roomName: "Loft", bedType: "queen", privateBath: 0, privateRoom: 0, weight: 1000, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 6, groundFloor: 0, noStairs: 0, accessibleBath: 0, cribSpace: 0, reservedForUserId: null },
+] as const;
+
+export const lakeClaims = [
+  { spotId: "lake_spot_suite", userId: "user_helen", status: "approved" },
+  { spotId: "lake_spot_lake", userId: "user_priya", status: "approved" },
+  { spotId: "lake_spot_fam_q", userId: "user_maya", status: "approved" },
+  { spotId: "lake_spot_fam_t1", userId: "user_maya", status: "approved" },
+  { spotId: "lake_spot_fam_t2", userId: "user_maya", status: "approved" },
+  { spotId: "lake_spot_loft", userId: "user_noah", status: "approved" },
+] as const;
+
+/** Lodging share is 50% of the party's all-in; the spec names it but leaves the amount open. */
+export const lakeMilestones = [
+  { id: "lake_ms_buyin", name: "Buy-in", dueDate: "2027-04-16T04:59:00.000Z", kind: "buy_in", amountRule: "fixed", amount: LAKE_BUY_IN_CENTS, sortOrder: 0 },
+  { id: "lake_ms_lodging", name: "Lodging share", dueDate: "2027-05-16T04:59:00.000Z", kind: "installment", amountRule: "pct_of_share", amount: 50, sortOrder: 1 },
+  { id: "lake_ms_final", name: "Balance", dueDate: "2027-06-16T04:59:00.000Z", kind: "final", amountRule: "fixed", amount: 0, sortOrder: 2 },
+] as const;
+
+export const lakePayments = [
+  { id: "lake_pay_maya", milestoneId: "lake_ms_buyin", userId: "user_maya", amount: LAKE_BUY_IN_CENTS, status: "paid", paidAt: "2026-11-10T18:00:00.000Z" },
+  { id: "lake_pay_priya", milestoneId: "lake_ms_buyin", userId: "user_priya", amount: LAKE_BUY_IN_CENTS, status: "paid", paidAt: "2026-11-12T18:00:00.000Z" },
+  { id: "lake_pay_helen", milestoneId: "lake_ms_buyin", userId: "user_helen", amount: LAKE_BUY_IN_CENTS, status: "paid", paidAt: "2026-11-13T18:00:00.000Z" },
+  { id: "lake_pay_noah", milestoneId: "lake_ms_buyin", userId: "user_noah", amount: LAKE_BUY_IN_CENTS, status: "paid", paidAt: "2026-11-15T18:00:00.000Z" },
+] as const;
+
+/** Private. Never sent to another party's browser, the organizer included. */
+export const lakeBudgets = [
+  { userId: "user_maya", maxAllIn: 240000, flexNote: null, mustHaves: "" },
+  { userId: "user_priya", maxAllIn: 120000, flexNote: null, mustHaves: "crib_space" },
+  { userId: "user_helen", maxAllIn: 140000, flexNote: null, mustHaves: "" },
+  { userId: "user_noah", maxAllIn: 80000, flexNote: null, mustHaves: "" },
 ] as const;

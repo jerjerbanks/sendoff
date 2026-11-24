@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { DEMO_TRIP_ID } from "./constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "./constants";
 import { RULES } from "./rules";
 import { getDb } from "./db";
 import {
@@ -19,6 +19,21 @@ import {
   demoTrip,
   demoUsers,
   demoVotes,
+  lakeBoatRiders,
+  lakeBudgets,
+  lakeClaims,
+  lakeCosts,
+  lakeMembers,
+  lakeMilestones,
+  lakeOptions,
+  lakeParties,
+  lakePayments,
+  lakePolls,
+  lakeSpots,
+  lakeTravelers,
+  lakeTrip,
+  lakeUsers,
+  lakeVotes,
 } from "./demo-data";
 import {
   costItemParticipants,
@@ -27,8 +42,11 @@ import {
   privateBudgets,
   tripEvents,
   milestones,
+  parties,
   payments,
   pollOptions,
+  travelerOptIns,
+  travelers,
   polls,
   sleepSpots,
   spotClaims,
@@ -39,6 +57,13 @@ import {
   votes,
 } from "./schema";
 import {
+  DEFAULT_AGE_WEIGHTS,
+  agePricedAmount,
+  hasAgePrices,
+  partyAgeWeight,
+  partySleeps,
+  partySpotTravelers,
+  travelerSharesFor,
   isBooked,
   isCommittedPayer,
   isHonoree,
@@ -59,6 +84,11 @@ import {
   type Role,
   type SplitType,
   type TripStatus,
+  type AgeBand,
+  type AgePrices,
+  type AgeWeights,
+  type MathTraveler,
+  type SplitMode,
 } from "./trip-math";
 
 export type Result = { ok: true } | { ok: false; error: string };
@@ -70,6 +100,88 @@ export interface MemberRecord {
   role: Role;
   status: MemberStatus;
   committedAt: string | null;
+  /** The payer of this member's party. Equal to userId for a payer. */
+  partyUserId: string;
+}
+
+export type ShareComfort = "any" | "no_share" | "note_only";
+
+/** Organizer-only fields (shareComfort*) must be stripped before another party sees a party. */
+export interface PartyRecord {
+  payerUserId: string;
+  name: string;
+  shareComfort: ShareComfort;
+  shareComfortNote: string | null;
+}
+
+/** needsNotes is organizer-only. */
+export interface TravelerRecord extends MathTraveler {
+  name: string;
+  userId: string | null;
+  needsNotes: string | null;
+  honoreeRole: string | null;
+  coSleepSpotId: string | null;
+  sortOrder: number;
+  /** Read from the payer because the party has no traveler rows yet. */
+  synthetic: boolean;
+}
+
+export interface SpotRecord extends MathSpot {
+  privateBath: boolean;
+  privateRoom: boolean;
+  groundFloor: boolean;
+  noStairs: boolean;
+  accessibleBath: boolean;
+  cribSpace: boolean;
+  coSleepAllowed: boolean;
+  maxCoSleepers: number;
+}
+
+export interface CostRecord extends MathCost {
+  agePrices: AgePrices | null;
+  /** Travelers opted in to an optional item. */
+  optInTravelerIds: string[];
+}
+
+export const AGE_BANDS: AgeBand[] = ["adult", "teen", "child", "infant"];
+
+export function asAgeBand(value: string | null | undefined): AgeBand {
+  return value === "teen" || value === "child" || value === "infant" ? value : "adult";
+}
+
+export function asSplitMode(value: string | null | undefined): SplitMode {
+  return value === "even_per_traveler" || value === "even_per_party" ? value : "weighted_by_spot";
+}
+
+export function parseAgeWeights(value: string | null | undefined): AgeWeights {
+  if (!value) return { ...DEFAULT_AGE_WEIGHTS };
+  try {
+    const parsed = JSON.parse(value) as Partial<AgeWeights>;
+    const out = { ...DEFAULT_AGE_WEIGHTS };
+    for (const band of AGE_BANDS) {
+      const n = Number(parsed[band]);
+      if (Number.isFinite(n) && n >= 0) out[band] = n;
+    }
+    return out;
+  } catch {
+    return { ...DEFAULT_AGE_WEIGHTS };
+  }
+}
+
+/** bed-type default: co-sleep allowed on a king or queen. */
+export function defaultCoSleep(bedType: string): boolean {
+  const bed = bedType.toLowerCase();
+  return bed === "king" || bed === "queen";
+}
+
+export function honoreeRoleFor(style: string | null): string {
+  if (style === "bachelor") return "groom";
+  if (style === "bachelorette") return "bride";
+  return "other";
+}
+
+export function selfTravelerId(tripId: string, userId: string): string {
+  return `self_${tripId}_${userId}`;
 }
 
 export interface RawTrip {
@@ -92,14 +204,19 @@ export interface RawTrip {
     bookingConfirmation: string | null;
     actualLodgingTotal: number | null;
     bookedAt: string | null;
+    preWeddingStyle: string | null;
+    splitMode: SplitMode;
+    ageWeights: AgeWeights;
   };
-  spots: MathSpot[];
+  spots: SpotRecord[];
   claims: MathClaim[];
   members: MemberRecord[];
+  parties: PartyRecord[];
+  travelers: TravelerRecord[];
   polls: { id: string; kind: string; deadline: string; lockedOptionId: string | null }[];
   options: { id: string; pollId: string; label: string; estCost: number; link: string; sortOrder: number; lodgingEstimate: number | null; hidden: boolean }[];
   votes: { pollOptionId: string; userId: string }[];
-  costs: MathCost[];
+  costs: CostRecord[];
   costLabels: { id: string; label: string }[];
   milestones: MathMilestone[];
   payments: (MathPayment & { id: string; paidAt: string | null })[];
@@ -169,6 +286,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       role: tripMembers.role,
       status: tripMembers.status,
       committedAt: tripMembers.committedAt,
+      partyUserId: tripMembers.partyUserId,
     })
     .from(tripMembers)
     .innerJoin(users, eq(users.id, tripMembers.userId))
@@ -199,6 +317,109 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
   const claimRows = spotIds.length
     ? await db.select().from(spotClaims).where(inArray(spotClaims.spotId, spotIds))
     : [];
+  const partyRows = await db.select().from(parties).where(eq(parties.tripId, tripId));
+  const travelerRows = await db.select().from(travelers).where(eq(travelers.tripId, tripId));
+  const optInRows = costIds.length
+    ? await db.select().from(travelerOptIns).where(inArray(travelerOptIns.costItemId, costIds))
+    : [];
+
+  const ageWeights = parseAgeWeights(trip.ageWeights);
+  const members: MemberRecord[] = memberRows.map((member) => ({
+    userId: member.userId,
+    name: member.name,
+    contact: member.contact,
+    role: asRole(member.role),
+    status: asStatus(member.status),
+    committedAt: member.committedAt,
+    partyUserId: member.partyUserId || member.userId,
+  }));
+  const payers = members.filter((member) => member.partyUserId === member.userId);
+  const travelerList: TravelerRecord[] = [];
+  for (const payer of payers) {
+    const rows = travelerRows
+      .filter((row) => row.partyUserId === payer.userId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    if (rows.length === 0) {
+      travelerList.push({
+        id: selfTravelerId(tripId, payer.userId),
+        partyId: payer.userId,
+        name: payer.name,
+        ageBand: "adult",
+        isHonoree: payer.role === "honoree",
+        userId: payer.userId,
+        needsNotes: null,
+        honoreeRole: payer.role === "honoree" ? honoreeRoleFor(trip.preWeddingStyle) : null,
+        coSleepSpotId: null,
+        coSleep: false,
+        sortOrder: 0,
+        synthetic: true,
+      });
+      continue;
+    }
+    for (const row of rows) {
+      travelerList.push({
+        id: row.id,
+        partyId: payer.userId,
+        name: row.name,
+        ageBand: asAgeBand(row.ageBand),
+        isHonoree: row.isHonoree === 1,
+        userId: row.userId,
+        needsNotes: row.needsNotes,
+        honoreeRole: row.honoreeRole,
+        coSleepSpotId: row.coSleepSpotId,
+        coSleep: !!row.coSleepSpotId,
+        sortOrder: row.sortOrder,
+        synthetic: false,
+      });
+    }
+  }
+  const partyList: PartyRecord[] = payers.map((payer) => {
+    const row = partyRows.find((item) => item.payerUserId === payer.userId);
+    return {
+      payerUserId: payer.userId,
+      name: row?.name ?? payer.name.split(" ")[0] ?? payer.name,
+      shareComfort: row?.shareComfort === "no_share" || row?.shareComfort === "note_only" ? row.shareComfort : "any",
+      shareComfortNote: row?.shareComfortNote ?? null,
+    };
+  });
+  const honoreeExcluded = trip.honoreeExcludedFromSplit === 1;
+  /** A legacy per-person opt-in belongs to that payer's own traveler row. */
+  const selfOf = (userId: string) =>
+    travelerList.find((traveler) => traveler.partyId === userId && traveler.userId === userId) ??
+    travelerList.find((traveler) => traveler.partyId === userId);
+  const costList: CostRecord[] = costRows.map((cost) => {
+    const prices: AgePrices = {
+      adult: cost.agePriceAdult,
+      teen: cost.agePriceTeen,
+      child: cost.agePriceChild,
+      infant: cost.agePriceInfant,
+    };
+    const priced = hasAgePrices(prices);
+    const optInIds = new Set(optInRows.filter((row) => row.costItemId === cost.id).map((row) => row.travelerId));
+    for (const row of participantRows.filter((item) => item.costItemId === cost.id)) {
+      const self = selfOf(row.userId);
+      if (self) optInIds.add(self.id);
+    }
+    const optedIn = travelerList.filter((traveler) => optInIds.has(traveler.id));
+    const optional = cost.splitType === "optional";
+    return {
+      id: cost.id,
+      splitType: asSplit(cost.splitType),
+      category: cost.category,
+      amountCents: optional && priced ? agePricedAmount(optedIn, prices) : cost.amount,
+      memberId: cost.memberId,
+      participantIds: [...new Set(optedIn.map((traveler) => traveler.partyId))],
+      isLodging: cost.isLodging === 1,
+      lowEstimate: cost.lowEstimate,
+      highEstimate: cost.highEstimate,
+      agePrices: priced ? prices : null,
+      optInTravelerIds: optedIn.map((traveler) => traveler.id),
+      agePriced: optional && priced,
+      travelerShares: optional
+        ? travelerSharesFor({ optedIn, weights: ageWeights, honoreeExcluded, prices: priced ? prices : null })
+        : undefined,
+    };
+  });
 
   return {
     trip: {
@@ -220,30 +441,40 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       bookingConfirmation: trip.bookingConfirmation,
       actualLodgingTotal: trip.actualLodgingTotal,
       bookedAt: trip.bookedAt,
+      preWeddingStyle: trip.preWeddingStyle,
+      splitMode: asSplitMode(trip.splitMode),
+      ageWeights,
     },
-    spots: spotRows.map((spot) => ({
-      id: spot.id,
-      weight: spot.weight / 1000,
-      reservedForHonoree: spot.reservedForHonoree === 1,
-      sharingEnabled: spot.sharingEnabled === 1,
-      capacity: spot.capacity || 1,
-      sortOrder: spot.sortOrder || 0,
-      roomName: spot.roomName,
-      bedType: spot.bedType,
-    })),
+    spots: spotRows.map((spot) => {
+      const coSleepAllowed = spot.coSleepAllowed == null ? defaultCoSleep(spot.bedType) : spot.coSleepAllowed === 1;
+      return {
+        id: spot.id,
+        weight: spot.weight / 1000,
+        reservedForHonoree: spot.reservedForHonoree === 1,
+        sharingEnabled: spot.sharingEnabled === 1,
+        capacity: spot.capacity || 1,
+        sortOrder: spot.sortOrder || 0,
+        roomName: spot.roomName,
+        bedType: spot.bedType,
+        reservedForUserId: spot.reservedForUserId,
+        privateBath: spot.privateBath === 1,
+        privateRoom: spot.privateRoom === 1,
+        groundFloor: spot.groundFloor === 1,
+        noStairs: spot.noStairs === 1,
+        accessibleBath: spot.accessibleBath === 1,
+        cribSpace: spot.cribSpace === 1,
+        coSleepAllowed,
+        maxCoSleepers: spot.maxCoSleepers ?? (coSleepAllowed ? 1 : 0),
+      };
+    }),
     claims: claimRows.map((claim) => ({
       spotId: claim.spotId,
       userId: claim.userId,
       status: claim.status === "approved" || claim.status === "denied" ? claim.status : "pending" as const,
     })),
-    members: memberRows.map((member) => ({
-      userId: member.userId,
-      name: member.name,
-      contact: member.contact,
-      role: asRole(member.role),
-      status: asStatus(member.status),
-      committedAt: member.committedAt,
-    })),
+    members,
+    parties: partyList,
+    travelers: travelerList,
     polls: pollRows.map((poll) => ({
       id: poll.id,
       kind: poll.kind,
@@ -261,17 +492,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       hidden: option.hiddenByOrganizer === 1,
     })),
     votes: voteRows.map((vote) => ({ pollOptionId: vote.pollOptionId, userId: vote.userId })),
-    costs: costRows.map((cost) => ({
-      id: cost.id,
-      splitType: asSplit(cost.splitType),
-      category: cost.category,
-      amountCents: cost.amount,
-      memberId: cost.memberId,
-      participantIds: participantRows.filter((row) => row.costItemId === cost.id).map((row) => row.userId),
-      isLodging: cost.isLodging === 1,
-      lowEstimate: cost.lowEstimate,
-      highEstimate: cost.highEstimate,
-    })),
+    costs: costList,
     costLabels: costRows.map((cost) => ({ id: cost.id, label: cost.label })),
     milestones: milestoneRows.map((milestone) => ({
       id: milestone.id,
@@ -293,15 +514,30 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
   };
 }
 
-function mathMembers(raw: RawTrip): MathMember[] {
-  return raw.members.map((member) => ({
-    userId: member.userId,
-    role: member.role,
-    status: member.status,
-  }));
+export function isPayerMember(member: MemberRecord): boolean {
+  return member.partyUserId === member.userId;
 }
 
-function billInput(raw: RawTrip) {
+export function travelersOf(raw: RawTrip, partyUserId: string): TravelerRecord[] {
+  return raw.travelers.filter((traveler) => traveler.partyId === partyUserId);
+}
+
+/** One MathMember per paying party. Other account-holders on a party are not money units. */
+export function mathMembers(raw: RawTrip): MathMember[] {
+  return raw.members.filter(isPayerMember).map((member) => {
+    const mine = travelersOf(raw, member.userId);
+    return {
+      userId: member.userId,
+      role: member.role,
+      status: member.status,
+      committedAt: member.committedAt,
+      ageWeight: partyAgeWeight(mine, raw.trip.ageWeights, raw.trip.honoreeExcluded),
+      spotTravelers: partySpotTravelers(mine),
+    };
+  });
+}
+
+export function billInput(raw: RawTrip) {
   return {
     members: mathMembers(raw),
     costs: raw.costs,
@@ -309,6 +545,7 @@ function billInput(raw: RawTrip) {
     claims: raw.claims,
     payments: plainPayments(raw),
     booked: raw.trip.status === "booked",
+    splitMode: raw.trip.splitMode,
   };
 }
 
@@ -350,6 +587,7 @@ export async function persistMath(tripId: string) {
     }
   }
 
+  await syncLinkedMembers(tripId);
   const fresh = await readRaw(tripId);
   if (!fresh) return;
   if (outcome.refundBuyIns || fresh.trip.status === "under_minimum") await refundBuyIns(fresh);
@@ -358,6 +596,20 @@ export async function persistMath(tripId: string) {
     await syncOpenPayments(tripId, tripNow(fresh));
   } else {
     await clearUncollected(tripId);
+  }
+}
+
+/** Account-holders on a party follow their payer's commitment state. */
+async function syncLinkedMembers(tripId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return;
+  const db = getDb();
+  for (const linked of raw.members.filter((member) => !isPayerMember(member))) {
+    const payer = raw.members.find((member) => member.userId === linked.partyUserId);
+    if (!payer || payer.status === linked.status) continue;
+    await db.update(tripMembers)
+      .set({ status: payer.status })
+      .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, linked.userId)));
   }
 }
 
@@ -471,6 +723,8 @@ async function syncOpenPayments(tripId: string, now: string) {
           status: row.status,
           paidAt: null,
         })
+        // Two renders can reconcile the same trip at once; the second insert is a no-op.
+        .onConflictDoNothing()
         ;
     } else if (!lockedPayment.has(existing.status)) {
       if (existing.amountCents !== row.amountCents || existing.status !== row.status) {
@@ -501,15 +755,20 @@ export async function loadTrip(tripId: string) {
   return await readRaw(tripId);
 }
 
+/** Bump when a fixture changes shape. A stale demo trip is reset to the new seed. */
+const SEED_MARK = "bachelor";
+
 export async function ensureDemoSeed() {
   const db = getDb();
   const existing = (await db.select().from(trips).where(eq(trips.id, DEMO_TRIP_ID)))[0];
-  if (existing) {
-    const cabo = (await db.select().from(pollOptions).where(eq(pollOptions.id, "opt_cabo")))[0];
-    if (cabo) return;
-    await resetDemoTrip();
-    return;
-  }
+  if (!existing) await seedPreWedding();
+  else if (existing.preWeddingStyle !== SEED_MARK) await resetDemoTrip();
+  const lake = (await db.select({ id: trips.id }).from(trips).where(eq(trips.id, LAKE_TRIP_ID)))[0];
+  if (!lake) await seedLake();
+}
+
+async function seedPreWedding() {
+  const db = getDb();
   for (const user of demoUsers) await db.insert(users).values({ ...user }).onConflictDoNothing();
   await db.insert(trips).values({ ...demoTrip });
   for (const member of demoMembers) await db.insert(tripMembers).values({ tripId: DEMO_TRIP_ID, ...member });
@@ -546,85 +805,149 @@ export async function ensureDemoSeed() {
     });
   }
   for (const [userId, optionId, highCents] of demoQuotes) {
-    await db.insert(flightQuotes).values({ userId, optionId, highCents });
+    await db.insert(flightQuotes).values({ userId, optionId, highCents }).onConflictDoNothing();
   }
 }
 
+async function seedLake() {
+  const db = getDb();
+  const tripId = LAKE_TRIP_ID;
+  for (const user of lakeUsers) await db.insert(users).values({ ...user }).onConflictDoNothing();
+  await db.insert(trips).values({ ...lakeTrip });
+  for (const member of lakeMembers) await db.insert(tripMembers).values({ tripId, ...member });
+  for (const party of lakeParties) await db.insert(parties).values({ tripId, ...party });
+  for (const traveler of lakeTravelers) {
+    await db.insert(travelers).values({ tripId, ...traveler, isHonoree: 0, honoreeRole: null, coSleepSpotId: null });
+  }
+  for (const poll of lakePolls) await db.insert(polls).values({ tripId, ...poll });
+  for (const option of lakeOptions) await db.insert(pollOptions).values({ ...option });
+  for (const vote of lakeVotes) await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId });
+  for (const cost of lakeCosts) await db.insert(costItems).values({ tripId, ...cost });
+  for (const travelerId of lakeBoatRiders) {
+    await db.insert(travelerOptIns).values({ costItemId: "lake_cost_boat", travelerId });
+  }
+  for (const milestone of lakeMilestones) await db.insert(milestones).values({ tripId, ...milestone });
+  for (const payment of lakePayments) await db.insert(payments).values({ ...payment });
+  for (const spot of lakeSpots) await db.insert(sleepSpots).values({ tripId, ...spot });
+  for (const claim of lakeClaims) await db.insert(spotClaims).values(claim);
+  for (const budget of lakeBudgets) {
+    await db.insert(privateBudgets).values({ tripId, ...budget, updatedAt: "2026-11-15T18:00:00.000Z" });
+  }
+}
+
+/** Remove one trip and everything hanging off it. Users are kept. */
+async function wipeTrip(tripId: string) {
+  const db = getDb();
+  const pollIds = (await db.select().from(polls).where(eq(polls.tripId, tripId))).map((poll) => poll.id);
+  const optionIds = pollIds.length
+    ? (await db.select().from(pollOptions).where(inArray(pollOptions.pollId, pollIds))).map((option) => option.id)
+    : [];
+  const costIds = (await db.select().from(costItems).where(eq(costItems.tripId, tripId))).map((cost) => cost.id);
+  const milestoneIds = (await db.select().from(milestones).where(eq(milestones.tripId, tripId))).map((item) => item.id);
+  const spotIds = (await db.select().from(sleepSpots).where(eq(sleepSpots.tripId, tripId))).map((spot) => spot.id);
+  if (optionIds.length) await db.delete(votes).where(inArray(votes.pollOptionId, optionIds));
+  if (pollIds.length) await db.delete(pollOptions).where(inArray(pollOptions.pollId, pollIds));
+  await db.delete(polls).where(eq(polls.tripId, tripId));
+  if (costIds.length) {
+    await db.delete(costItemParticipants).where(inArray(costItemParticipants.costItemId, costIds));
+    await db.delete(travelerOptIns).where(inArray(travelerOptIns.costItemId, costIds));
+  }
+  await db.delete(costItems).where(eq(costItems.tripId, tripId));
+  if (milestoneIds.length) await db.delete(payments).where(inArray(payments.milestoneId, milestoneIds));
+  await db.delete(milestones).where(eq(milestones.tripId, tripId));
+  if (spotIds.length) await db.delete(spotClaims).where(inArray(spotClaims.spotId, spotIds));
+  await db.delete(spotRequests).where(eq(spotRequests.tripId, tripId));
+  await db.delete(sleepSpots).where(eq(sleepSpots.tripId, tripId));
+  await db.delete(privateBudgets).where(eq(privateBudgets.tripId, tripId));
+  await db.delete(tripEvents).where(eq(tripEvents.tripId, tripId));
+  await db.delete(travelers).where(eq(travelers.tripId, tripId));
+  await db.delete(parties).where(eq(parties.tripId, tripId));
+  await db.delete(tripMembers).where(eq(tripMembers.tripId, tripId));
+  await db.delete(trips).where(eq(trips.id, tripId));
+}
+
+/** Restores both seeded fixtures. Trips people created are untouched. */
 export async function resetDemoTrip() {
   const db = getDb();
-  const pollRows = await db.select().from(polls).where(eq(polls.tripId, DEMO_TRIP_ID));
-  const pollIds = pollRows.map((poll) => poll.id);
-  const optionRows = pollIds.length
-    ? await db.select().from(pollOptions).where(inArray(pollOptions.pollId, pollIds))
-    : [];
-  const costRows = await db.select().from(costItems).where(eq(costItems.tripId, DEMO_TRIP_ID));
-  const milestoneRows = await db.select().from(milestones).where(eq(milestones.tripId, DEMO_TRIP_ID));
-  if (optionRows.length) {
-    await db.delete(votes).where(inArray(votes.pollOptionId, optionRows.map((option) => option.id)));
-  }
-  if (pollIds.length) await db.delete(pollOptions).where(inArray(pollOptions.pollId, pollIds));
-  await db.delete(polls).where(eq(polls.tripId, DEMO_TRIP_ID));
-  if (costRows.length) {
-    await db.delete(costItemParticipants).where(
-      inArray(costItemParticipants.costItemId, costRows.map((cost) => cost.id)),
-    );
-  }
-  await db.delete(costItems).where(eq(costItems.tripId, DEMO_TRIP_ID));
-  if (milestoneRows.length) {
-    await db.delete(payments).where(inArray(payments.milestoneId, milestoneRows.map((milestone) => milestone.id)));
-  }
-  await db.delete(milestones).where(eq(milestones.tripId, DEMO_TRIP_ID));
-  const demoSpotIds = (await db.select().from(sleepSpots).where(eq(sleepSpots.tripId, DEMO_TRIP_ID))).map((spot) => spot.id);
-  if (demoSpotIds.length) await db.delete(spotClaims).where(inArray(spotClaims.spotId, demoSpotIds));
-  await db.delete(spotRequests).where(eq(spotRequests.tripId, DEMO_TRIP_ID));
-  await db.delete(sleepSpots).where(eq(sleepSpots.tripId, DEMO_TRIP_ID));
+  await wipeTrip(DEMO_TRIP_ID);
+  await wipeTrip(LAKE_TRIP_ID);
   await db.delete(flightQuotes).where(inArray(flightQuotes.userId, demoUsers.map((user) => user.id)));
-  await db.delete(privateBudgets).where(eq(privateBudgets.tripId, DEMO_TRIP_ID));
-  await db.delete(tripEvents).where(eq(tripEvents.tripId, DEMO_TRIP_ID));
-  await db.delete(tripMembers).where(eq(tripMembers.tripId, DEMO_TRIP_ID));
-  await db.delete(trips).where(eq(trips.id, DEMO_TRIP_ID));
-  await ensureDemoSeed();
+  await seedPreWedding();
+  await seedLake();
   return { ok: true };
+}
+
+export type TripType = "pre_wedding" | "family";
+export type PreWeddingStyle = "bachelor" | "bachelorette" | "joint";
+export type HonoreeRole = "bride" | "groom" | "birthday" | "other";
+
+function defaultPartyName(fullName: string, tripType: string): string {
+  const words = fullName.trim().split(/\s+/);
+  if (tripType === "family" && words.length > 1) return words[words.length - 1] ?? fullName;
+  return words[0] ?? fullName;
 }
 
 export async function createTrip(input: {
   name: string;
   organizerName: string;
   organizerContact: string;
-  honoreeName: string;
-  honoreeContact: string;
+  tripType: TripType;
+  preWeddingStyle: PreWeddingStyle | null;
+  honorees: { name: string; contact: string; role: HonoreeRole }[];
   dateWindow: string;
 }) {
   const db = getDb();
   const tripId = crypto.randomUUID();
   const organizerId = crypto.randomUUID();
-  const honoreeId = crypto.randomUUID();
   const now = Date.now();
-  await db.insert(users).values([
-    { id: organizerId, name: input.organizerName, contact: input.organizerContact },
-    { id: honoreeId, name: input.honoreeName, contact: input.honoreeContact },
-  ]);
+  const honorees = input.honorees.map((honoree) => ({ ...honoree, id: crypto.randomUUID() }));
+  await db.insert(users).values({ id: organizerId, name: input.organizerName, contact: input.organizerContact });
+  for (const honoree of honorees) {
+    await db.insert(users).values({ id: honoree.id, name: honoree.name, contact: honoree.contact });
+  }
   await db.insert(trips).values({
     id: tripId,
     name: input.name,
-    tripType: "bachelor",
+    tripType: input.tripType,
+    preWeddingStyle: input.tripType === "pre_wedding" ? (input.preWeddingStyle ?? "joint") : null,
     organizerId,
-    guestOfHonorUserId: honoreeId,
+    guestOfHonorUserId: honorees[0]?.id ?? "",
     dateWindow: input.dateWindow,
     status: "voting",
     buyInAmount: 0,
     buyInDeadline: null,
-    minHeadcount: 5,
-    maxHeadcount: 8,
+    minHeadcount: input.tripType === "family" ? 3 : 5,
+    maxHeadcount: input.tripType === "family" ? 12 : 10,
     bedChangePolicy: "member_requests",
-    honoreeExcludedFromSplit: 1,
+    // Default on when at least one honoree is named; ignored when there are none.
+    honoreeExcludedFromSplit: honorees.length > 0 ? 1 : 0,
     inviteToken: crypto.randomBytes(9).toString("base64url"),
     simulatedNow: null,
   });
-  await db.insert(tripMembers).values([
-    { tripId, userId: organizerId, role: "organizer", status: "joined", committedAt: null },
-    { tripId, userId: honoreeId, role: "honoree", status: "committed", committedAt: new Date().toISOString() },
-  ]);
+  await db.insert(tripMembers).values({ tripId, userId: organizerId, role: "organizer", status: "joined", committedAt: null, partyUserId: null });
+  await db.insert(parties).values({ tripId, payerUserId: organizerId, name: defaultPartyName(input.organizerName, input.tripType) });
+  for (const honoree of honorees) {
+    // An honoree-only party: in the trip, buy-in waived, never dropped.
+    await db.insert(tripMembers).values({
+      tripId,
+      userId: honoree.id,
+      role: "honoree",
+      status: "committed",
+      committedAt: new Date().toISOString(),
+      partyUserId: null,
+    });
+    await db.insert(parties).values({ tripId, payerUserId: honoree.id, name: defaultPartyName(honoree.name, input.tripType) });
+    await db.insert(travelers).values({
+      id: crypto.randomUUID(),
+      tripId,
+      partyUserId: honoree.id,
+      name: honoree.name,
+      ageBand: "adult",
+      userId: honoree.id,
+      isHonoree: 1,
+      honoreeRole: honoree.role,
+    });
+  }
   const kinds = ["destination", "dates", "activity"] as const;
   for (let index = 0; index < kinds.length; index += 1) {
     const kind = kinds[index];
@@ -664,7 +987,7 @@ export async function joinTrip(input: {
         ;
     }
     await db.update(users).set({ name: input.name }).where(eq(users.id, existing.userId));
-    return { ok: true, tripId: raw.trip.id, userId: existing.userId };
+    return { ok: true, tripId: raw.trip.id, userId: existing.userId, isNew: false };
   }
 
   if (raw.trip.status === "cancelled") return { ok: false, error: "This trip was cancelled." };
@@ -675,9 +998,11 @@ export async function joinTrip(input: {
   const userId = crypto.randomUUID();
   await db.insert(users).values({ id: userId, name: input.name, contact: input.contact.trim() });
   await db.insert(tripMembers)
-    .values({ tripId: raw.trip.id, userId, role: "member", status: "joined", committedAt: null })
+    .values({ tripId: raw.trip.id, userId, role: "member", status: "joined", committedAt: null, partyUserId: null })
     ;
-  return { ok: true, tripId: raw.trip.id, userId };
+  // A solo joiner is a party of one adult. They can add people on the party screen.
+  await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: userId, name: defaultPartyName(input.name, raw.trip.tripType) });
+  return { ok: true, tripId: raw.trip.id, userId, isNew: true };
 }
 
 function memberOf(raw: RawTrip, userId: string): MemberRecord | undefined {
@@ -775,6 +1100,7 @@ export async function addCost(input: {
   splitType: SplitType;
   amountCents: number;
   memberId: string | null;
+  agePrices?: AgePrices | null;
 }) {
   const raw = await readRaw(input.tripId);
   if (!raw) return { ok: false, error: "Trip not found." };
@@ -786,9 +1112,12 @@ export async function addCost(input: {
   }
   let memberId: string | null = null;
   if (input.splitType === "individual") {
-    memberId = actor.role === "organizer" ? input.memberId : actor.userId;
-    if (!memberId || !memberOf(raw, memberId)) return { ok: false, error: "Pick who pays this." };
+    const chosen = actor.role === "organizer" ? input.memberId : actor.userId;
+    // An individual item belongs to a party, so it lands on the party's payer.
+    memberId = chosen ? (memberOf(raw, chosen)?.partyUserId ?? null) : null;
+    if (!memberId) return { ok: false, error: "Pick who pays this." };
   }
+  const prices = input.splitType !== "individual" && hasAgePrices(input.agePrices) ? input.agePrices : null;
   await getDb().insert(costItems).values({
     id: crypto.randomUUID(),
     tripId: input.tripId,
@@ -798,6 +1127,10 @@ export async function addCost(input: {
     amount: input.amountCents,
     memberId,
     isLodging: input.category === "lodging" && input.splitType === "shared" ? 1 : 0,
+    agePriceAdult: prices?.adult ?? null,
+    agePriceTeen: prices?.teen ?? null,
+    agePriceChild: prices?.child ?? null,
+    agePriceInfant: prices?.infant ?? null,
   });
   await persistMath(input.tripId);
   return { ok: true };
@@ -819,23 +1152,43 @@ export async function deleteCost(tripId: string, userId: string, costId: string)
 }
 
 export async function toggleOptional(tripId: string, userId: string, costId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const member = memberOf(raw, userId);
+  const self = raw.travelers.find((traveler) => traveler.userId === userId) ?? raw.travelers.find((traveler) => traveler.partyId === member?.partyUserId);
+  if (!self) return { ok: false, error: "You're not paying on this trip." };
+  return await toggleTravelerOptIn(tripId, userId, costId, self.id);
+}
+
+/** The payer (or the organizer) opts one traveler in or out of an optional item. */
+export async function toggleTravelerOptIn(tripId: string, actorId: string, costId: string, travelerId: string) {
   await persistMath(tripId);
   const raw = await readRaw(tripId);
   if (!raw) return { ok: false, error: "Trip not found." };
   if (raw.trip.status !== "buy_in_open") {
     return { ok: false, error: "You can opt in or out only while buy-in is open." };
   }
-  const member = memberOf(raw, userId);
-  if (!member || !isPotentialPayer(member)) return { ok: false, error: "You're not paying on this trip." };
+  const actor = memberOf(raw, actorId);
+  const traveler = raw.travelers.find((item) => item.id === travelerId);
+  if (!actor || !traveler) return { ok: false, error: "That person isn't on this trip." };
+  const payer = memberOf(raw, traveler.partyId);
+  if (!payer || !isPotentialPayer(payer)) return { ok: false, error: "That party isn't paying on this trip." };
+  if (actor.role !== "organizer" && actor.partyUserId !== traveler.partyId) {
+    return { ok: false, error: "Only that party's payer can change their opt-ins." };
+  }
   const cost = raw.costs.find((item) => item.id === costId);
   if (!cost || cost.splitType !== "optional") return { ok: false, error: "That isn't an optional cost." };
+  await materializeParty(raw, traveler.partyId);
   const db = getDb();
-  if (cost.participantIds.includes(userId)) {
-    await db.delete(costItemParticipants)
-      .where(and(eq(costItemParticipants.costItemId, costId), eq(costItemParticipants.userId, userId)))
-      ;
+  if (cost.optInTravelerIds.includes(travelerId)) {
+    await db.delete(travelerOptIns)
+      .where(and(eq(travelerOptIns.costItemId, costId), eq(travelerOptIns.travelerId, travelerId)));
+    if (traveler.userId) {
+      await db.delete(costItemParticipants)
+        .where(and(eq(costItemParticipants.costItemId, costId), eq(costItemParticipants.userId, traveler.userId)));
+    }
   } else {
-    await db.insert(costItemParticipants).values({ costItemId: costId, userId });
+    await db.insert(travelerOptIns).values({ costItemId: costId, travelerId }).onConflictDoNothing();
   }
   await persistMath(tripId);
   return { ok: true };
@@ -857,7 +1210,7 @@ export async function saveBuyIn(input: {
     return { ok: false, error: "The buy-in amount and deadline lock after the first person commits." };
   }
   if (input.amountCents <= 0) return { ok: false, error: "Set a buy-in greater than zero." };
-  if (input.minHeadcount < 2) return { ok: false, error: "Minimum crew has to include the guest of honor and at least one payer." };
+  if (input.minHeadcount < 1) return { ok: false, error: "The trip needs at least one paying party to book." };
   const db = getDb();
   await db.update(trips)
     .set({
@@ -929,7 +1282,11 @@ export async function payMilestone(tripId: string, userId: string, milestoneId: 
   if (!member || member.status === "off_trip" || member.status === "invited") {
     return { ok: false, error: "You're not paying on this trip." };
   }
-  if (isHonoree(member)) return { ok: false, error: "The guest of honor doesn't pay a buy-in. The crew covers that share." };
+  if (isHonoree(member)) return { ok: false, error: "The guest of honor doesn't pay a buy-in. The group covers that share." };
+  if (!isPayerMember(member)) {
+    const payer = memberOf(raw, member.partyUserId);
+    return { ok: false, error: `${payer?.name ?? "Your party's payer"} pays for your party.` };
+  }
   const milestone = raw.milestones.find((item) => item.id === milestoneId);
   if (!milestone) return { ok: false, error: "That payment doesn't exist." };
   if (milestone.kind !== "buy_in" && raw.trip.status !== "booking_ready" && !isBooked(raw.trip.status)) {
@@ -941,10 +1298,10 @@ export async function payMilestone(tripId: string, userId: string, milestoneId: 
   if (
     milestone.kind === "buy_in" &&
     RULES.blockBuyInWhenNoUnclaimedSpot &&
-    unclaimedSpots(raw.spots, raw.claims) === 0 &&
-    !raw.claims.some((claim) => claim.userId === userId && claim.status === "approved")
+    !raw.claims.some((claim) => claim.userId === userId && claim.status === "approved") &&
+    !roomForParty(raw, userId)
   ) {
-    return { ok: false, error: "No free bed or open share slot. The organizer has to add a spot or approve a share first." };
+    return { ok: false, error: "There isn't room for everyone in your party. The organizer has to add a spot or approve a share first." };
   }
   const existing = raw.payments.find((payment) => payment.milestoneId === milestoneId && payment.userId === userId);
   if (existing?.status === "paid") return { ok: true };
@@ -1000,6 +1357,7 @@ export async function removeLateMember(tripId: string, actorId: string, userId: 
   if (!member) return { ok: false, error: "That person isn't on this trip." };
   if (member.role === "organizer") return { ok: false, error: "The organizer stays on the trip." };
   if (isHonoree(member)) return { ok: false, error: "The guest of honor is never dropped." };
+  if (!isPayerMember(member)) return { ok: false, error: "Drop the party through its payer." };
   if (member.status !== "committed") return { ok: false, error: "They're not a committed payer." };
   const now = tripNow(raw);
   const bill = settledBills(billInput(raw)).find((item) => item.userId === userId);
@@ -1031,6 +1389,7 @@ export async function removeLateMember(tripId: string, actorId: string, userId: 
   if (held.length) {
     await db.delete(spotClaims).where(and(inArray(spotClaims.spotId, held), eq(spotClaims.userId, userId)));
   }
+  await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, userId)));
   await persistMath(tripId);
   return { ok: true };
 }
@@ -1076,17 +1435,36 @@ export async function setClock(tripId: string, iso: string | null) {
   return { ok: true };
 }
 
-export async function claimSpot(tripId: string, userId: string, spotId: string) {
+/** Free space for a party that has no claim yet: a share slot fits one, a room fits a family. */
+function roomForParty(raw: RawTrip, partyUserId: string): boolean {
+  const need = Math.max(1, partySpotTravelers(travelersOf(raw, partyUserId)));
+  if (need <= 1 && unclaimedSpots(raw.spots.filter((spot) => !spot.reservedForUserId || spot.reservedForUserId === partyUserId), raw.claims) > 0) {
+    return true;
+  }
+  const free = raw.spots
+    .filter((spot) => !spot.reservedForHonoree && (!spot.reservedForUserId || spot.reservedForUserId === partyUserId))
+    .filter((spot) => !raw.claims.some((claim) => claim.spotId === spot.id && claim.status === "approved"))
+    .reduce((sum, spot) => sum + partySleeps(spot), 0);
+  return free >= need;
+}
+
+function spotHeldForOther(spot: SpotRecord, partyUserId: string): boolean {
+  return !!spot.reservedForUserId && spot.reservedForUserId !== partyUserId;
+}
+
+export async function claimSpot(tripId: string, userId: string, spotId: string, acceptShareDisclosure = false) {
   const raw = await readRaw(tripId);
   if (!raw) return { ok: false, error: "Trip not found." };
   if (raw.trip.status === "cancelled") return { ok: false, error: "This trip was cancelled." };
   const actor = memberOf(raw, userId);
   const spot = raw.spots.find((item) => item.id === spotId);
   if (!actor || !spot) return { ok: false, error: "That bed isn't on this trip." };
+  const party = actor.partyUserId;
   if (spot.reservedForHonoree) return { ok: false, error: "That room is reserved for the guest of honor." };
   const isOrganizer = actor.role === "organizer";
+  if (spotHeldForOther(spot, party) && !isOrganizer) return { ok: false, error: "That room is reserved." };
   const approvedHere = raw.claims.filter((claim) => claim.spotId === spotId && claim.status === "approved");
-  const openShare = spot.sharingEnabled && approvedHere.length > 0 && approvedHere.length < (spot.capacity || 2);
+  const openShare = spot.sharingEnabled && approvedHere.length > 0 && approvedHere.length < (spot.capacity || 2) && !approvedHere.some((claim) => claim.userId === party);
   const empty = approvedHere.length === 0;
   if (!isOrganizer && (raw.trip.bedChangePolicy === "locked" || raw.trip.status === "booked")) {
     return await requestSpot({
@@ -1099,14 +1477,75 @@ export async function claimSpot(tripId: string, userId: string, spotId: string) 
   if (!isOrganizer && !empty && !openShare) {
     return await requestSpot({ tripId, userId, toSpotId: spotId, type: approvedHere.length ? "share" : "switch" });
   }
+  if (empty && spot.sharingEnabled && !acceptShareDisclosure && !isOrganizer) {
+    return { ok: false, error: "This bed may be shared with another party. Tick the box to accept that, or pick another bed." };
+  }
   const db = getDb();
   if (!openShare) {
-    await db.delete(spotClaims).where(and(eq(spotClaims.userId, userId), inArray(spotClaims.spotId, raw.spots.map((item) => item.id))));
+    // A solo pick replaces the party's other claims. A whole-room claim uses claimRoom.
+    await db.delete(spotClaims).where(and(eq(spotClaims.userId, party), inArray(spotClaims.spotId, raw.spots.map((item) => item.id))));
+    await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
   }
-  await db.insert(spotClaims).values({ spotId, userId, status: "approved" }).onConflictDoUpdate({
+  await db.insert(spotClaims).values({ spotId, userId: party, status: "approved" }).onConflictDoUpdate({
     target: [spotClaims.spotId, spotClaims.userId],
     set: { status: "approved" },
   });
+  return { ok: true };
+}
+
+/** A party takes every spot in a room as a unit. No share approval inside a party. */
+export async function claimRoom(tripId: string, userId: string, roomName: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  if (raw.trip.status === "cancelled") return { ok: false, error: "This trip was cancelled." };
+  const actor = memberOf(raw, userId);
+  if (!actor) return { ok: false, error: "Join the trip first." };
+  const party = actor.partyUserId;
+  const room = raw.spots.filter((spot) => (spot.roomName ?? spot.id) === roomName);
+  if (room.length === 0) return { ok: false, error: "That room isn't on this trip." };
+  const isOrganizer = actor.role === "organizer";
+  if (room.some((spot) => spot.reservedForHonoree)) return { ok: false, error: "That room is reserved for the guest of honor." };
+  if (!isOrganizer && room.some((spot) => spotHeldForOther(spot, party))) return { ok: false, error: "That room is reserved." };
+  if (!isOrganizer && (raw.trip.bedChangePolicy === "locked" || raw.trip.status === "booked")) {
+    return { ok: false, error: "Room moves go through the organizer right now. Ask them from the approvals queue." };
+  }
+  const takenByOthers = raw.claims.some(
+    (claim) => claim.status === "approved" && claim.userId !== party && room.some((spot) => spot.id === claim.spotId),
+  );
+  if (takenByOthers) return { ok: false, error: "Someone else already has a bed in that room." };
+  const db = getDb();
+  await db.delete(spotClaims).where(and(eq(spotClaims.userId, party), inArray(spotClaims.spotId, raw.spots.map((item) => item.id))));
+  await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
+  for (const spot of room) {
+    await db.insert(spotClaims).values({ spotId: spot.id, userId: party, status: "approved" }).onConflictDoUpdate({
+      target: [spotClaims.spotId, spotClaims.userId],
+      set: { status: "approved" },
+    });
+  }
+  return { ok: true };
+}
+
+/** Attach a traveler at $0 to a spot their own party already claims. */
+export async function setCoSleep(tripId: string, actorId: string, travelerId: string, spotId: string | null) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const actor = memberOf(raw, actorId);
+  const traveler = raw.travelers.find((item) => item.id === travelerId);
+  if (!actor || !traveler) return { ok: false, error: "That person isn't on this trip." };
+  if (actor.role !== "organizer" && actor.partyUserId !== traveler.partyId) return { ok: false, error: "Only your own party." };
+  if (spotId) {
+    const spot = raw.spots.find((item) => item.id === spotId);
+    if (!spot) return { ok: false, error: "That bed isn't on this trip." };
+    if (!raw.claims.some((claim) => claim.spotId === spotId && claim.userId === traveler.partyId && claim.status === "approved")) {
+      return { ok: false, error: "Co-sleeping only works in a bed your party already has." };
+    }
+    if (!spot.coSleepAllowed) return { ok: false, error: "The organizer turned off co-sleeping in that bed." };
+    const already = raw.travelers.filter((item) => item.coSleepSpotId === spotId && item.id !== travelerId).length;
+    if (already >= spot.maxCoSleepers) return { ok: false, error: "That bed already has as many co-sleepers as the organizer allows." };
+  }
+  await materializeParty(raw, traveler.partyId);
+  await getDb().update(travelers).set({ coSleepSpotId: spotId }).where(eq(travelers.id, travelerId));
+  await persistMath(tripId);
   return { ok: true };
 }
 
@@ -1123,15 +1562,16 @@ export async function requestSpot(input: {
   if (actor.role !== "organizer" && raw.trip.bedChangePolicy === "locked" && raw.trip.status !== "booked") {
     return { ok: false, error: "Beds are locked. Only the organizer can move people." };
   }
-  const mine = raw.claims.find((claim) => claim.userId === input.userId && claim.status === "approved");
-  const target = raw.claims.find((claim) => claim.spotId === input.toSpotId && claim.status === "approved" && claim.userId !== input.userId);
+  const party = actor.partyUserId;
+  const mine = raw.claims.find((claim) => claim.userId === party && claim.status === "approved");
+  const target = raw.claims.find((claim) => claim.spotId === input.toSpotId && claim.status === "approved" && claim.userId !== party);
   await getDb().insert(spotRequests).values({
     id: crypto.randomUUID(),
     tripId: input.tripId,
     type: input.type,
     fromSpotId: mine?.spotId ?? null,
     toSpotId: input.toSpotId,
-    requesterUserId: input.userId,
+    requesterUserId: party,
     counterpartUserId: target?.userId ?? null,
     status: "pending",
     createdAt: tripNow(raw),
@@ -1152,6 +1592,10 @@ export async function resolveSpotRequest(tripId: string, userId: string, request
     await getDb().update(spotRequests).set({ status: "denied" }).where(eq(spotRequests.id, requestId));
     return { ok: true };
   }
+  const spot = raw.spots.find((item) => item.id === request.toSpotId);
+  if (request.type === "share" && request.counterpartUserId && !spot?.sharingEnabled && request.counterpartOptedIn !== 1) {
+    return { ok: false, error: "The other party hasn't opted in to sharing yet. Both parties have to say yes." };
+  }
   const db = getDb();
   if (request.type === "switch" && request.fromSpotId) {
     await db.delete(spotClaims).where(and(eq(spotClaims.spotId, request.fromSpotId), eq(spotClaims.userId, request.requesterUserId)));
@@ -1165,6 +1609,18 @@ export async function resolveSpotRequest(tripId: string, userId: string, request
     set: { status: "approved" },
   });
   await db.update(spotRequests).set({ status: "approved" }).where(eq(spotRequests.id, requestId));
+  return { ok: true };
+}
+
+/** The party already in the bed says yes to a share request. */
+export async function optInToShare(tripId: string, userId: string, requestId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const actor = memberOf(raw, userId);
+  const request = (await getDb().select().from(spotRequests).where(eq(spotRequests.id, requestId)))[0];
+  if (!actor || !request || request.tripId !== tripId) return { ok: false, error: "That request is gone." };
+  if (request.counterpartUserId !== actor.partyUserId) return { ok: false, error: "Only the party in that bed can opt in." };
+  await getDb().update(spotRequests).set({ counterpartOptedIn: 1 }).where(eq(spotRequests.id, requestId));
   return { ok: true };
 }
 
@@ -1182,10 +1638,12 @@ export async function releaseSpot(tripId: string, userId: string, spotId: string
   const actor = memberOf(raw, userId);
   const spot = raw.spots.find((item) => item.id === spotId);
   if (!actor || !spot || spot.reservedForHonoree) return { ok: false, error: "That bed can't be released." };
-  if (actor.role !== "organizer" && !raw.claims.some((claim) => claim.spotId === spotId && claim.userId === userId)) {
-    return { ok: false, error: "You can only give up your own bed." };
+  const party = actor.partyUserId;
+  if (!raw.claims.some((claim) => claim.spotId === spotId && claim.userId === party)) {
+    return { ok: false, error: "You can only give up your own party's bed." };
   }
-  await getDb().delete(spotClaims).where(and(eq(spotClaims.spotId, spotId), eq(spotClaims.userId, actor.role === "organizer" ? userId : userId)));
+  await getDb().delete(spotClaims).where(and(eq(spotClaims.spotId, spotId), eq(spotClaims.userId, party)));
+  await getDb().update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.coSleepSpotId, spotId)));
   return { ok: true };
 }
 
@@ -1198,22 +1656,84 @@ export async function addSpot(input: {
   privateRoom: boolean;
   weight: number;
   reservedForHonoree: boolean;
+  allowSharing: boolean;
+  groundFloor: boolean;
+  noStairs: boolean;
+  accessibleBath: boolean;
+  cribSpace: boolean;
 }) {
   const raw = await requireOrganizer(input.tripId, input.userId);
   if ("ok" in raw) return raw;
+  const bed = input.bedType.toLowerCase().replace(/\s+/g, "_");
+  const big = bed === "king" || bed === "queen";
   await getDb().insert(sleepSpots).values({
     id: crypto.randomUUID(),
     tripId: input.tripId,
     roomName: input.roomName,
-    bedType: input.bedType,
+    bedType: bed,
     privateBath: input.privateBath ? 1 : 0,
     privateRoom: input.privateRoom ? 1 : 0,
     weight: Math.round(input.weight * 1000),
-    capacity: input.bedType.toLowerCase() === "king" || input.bedType.toLowerCase() === "queen" ? 2 : 1,
-    sharingEnabled: input.bedType.toLowerCase() === "king" || input.bedType.toLowerCase() === "queen" ? 1 : 0,
+    capacity: big && input.allowSharing ? 2 : 1,
+    sharingEnabled: big && input.allowSharing ? 1 : 0,
     sortOrder: 99,
     reservedForHonoree: input.reservedForHonoree ? 1 : 0,
+    groundFloor: input.groundFloor ? 1 : 0,
+    noStairs: input.noStairs ? 1 : 0,
+    accessibleBath: input.accessibleBath ? 1 : 0,
+    cribSpace: input.cribSpace ? 1 : 0,
   });
+  return { ok: true };
+}
+
+/** Organizer: accessibility flags, a hold for one party, and co-sleep limits on every spot in a room. */
+export async function updateRoom(input: {
+  tripId: string;
+  userId: string;
+  roomName: string;
+  groundFloor: boolean;
+  noStairs: boolean;
+  accessibleBath: boolean;
+  cribSpace: boolean;
+  reservedForUserId: string | null;
+  coSleepAllowed: boolean;
+  maxCoSleepers: number;
+}) {
+  const raw = await requireOrganizer(input.tripId, input.userId);
+  if ("ok" in raw) return raw;
+  const room = raw.spots.filter((spot) => (spot.roomName ?? spot.id) === input.roomName);
+  if (room.length === 0) return { ok: false, error: "That room isn't on this trip." };
+  if (input.reservedForUserId && !raw.members.some((member) => member.userId === input.reservedForUserId && isPayerMember(member))) {
+    return { ok: false, error: "Hold a room for a party on this trip." };
+  }
+  const db = getDb();
+  for (const spot of room) {
+    await db.update(sleepSpots).set({
+      groundFloor: input.groundFloor ? 1 : 0,
+      noStairs: input.noStairs ? 1 : 0,
+      accessibleBath: input.accessibleBath ? 1 : 0,
+      cribSpace: input.cribSpace ? 1 : 0,
+      reservedForUserId: input.reservedForUserId,
+      coSleepAllowed: input.coSleepAllowed ? 1 : 0,
+      maxCoSleepers: input.coSleepAllowed ? Math.max(0, Math.min(4, input.maxCoSleepers)) : 0,
+    }).where(eq(sleepSpots.id, spot.id));
+  }
+  return { ok: true };
+}
+
+/** Organizer: assign a whole room to a party, e.g. to approve an accessibility hold before picks open. */
+export async function assignRoom(tripId: string, userId: string, roomName: string, partyUserId: string) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  const party = raw.members.find((member) => member.userId === partyUserId && isPayerMember(member));
+  if (!party) return { ok: false, error: "Pick a party on this trip." };
+  const room = raw.spots.filter((spot) => (spot.roomName ?? spot.id) === roomName);
+  const db = getDb();
+  for (const spot of room) {
+    await db.delete(spotClaims).where(eq(spotClaims.spotId, spot.id));
+    await db.insert(spotClaims).values({ spotId: spot.id, userId: partyUserId, status: "approved" });
+  }
+  await persistMath(tripId);
   return { ok: true };
 }
 
@@ -1254,6 +1774,7 @@ export async function saveBudget(input: {
   if (!raw) return { ok: false, error: "Trip not found." };
   const member = memberOf(raw, input.userId);
   if (!member) return { ok: false, error: "Join the trip first." };
+  if (!isPayerMember(member)) return { ok: false, error: "Your party's payer sets the party budget." };
   if (member.status === "committed" || member.status === "off_trip") {
     return { ok: false, error: "Your budget locks once you buy in." };
   }
@@ -1318,4 +1839,210 @@ export async function jumpPastSecondPayment(tripId: string) {
   if (!installment) return { ok: false, error: "There isn't a second payment yet." };
   const jump = new Date(new Date(installment.dueDate).getTime() + 86_400_000).toISOString();
   return await setClock(tripId, jump);
+}
+
+/** Turn a read-only "party of one" into real traveler rows before the first edit. */
+async function materializeParty(raw: RawTrip, partyUserId: string) {
+  const synthetic = travelersOf(raw, partyUserId).filter((traveler) => traveler.synthetic);
+  const db = getDb();
+  for (const traveler of synthetic) {
+    await db.insert(travelers).values({
+      id: traveler.id,
+      tripId: raw.trip.id,
+      partyUserId,
+      name: traveler.name,
+      ageBand: traveler.ageBand,
+      userId: traveler.userId,
+      needsNotes: null,
+      isHonoree: traveler.isHonoree ? 1 : 0,
+      honoreeRole: traveler.honoreeRole,
+      coSleepSpotId: null,
+      sortOrder: 0,
+    }).onConflictDoNothing();
+  }
+  const hasRow = (await db.select().from(parties).where(and(eq(parties.tripId, raw.trip.id), eq(parties.payerUserId, partyUserId))))[0];
+  if (!hasRow) {
+    const party = raw.parties.find((item) => item.payerUserId === partyUserId);
+    await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: partyUserId, name: party?.name ?? "Party" });
+  }
+}
+
+/** The payer manages their own party. The organizer can edit any party. */
+function canEditParty(raw: RawTrip, actorId: string, partyUserId: string): boolean {
+  const actor = memberOf(raw, actorId);
+  if (!actor) return false;
+  return actor.role === "organizer" || actor.userId === partyUserId;
+}
+
+export async function saveParty(input: {
+  tripId: string;
+  actorId: string;
+  partyUserId: string;
+  name: string;
+  shareComfort: ShareComfort;
+  shareComfortNote: string;
+}) {
+  const raw = await readRaw(input.tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  if (!canEditParty(raw, input.actorId, input.partyUserId)) return { ok: false, error: "Only the party's payer or the organizer can edit this." };
+  if (!input.name.trim()) return { ok: false, error: "Give the party a name." };
+  await materializeParty(raw, input.partyUserId);
+  await getDb().update(parties).set({
+    name: input.name.trim(),
+    shareComfort: input.shareComfort,
+    shareComfortNote: input.shareComfortNote.trim() || null,
+  }).where(and(eq(parties.tripId, input.tripId), eq(parties.payerUserId, input.partyUserId)));
+  return { ok: true };
+}
+
+export async function addTraveler(input: {
+  tripId: string;
+  actorId: string;
+  partyUserId: string;
+  name: string;
+  ageBand: AgeBand;
+  needsNotes: string;
+}) {
+  const raw = await readRaw(input.tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  if (!canEditParty(raw, input.actorId, input.partyUserId)) return { ok: false, error: "Only the party's payer or the organizer can add people." };
+  const payer = memberOf(raw, input.partyUserId);
+  if (!payer || payer.status === "off_trip" || payer.status === "declined") return { ok: false, error: "That party is off the trip." };
+  if (raw.trip.status === "cancelled") return { ok: false, error: "This trip was cancelled." };
+  if (!input.name.trim()) return { ok: false, error: "Add a name." };
+  const onTrip = raw.travelers.filter((traveler) => {
+    const member = memberOf(raw, traveler.partyId);
+    return member && member.status !== "off_trip" && member.status !== "declined";
+  }).length;
+  if (onTrip >= raw.trip.maxHeadcount) {
+    return { ok: false, error: `The trip is capped at ${raw.trip.maxHeadcount} travelers. Ask the organizer to raise the cap.` };
+  }
+  await materializeParty(raw, input.partyUserId);
+  await getDb().insert(travelers).values({
+    id: crypto.randomUUID(),
+    tripId: input.tripId,
+    partyUserId: input.partyUserId,
+    name: input.name.trim(),
+    ageBand: input.ageBand,
+    userId: null,
+    needsNotes: input.needsNotes.trim() || null,
+    isHonoree: 0,
+    honoreeRole: null,
+    sortOrder: travelersOf(raw, input.partyUserId).length,
+  });
+  await persistMath(input.tripId);
+  await recordEvent(input.tripId, input.actorId, "traveler_added", input.ageBand);
+  return { ok: true };
+}
+
+export async function updateTraveler(input: {
+  tripId: string;
+  actorId: string;
+  travelerId: string;
+  name: string;
+  ageBand: AgeBand;
+  needsNotes: string;
+}) {
+  const raw = await readRaw(input.tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const traveler = raw.travelers.find((item) => item.id === input.travelerId);
+  if (!traveler) return { ok: false, error: "That person isn't on this trip." };
+  if (!canEditParty(raw, input.actorId, traveler.partyId)) return { ok: false, error: "Only the party's payer or the organizer can edit this." };
+  await materializeParty(raw, traveler.partyId);
+  await getDb().update(travelers).set({
+    name: input.name.trim() || traveler.name,
+    ageBand: input.ageBand,
+    needsNotes: input.needsNotes.trim() || null,
+  }).where(eq(travelers.id, input.travelerId));
+  const payer = memberOf(raw, traveler.partyId);
+  if (traveler.ageBand !== input.ageBand && payer?.status === "committed") {
+    // A late band change re-prices per-head shares now; the organizer can see that it happened.
+    await recordEvent(input.tripId, input.actorId, "age_band_changed_after_buy_in", `${traveler.ageBand}->${input.ageBand}`);
+  }
+  await persistMath(input.tripId);
+  return { ok: true };
+}
+
+export async function removeTraveler(tripId: string, actorId: string, travelerId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const traveler = raw.travelers.find((item) => item.id === travelerId);
+  if (!traveler) return { ok: false, error: "That person isn't on this trip." };
+  if (!canEditParty(raw, actorId, traveler.partyId)) return { ok: false, error: "Only the party's payer or the organizer can remove people." };
+  if (traveler.userId === traveler.partyId) return { ok: false, error: "The payer stays on their own party." };
+  if (traveler.userId) return { ok: false, error: "This person has their own login. They stay on the party." };
+  const db = getDb();
+  await db.delete(travelerOptIns).where(eq(travelerOptIns.travelerId, travelerId));
+  await db.delete(travelers).where(eq(travelers.id, travelerId));
+  await persistMath(tripId);
+  return { ok: true };
+}
+
+/**
+ * Lodging split mode. Free to switch before any buy-in. After one, every committed
+ * paying party has to have acknowledged the before/after (recorded by the organizer).
+ */
+export async function setSplitMode(tripId: string, userId: string, mode: SplitMode, acknowledged: boolean) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  if (mode === raw.trip.splitMode) return { ok: true };
+  const anyPaid = raw.payments.some((payment) => payment.status === "paid");
+  if (anyPaid && !acknowledged) {
+    return {
+      ok: false,
+      error: "Someone has already bought in, so the split is locked. Show every committed party the before/after, then confirm they agreed.",
+    };
+  }
+  await getDb().update(trips).set({ splitMode: mode }).where(eq(trips.id, tripId));
+  await recordEvent(tripId, userId, "split_mode_changed", `${raw.trip.splitMode}->${mode}${anyPaid ? " (acknowledged)" : ""}`);
+  await persistMath(tripId);
+  return { ok: true };
+}
+
+export async function setAgeWeights(tripId: string, userId: string, weights: AgeWeights) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  for (const band of AGE_BANDS) {
+    if (!Number.isFinite(weights[band]) || weights[band] < 0 || weights[band] > 2) {
+      return { ok: false, error: "Each weight has to be between 0 and 2." };
+    }
+  }
+  await getDb().update(trips).set({ ageWeights: JSON.stringify(weights) }).where(eq(trips.id, tripId));
+  await persistMath(tripId);
+  return { ok: true };
+}
+
+export async function setHonoreeExclusion(tripId: string, userId: string, excluded: boolean) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  if (buyInTermsLocked(raw)) return { ok: false, error: "This locks once someone has bought in." };
+  await getDb().update(trips).set({ honoreeExcludedFromSplit: excluded ? 1 : 0 }).where(eq(trips.id, tripId));
+  await persistMath(tripId);
+  return { ok: true };
+}
+
+export async function setHeadcounts(tripId: string, userId: string, minPayers: number, maxTravelers: number) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  if (!Number.isInteger(minPayers) || minPayers < 1) return { ok: false, error: "The minimum has to be at least one paying party." };
+  if (!Number.isInteger(maxTravelers) || maxTravelers < 1) return { ok: false, error: "Set a traveler cap." };
+  const onTrip = raw.travelers.filter((traveler) => {
+    const member = memberOf(raw, traveler.partyId);
+    return member && member.status !== "off_trip" && member.status !== "declined";
+  }).length;
+  if (maxTravelers < onTrip) return { ok: false, error: `${onTrip} travelers are already on the trip.` };
+  await getDb().update(trips).set({ minHeadcount: minPayers, maxHeadcount: maxTravelers }).where(eq(trips.id, tripId));
+  if (raw.trip.status === "under_minimum" && raw.members.filter(isCommittedPayer).length >= minPayers) {
+    // 6.5: lowering the minimum so |P| meets it moves the trip to booking_ready.
+    await getDb().update(trips).set({ status: "booking_ready" }).where(eq(trips.id, tripId));
+    const buyIn = raw.milestones.find((milestone) => milestone.kind === "buy_in");
+    for (const payment of raw.payments) {
+      if (buyIn && payment.milestoneId === buyIn.id && payment.status === "refunded") {
+        const member = memberOf(raw, payment.userId);
+        if (member?.status === "committed") await getDb().update(payments).set({ status: "paid" }).where(eq(payments.id, payment.id));
+      }
+    }
+  }
+  await persistMath(tripId);
+  return { ok: true };
 }

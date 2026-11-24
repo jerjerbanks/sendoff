@@ -25,7 +25,46 @@ export const trips = sqliteTable("trips", {
   bookingConfirmation: text("booking_confirmation"),
   actualLodgingTotal: integer("actual_lodging_total"),
   bookedAt: text("booked_at"),
+  preWeddingStyle: text("pre_wedding_style"),
+  splitMode: text("split_mode").notNull().default("weighted_by_spot"),
+  ageWeights: text("age_weights"),
 });
+
+/** One per paying party. Keyed by the payer's user id. */
+export const parties = sqliteTable(
+  "parties",
+  {
+    tripId: text("trip_id").notNull(),
+    payerUserId: text("payer_user_id").notNull(),
+    name: text("name").notNull(),
+    shareComfort: text("share_comfort").notNull().default("any"),
+    shareComfortNote: text("share_comfort_note"),
+  },
+  (table) => [primaryKey({ columns: [table.tripId, table.payerUserId] })],
+);
+
+export const travelers = sqliteTable("travelers", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull(),
+  partyUserId: text("party_user_id").notNull(),
+  name: text("name").notNull(),
+  ageBand: text("age_band").notNull().default("adult"),
+  userId: text("user_id"),
+  needsNotes: text("needs_notes"),
+  isHonoree: integer("is_honoree").notNull().default(0),
+  honoreeRole: text("honoree_role"),
+  coSleepSpotId: text("co_sleep_spot_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const travelerOptIns = sqliteTable(
+  "traveler_opt_ins",
+  {
+    costItemId: text("cost_item_id").notNull(),
+    travelerId: text("traveler_id").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.costItemId, table.travelerId] })],
+);
 
 export const sleepSpots = sqliteTable("sleep_spots", {
   id: text("id").primaryKey(),
@@ -39,6 +78,13 @@ export const sleepSpots = sqliteTable("sleep_spots", {
   sharingEnabled: integer("sharing_enabled").notNull(),
   reservedForHonoree: integer("reserved_for_honoree").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  groundFloor: integer("ground_floor").notNull().default(0),
+  noStairs: integer("no_stairs").notNull().default(0),
+  accessibleBath: integer("accessible_bath").notNull().default(0),
+  cribSpace: integer("crib_space").notNull().default(0),
+  reservedForUserId: text("reserved_for_user_id"),
+  coSleepAllowed: integer("co_sleep_allowed"),
+  maxCoSleepers: integer("max_co_sleepers"),
 });
 
 export const spotRequests = sqliteTable("spot_requests", {
@@ -49,6 +95,7 @@ export const spotRequests = sqliteTable("spot_requests", {
   toSpotId: text("to_spot_id").notNull(),
   requesterUserId: text("requester_user_id").notNull(),
   counterpartUserId: text("counterpart_user_id"),
+  counterpartOptedIn: integer("counterpart_opted_in").notNull().default(0),
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
 });
@@ -71,6 +118,7 @@ export const tripMembers = sqliteTable(
     role: text("role").notNull(),
     status: text("status").notNull(),
     committedAt: text("committed_at"),
+    partyUserId: text("party_user_id"),
   },
   (table) => [primaryKey({ columns: [table.tripId, table.userId] })],
 );
@@ -115,6 +163,10 @@ export const costItems = sqliteTable("cost_items", {
   homeAirport: text("home_airport"),
   lowEstimate: integer("low_estimate"),
   highEstimate: integer("high_estimate"),
+  agePriceAdult: integer("age_price_adult"),
+  agePriceTeen: integer("age_price_teen"),
+  agePriceChild: integer("age_price_child"),
+  agePriceInfant: integer("age_price_infant"),
 });
 
 export const privateBudgets = sqliteTable(

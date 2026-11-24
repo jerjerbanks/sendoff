@@ -35,7 +35,26 @@ import {
   simulateDeadline,
   toggleOptional,
   toggleVote,
+  addTraveler,
+  asAgeBand,
+  asSplitMode,
+  assignRoom,
+  claimRoom,
+  optInToShare,
+  removeTraveler,
+  saveParty,
+  setAgeWeights,
+  setCoSleep,
+  setHeadcounts,
+  setHonoreeExclusion,
+  setSplitMode,
+  toggleTravelerOptIn,
+  updateRoom,
+  updateTraveler,
+  type HonoreeRole,
+  type PreWeddingStyle,
 } from "@/lib/store";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "@/lib/constants";
 
 function fail(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -57,19 +76,36 @@ function dollars(formData: FormData, key: string): number | null {
   return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
+function honoreeRole(value: string): HonoreeRole {
+  return value === "bride" || value === "groom" || value === "birthday" ? value : "other";
+}
+
 export async function createTripAction(formData: FormData) {
   const name = text(formData, "name");
   const organizerName = text(formData, "organizerName");
   const organizerContact = text(formData, "organizerContact");
-  const honoreeName = text(formData, "honoreeName");
-  const honoreeContact = text(formData, "honoreeContact");
   const dateWindow = text(formData, "dateWindow");
-  if (!name || !organizerName || !organizerContact || !honoreeName || !honoreeContact || !dateWindow) {
-    fail("/", "Fill in the trip, both people, and a rough date window.");
+  const tripType = text(formData, "tripType") === "family" ? "family" : "pre_wedding";
+  const styleRaw = text(formData, "preWeddingStyle");
+  const preWeddingStyle: PreWeddingStyle | null =
+    tripType === "pre_wedding" ? (styleRaw === "bachelor" || styleRaw === "bachelorette" ? styleRaw : "joint") : null;
+  if (!name || !organizerName || !organizerContact || !dateWindow) {
+    fail("/", "Fill in the trip name, your name and contact, and a rough date window.");
   }
-  const created = await createTrip({ name, organizerName, organizerContact, honoreeName, honoreeContact, dateWindow });
+  // 0..n guests of honor. A row counts once it has a name.
+  const honorees: { name: string; contact: string; role: HonoreeRole }[] = [];
+  for (const index of [1, 2]) {
+    const honoreeName = text(formData, `honoree${index}Name`);
+    if (!honoreeName) continue;
+    honorees.push({
+      name: honoreeName,
+      contact: text(formData, `honoree${index}Contact`) || `${honoreeName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+      role: honoreeRole(text(formData, `honoree${index}Role`)),
+    });
+  }
+  const created = await createTrip({ name, organizerName, organizerContact, tripType, preWeddingStyle, honorees, dateWindow });
   await setViewerCookie(created.organizerId);
-  redirect(`/trip/${created.tripId}`);
+  redirect(`/trip/${created.tripId}/party?welcome=1`);
 }
 
 export async function joinTripAction(formData: FormData) {
@@ -82,7 +118,8 @@ export async function joinTripAction(formData: FormData) {
     fail(`/join/${token}`, result.ok ? "Could not join." : result.error ?? "Could not join.");
   }
   await setViewerCookie(result.userId);
-  redirect(`/trip/${result.tripId}/budget`);
+  // S18 then S17: confirm the party and its travelers, then the private budget.
+  redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
 }
 
 export async function switchUserAction(formData: FormData) {
@@ -152,7 +189,22 @@ export async function addCostAction(formData: FormData) {
       splitType,
       amountCents: amount,
       memberId: text(formData, "memberId") || null,
+      agePrices: {
+        adult: dollars(formData, "priceAdult"),
+        teen: dollars(formData, "priceTeen"),
+        child: dollars(formData, "priceChild"),
+        infant: dollars(formData, "priceInfant"),
+      },
     }),
+    `/trip/${tripId}/costs`,
+  );
+}
+
+export async function travelerOptAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await toggleTravelerOptIn(tripId, text(formData, "userId"), text(formData, "costId"), text(formData, "travelerId")),
     `/trip/${tripId}/costs`,
   );
 }
@@ -236,7 +288,53 @@ export async function resetClockAction(formData: FormData) {
 export async function claimSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = text(formData, "userId");
-  done(tripId, await claimSpot(tripId, userId, text(formData, "spotId")), `/trip/${tripId}/spots`);
+  done(tripId, await claimSpot(tripId, userId, text(formData, "spotId"), text(formData, "acceptShare") === "yes"), `/trip/${tripId}/spots`);
+}
+
+export async function claimRoomAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await claimRoom(tripId, text(formData, "userId"), text(formData, "roomName")), `/trip/${tripId}/spots`);
+}
+
+export async function coSleepAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const spotId = text(formData, "spotId") || null;
+  done(tripId, await setCoSleep(tripId, text(formData, "userId"), text(formData, "travelerId"), spotId), `/trip/${tripId}/spots`);
+}
+
+export async function optInShareAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await optInToShare(tripId, text(formData, "userId"), text(formData, "requestId")), `/trip/${tripId}/spots`);
+}
+
+export async function updateRoomAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const yes = (key: string) => text(formData, key) === "yes";
+  done(
+    tripId,
+    await updateRoom({
+      tripId,
+      userId: text(formData, "userId"),
+      roomName: text(formData, "roomName"),
+      groundFloor: yes("groundFloor"),
+      noStairs: yes("noStairs"),
+      accessibleBath: yes("accessibleBath"),
+      cribSpace: yes("cribSpace"),
+      reservedForUserId: text(formData, "reservedFor") || null,
+      coSleepAllowed: yes("coSleepAllowed"),
+      maxCoSleepers: Number(text(formData, "maxCoSleepers") || "1"),
+    }),
+    `/trip/${tripId}/sleep`,
+  );
+}
+
+export async function assignRoomAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await assignRoom(tripId, text(formData, "userId"), text(formData, "roomName"), text(formData, "partyUserId")),
+    `/trip/${tripId}/sleep`,
+  );
 }
 
 export async function releaseSpotAction(formData: FormData) {
@@ -261,6 +359,11 @@ export async function addSpotAction(formData: FormData) {
       privateRoom: text(formData, "privateRoom") === "yes",
       weight,
       reservedForHonoree: text(formData, "reserved") === "yes",
+      allowSharing: text(formData, "allowSharing") === "yes",
+      groundFloor: text(formData, "groundFloor") === "yes",
+      noStairs: text(formData, "noStairs") === "yes",
+      accessibleBath: text(formData, "accessibleBath") === "yes",
+      cribSpace: text(formData, "cribSpace") === "yes",
     }),
     `/trip/${tripId}/sleep`,
   );
@@ -304,7 +407,7 @@ export async function saveBudgetAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const amount = dollars(formData, "maxAllIn");
   if (amount === null) fail(`/trip/${tripId}/budget`, "Enter an all-in number.");
-  const musts = ["golf", "own_room", "nightlife", "other"].filter((item) => formData.get(item) === "yes");
+  const musts = ["golf", "own_room", "nightlife", "ground_floor", "crib_space", "other"].filter((item) => formData.get(item) === "yes");
   done(
     tripId,
     await saveBudget({
@@ -335,8 +438,98 @@ export async function hideOptionAction(formData: FormData) {
 
 export async function resetDemoAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  if (!demoResetAllowed() || tripId !== "trip_demo") {
-    fail(`/trip/${tripId}`, "Demo reset is only for the seeded trip.");
+  if (!demoResetAllowed() || (tripId !== DEMO_TRIP_ID && tripId !== LAKE_TRIP_ID)) {
+    fail(`/trip/${tripId}`, "Demo reset is only for the seeded trips.");
   }
   done(tripId, await resetDemoTrip(), `/trip/${tripId}`);
+}
+
+export async function savePartyAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const comfort = text(formData, "shareComfort");
+  const result = await saveParty({
+    tripId,
+    actorId: text(formData, "userId"),
+    partyUserId: text(formData, "partyUserId"),
+    name: text(formData, "name"),
+    shareComfort: comfort === "no_share" || comfort === "note_only" ? comfort : "any",
+    shareComfortNote: text(formData, "shareComfortNote"),
+  });
+  done(tripId, result, `/trip/${tripId}/party`);
+  if (text(formData, "next") === "budget") redirect(`/trip/${tripId}/budget?welcome=1`);
+}
+
+export async function addTravelerAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await addTraveler({
+      tripId,
+      actorId: text(formData, "userId"),
+      partyUserId: text(formData, "partyUserId"),
+      name: text(formData, "name"),
+      ageBand: asAgeBand(text(formData, "ageBand")),
+      needsNotes: text(formData, "needsNotes"),
+    }),
+    `/trip/${tripId}/party`,
+  );
+}
+
+export async function updateTravelerAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await updateTraveler({
+      tripId,
+      actorId: text(formData, "userId"),
+      travelerId: text(formData, "travelerId"),
+      name: text(formData, "name"),
+      ageBand: asAgeBand(text(formData, "ageBand")),
+      needsNotes: text(formData, "needsNotes"),
+    }),
+    `/trip/${tripId}/party`,
+  );
+}
+
+export async function removeTravelerAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await removeTraveler(tripId, text(formData, "userId"), text(formData, "travelerId")), `/trip/${tripId}/party`);
+}
+
+export async function splitModeAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await setSplitMode(tripId, text(formData, "userId"), asSplitMode(text(formData, "splitMode")), text(formData, "acknowledged") === "yes"),
+    `/trip/${tripId}/settings`,
+  );
+}
+
+export async function ageWeightsAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const num = (key: string) => Number(text(formData, key));
+  done(
+    tripId,
+    await setAgeWeights(tripId, text(formData, "userId"), {
+      adult: num("adult"),
+      teen: num("teen"),
+      child: num("child"),
+      infant: num("infant"),
+    }),
+    `/trip/${tripId}/settings`,
+  );
+}
+
+export async function honoreeExclusionAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await setHonoreeExclusion(tripId, text(formData, "userId"), text(formData, "excluded") === "yes"), `/trip/${tripId}/settings`);
+}
+
+export async function headcountsAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await setHeadcounts(tripId, text(formData, "userId"), Number(text(formData, "minPayers")), Number(text(formData, "maxTravelers"))),
+    `/trip/${tripId}/settings`,
+  );
 }
