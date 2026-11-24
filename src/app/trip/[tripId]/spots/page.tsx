@@ -1,4 +1,4 @@
-import { claimSpotAction, releaseSpotAction } from "@/app/actions";
+import { claimSpotAction, releaseSpotAction, requestSpotAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
@@ -21,7 +21,10 @@ export default async function SpotPickerPage({
       <div>
         <h2 className="font-serif text-3xl">Pick a bed</h2>
         <p className="mt-1 text-sm text-muted">
-          With member requests, asking for a bed files a pending claim. The organizer approves it. Locked mode lets only the organizer assign beds.
+          {view.bedChangePolicy === "locked"
+            ? "Beds are locked. Only the organizer assigns them."
+            : "Take an open bed, or ask to share a bed that is not already open for sharing. The organizer approves that request."}
+          {view.status === "booked" ? " The stay is booked, so every move needs approval and rebases the price." : ""}
         </p>
       </div>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
@@ -36,14 +39,23 @@ export default async function SpotPickerPage({
               <p className="text-sm text-muted">
                 {spot.reservedForHonoree ? "Reserved for the guest of honor" : name || "Open"}{spot.sharingEnabled ? " · can share" : ""}
               </p>
-              {view.viewer && view.status !== "booked" && !spot.reservedForHonoree ? (
-                <div className="mt-3 flex gap-2">
+              {view.viewer && !spot.reservedForHonoree ? (
+                <div className="mt-3 flex flex-wrap gap-2">
                   <form action={claimSpotAction}>
                     <input type="hidden" name="tripId" value={view.id} />
                     <input type="hidden" name="userId" value={view.viewer.userId} />
                     <input type="hidden" name="spotId" value={spot.id} />
-                    <SubmitButton variant="secondary">{holders.some((claim) => claim.userId === view.viewer?.userId) ? "Update claim" : "Request this bed"}</SubmitButton>
+                    <SubmitButton variant="secondary">{spot.sharingEnabled && holders.length > 0 ? "Share this bed" : "Take this bed"}</SubmitButton>
                   </form>
+                  {view.bedChangePolicy === "member_requests" ? (
+                    <form action={requestSpotAction}>
+                      <input type="hidden" name="tripId" value={view.id} />
+                      <input type="hidden" name="userId" value={view.viewer.userId} />
+                      <input type="hidden" name="spotId" value={spot.id} />
+                      <input type="hidden" name="type" value={holders.length > 0 ? "share" : "switch"} />
+                      <SubmitButton variant="outline">{holders.length > 0 ? "Ask to share" : "Ask to switch"}</SubmitButton>
+                    </form>
+                  ) : null}
                   {holders.some((claim) => claim.userId === view.viewer?.userId) ? (
                     <form action={releaseSpotAction}>
                       <input type="hidden" name="tripId" value={view.id} />

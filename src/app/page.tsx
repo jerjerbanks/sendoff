@@ -19,7 +19,7 @@ export default async function HomePage({
       </h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
         Vote the city, see what each person owes, and collect a buy-in that is part of the share — not a
-        fee on top. If someone bails after the trip locks in, their payment stays in the pot and the rest of
+        fee on top. It stays refundable until the stay is booked. After that, a late drop leaves the buy-in in the pot and the rest of
         the crew splits what&apos;s left.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

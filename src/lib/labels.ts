@@ -10,7 +10,8 @@ export function statusLabel(status: MemberStatus): string {
   if (status === "invited") return "Invited";
   if (status === "joined") return "Not committed";
   if (status === "committed") return "Committed";
-  return "Off the trip";
+  if (status === "declined") return "Declined";
+  return "Dropped";
 }
 
 export function tripStatusLabel(status: TripStatus): string {
@@ -31,7 +32,9 @@ export function pollKindLabel(kind: string): string {
 
 export function categoryLabel(category: string): string {
   if (category === "lodging") return "Lodging";
-  if (category === "flight") return "Flight";
+  if (category === "flight" || category === "flights") return "Flight";
+  if (category === "tee_times") return "Tee times";
+  if (category === "activities") return "Activities";
   if (category === "activity") return "Activity";
   if (category === "golf") return "Golf";
   if (category === "food") return "Food";

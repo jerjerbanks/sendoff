@@ -46,11 +46,11 @@ export default async function PayPage({
           <p className="text-xs font-semibold uppercase tracking-wide text-accent">Commit your spot</p>
           <h3 className="mt-1 font-serif text-4xl">{money(view.buyInAmountCents)}</h3>
           <p className="mt-2 text-sm leading-relaxed">
-            This is the first slice of your share, not a fee on top. It is <strong>non-refundable once the trip locks in</strong>.
+            This is the first slice of your share, not a fee on top. It is <strong>refundable until the stay is booked</strong>, and forfeited if you drop after that.
           </p>
           <ul className="mt-3 grid gap-2 text-sm">
             <li>You get it back only if the crew misses the minimum of {view.minHeadcount}, or the organizer cancels.</li>
-            <li>If you drop after lock-in, this payment is forfeited. It reduces the base pool, and everyone else&apos;s share goes up.</li>
+            <li>If you drop after the stay is booked, this payment is forfeited. It reduces lodging first, and everyone else&apos;s share goes up.</li>
             <li>The deadline is {view.buyInDeadline ? formatWhen(view.buyInDeadline) : "not set"}. Miss it and you&apos;re off, with no way back.</li>
           </ul>
           <form action={payAction} className="mt-4 grid gap-3">
@@ -60,7 +60,7 @@ export default async function PayPage({
             <input type="hidden" name="kind" value="buy_in" />
             <label className="flex items-start gap-2 text-sm">
               <input className="mt-1" type="checkbox" name="ack" value="yes" required />
-              I understand. After the trip locks in, this buy-in is not refunded.
+              I understand. This buy-in comes back only if the stay is never booked. After booking, it is not refunded.
             </label>
             <SubmitButton pendingLabel="Marking paid…">Pay {money(view.buyInAmountCents)} (test)</SubmitButton>
             <p className="text-xs text-muted">Test payment. No card is charged.</p>

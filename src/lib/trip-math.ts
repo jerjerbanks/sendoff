@@ -1,17 +1,18 @@
 /**
- * Bachelor-party money, spec v1.1.
+ * Bachelor-party money, spec v1.2.
  *
- * One lodging line splits by claimed bed weight:
- *   L_i = S_lodge * w_i / W_P
- * W_P is the sum of weights claimed by payers. The guest of honor's reserved
- * spot is not in W_P. An unclaimed spot adds nothing. Other shared costs split
- * evenly. Optional items split only across opted-in payers. After the stay is
- * booked, a forfeited buy-in pays down the lodging pool before the weight split.
- * Each component is rounded to the nearest dollar.
+ * Lodging splits by effective bed weight. Sharers split that bed's weight.
+ * The honoree's reserved room is outside W_P unless a payer is sharing it,
+ * in which case only the payer's slice counts. Other shared costs, including
+ * the honoree's own flight, split evenly. Optional items split only across
+ * opted-in payers. A forfeited buy-in, after booking, pays down lodging first.
+ * The shared piece (lodging + even + optional) rounds UP to the next dollar.
+ * Flights and other individual items are added after that and are not rounded.
+ * The extra dollars stay in the trip pot.
  */
 
 export type Role = "organizer" | "member" | "honoree";
-export type MemberStatus = "invited" | "joined" | "committed" | "off_trip";
+export type MemberStatus = "invited" | "joined" | "committed" | "off_trip" | "declined";
 export type TripStatus =
   | "planning"
   | "voting"
@@ -30,6 +31,8 @@ export interface MathMember {
   role: Role;
   status: MemberStatus;
   committedAt?: string | null;
+  /** Order for people who have not bought in yet. Lower picks the next bed. */
+  forecastOrder?: number;
 }
 
 export interface MathCost {
@@ -50,8 +53,11 @@ export interface MathSpot {
   id: string;
   weight: number;
   reservedForHonoree: boolean;
-  /** King/queen beds can be shared by two members when this is on. */
+  /** Members may take an open second slot without a request. */
   sharingEnabled: boolean;
+  /** 1 or 2. A second occupant needs capacity 2. */
+  capacity: number;
+  sortOrder?: number;
   roomName?: string;
   bedType?: string;
 }
@@ -92,10 +98,18 @@ export interface PersonBill {
 export interface SensitivityRow {
   payers: number;
   totalCents: number;
+  expanded: boolean;
 }
 
-export function nearestDollarCents(dollars: number): number {
-  return Math.round(dollars) * 100;
+export interface ForecastExtra {
+  userId: string;
+  individualCents: number;
+}
+
+/** Already-whole dollars stay put. Anything above a dollar rounds up. */
+export function roundUpDollarCents(cents: number): number {
+  if (!Number.isFinite(cents) || cents <= 0) return 0;
+  return Math.ceil(cents / 100 - 1e-9) * 100;
 }
 
 export function isHonoree(member: MathMember): boolean {
@@ -118,9 +132,14 @@ export function buyInStillRefundable(status: TripStatus): boolean {
   return status !== "booked" && status !== "cancelled";
 }
 
-export function sharedEvenCents(costs: MathCost[]): number {
+export function sharedEvenCents(costs: MathCost[], honoreeIds: string[] = []): number {
+  const honorees = new Set(honoreeIds);
   return costs
-    .filter((cost) => cost.splitType === "shared" && !cost.isLodging)
+    .filter((cost) => {
+      if (cost.isLodging) return false;
+      if (cost.splitType === "shared") return true;
+      return cost.splitType === "individual" && !!cost.memberId && honorees.has(cost.memberId);
+    })
     .reduce((sum, cost) => sum + cost.amountCents, 0);
 }
 
@@ -134,7 +153,11 @@ export function forfeitedCents(payments: MathPayment[]): number {
     .reduce((sum, payment) => sum + payment.amountCents, 0);
 }
 
-/** Approved claims only. Sharers on a sharing-enabled bed each take an equal slice of its weight. */
+export function bedCapacity(spot: MathSpot): number {
+  return Math.max(1, spot.capacity || (spot.sharingEnabled ? 2 : 1));
+}
+
+/** Approved claims only. Every occupant, including the honoree, splits the bed's weight. */
 export function claimedWeight(
   spots: MathSpot[],
   claims: MathClaim[],
@@ -142,25 +165,25 @@ export function claimedWeight(
 ): { userId: string; weight: number }[] {
   const bySpot = new Map<string, string[]>();
   for (const claim of claims) {
-    if (claim.status !== "approved" || !payerIds.has(claim.userId)) continue;
+    if (claim.status !== "approved") continue;
     const list = bySpot.get(claim.spotId) ?? [];
     list.push(claim.userId);
     bySpot.set(claim.spotId, list);
   }
   const resolved: { userId: string; weight: number }[] = [];
   for (const spot of spots) {
-    if (spot.reservedForHonoree) continue;
-    const holders = (bySpot.get(spot.id) ?? []).slice().sort();
-    const counted = spot.sharingEnabled ? holders.slice(0, 2) : holders.slice(0, 1);
-    if (counted.length === 0) continue;
-    const slice = spot.weight / counted.length;
-    for (const userId of counted) resolved.push({ userId, weight: slice });
+    const holders = (bySpot.get(spot.id) ?? []).slice().sort().slice(0, bedCapacity(spot));
+    if (holders.length === 0) continue;
+    const slice = spot.weight / holders.length;
+    for (const userId of holders) {
+      if (!payerIds.has(userId)) continue;
+      resolved.push({ userId, weight: slice });
+    }
   }
   return resolved;
 }
 
-/** Weight-split lodging, nearest dollar per payer. The honoree's bed and empty beds add nothing. */
-export function lodgingShares(
+export function rawLodgingCents(
   lodgeCents: number,
   spots: MathSpot[],
   claims: MathClaim[],
@@ -172,36 +195,16 @@ export function lodgingShares(
   const map = new Map<string, number>();
   for (const id of payerIds) map.set(id, 0);
   if (lodgeCents <= 0 || weightSum <= 0) return map;
-  const dollars = lodgeCents / 100;
   for (const claim of resolved) {
-    const previous = (map.get(claim.userId) ?? 0) / 100;
-    map.set(claim.userId, nearestDollarCents(previous + (dollars * claim.weight) / weightSum));
+    map.set(claim.userId, (map.get(claim.userId) ?? 0) + (lodgeCents * claim.weight) / weightSum);
   }
   return map;
 }
 
-export function evenShareCents(totalCents: number, count: number): number {
-  if (count <= 0 || totalCents <= 0) return 0;
-  return nearestDollarCents(totalCents / 100 / count);
-}
-
-export function optionalShareCents(costs: MathCost[], payerIds: string[]): Map<string, number> {
-  const payers = new Set(payerIds);
-  const map = new Map<string, number>();
-  for (const id of payerIds) map.set(id, 0);
-  for (const cost of costs) {
-    if (cost.splitType !== "optional") continue;
-    const sharing = cost.participantIds.filter((id) => payers.has(id));
-    if (sharing.length === 0) continue;
-    const each = evenShareCents(cost.amountCents, sharing.length);
-    for (const id of sharing) map.set(id, (map.get(id) ?? 0) + each);
-  }
-  return map;
-}
-
-export function individualCentsFor(costs: MathCost[], userId: string): number {
+export function individualCentsFor(costs: MathCost[], userId: string, honoreeIds: string[] = []): number {
+  const honorees = new Set(honoreeIds);
   return costs
-    .filter((cost) => cost.splitType === "individual" && cost.memberId === userId)
+    .filter((cost) => cost.splitType === "individual" && cost.memberId === userId && !honorees.has(userId))
     .reduce((sum, cost) => sum + cost.amountCents, 0);
 }
 
@@ -223,36 +226,86 @@ export function billsFor(args: {
   claims: MathClaim[];
   payerIds: string[];
   booked: boolean;
+  lodgeOverrideCents?: number | null;
+  extras?: ForecastExtra[];
 }): PersonBill[] {
   const payerIds = [...new Set(args.payerIds)];
-  const even = evenShareCents(sharedEvenCents(args.costs), payerIds.length);
-  const lodge = lodgingShares(
-    lodgingBasisCents(args.costs, args.payments, args.booked),
-    args.spots,
-    args.claims,
-    payerIds,
-  );
-  const optional = optionalShareCents(args.costs, payerIds);
+  const honoreeIds = args.members.filter(isHonoree).map((member) => member.userId);
   const payerSet = new Set(payerIds);
+  const evenPool = sharedEvenCents(args.costs, honoreeIds);
+  const evenRaw = payerIds.length > 0 ? evenPool / payerIds.length : 0;
+  const lodgeBase =
+    args.lodgeOverrideCents != null
+      ? Math.max(0, args.lodgeOverrideCents - (args.booked ? forfeitedCents(args.payments) : 0))
+      : lodgingBasisCents(args.costs, args.payments, args.booked);
+  const lodge = rawLodgingCents(lodgeBase, args.spots, args.claims, payerIds);
+  const optional = new Map<string, number>();
+  for (const id of payerIds) optional.set(id, 0);
+  for (const cost of args.costs) {
+    if (cost.splitType !== "optional") continue;
+    const sharing = cost.participantIds.filter((id) => payerSet.has(id));
+    if (sharing.length === 0) continue;
+    const each = cost.amountCents / sharing.length;
+    for (const id of sharing) optional.set(id, (optional.get(id) ?? 0) + each);
+  }
+  const extraFlight = new Map((args.extras ?? []).map((extra) => [extra.userId, extra.individualCents]));
+  const known = new Set(args.members.map((member) => member.userId));
   const bills: PersonBill[] = [];
+  const emit = (userId: string, paying: boolean) => {
+    const lodgingRaw = paying ? (lodge.get(userId) ?? 0) : 0;
+    const optionalRaw = paying ? (optional.get(userId) ?? 0) : 0;
+    const evenPart = paying ? evenRaw : 0;
+    const shared = roundUpDollarCents(lodgingRaw + evenPart + optionalRaw);
+    const shownEven = Math.round(evenPart);
+    const shownOptional = Math.round(optionalRaw);
+    const shownLodging = shared - shownEven - shownOptional;
+    const individual =
+      (paying ? individualCentsFor(args.costs, userId, honoreeIds) : 0) + (paying ? (extraFlight.get(userId) ?? 0) : 0);
+    bills.push({
+      userId,
+      payer: paying,
+      evenCents: shownEven,
+      lodgingCents: shownLodging,
+      optionalCents: shownOptional,
+      individualCents: individual,
+      totalCents: shared + individual,
+    });
+  };
   for (const member of args.members) {
     const paying = payerSet.has(member.userId);
     if (!paying && !isHonoree(member)) continue;
-    const lodging = paying ? (lodge.get(member.userId) ?? 0) : 0;
-    const optionalCents = paying ? (optional.get(member.userId) ?? 0) : 0;
-    const individual = paying ? individualCentsFor(args.costs, member.userId) : 0;
-    const evenCents = paying ? even : 0;
-    bills.push({
-      userId: member.userId,
-      payer: paying,
-      evenCents,
-      lodgingCents: lodging,
-      optionalCents,
-      individualCents: individual,
-      totalCents: evenCents + lodging + optionalCents + individual,
-    });
+    emit(member.userId, paying);
+  }
+  for (const id of payerIds) {
+    if (!known.has(id)) emit(id, true);
   }
   return bills;
+}
+
+export function vendorCents(args: {
+  costs: MathCost[];
+  members: MathMember[];
+  payerIds: string[];
+  payments: MathPayment[];
+  booked: boolean;
+  lodgeOverrideCents?: number | null;
+  extras?: ForecastExtra[];
+}): number {
+  const honoreeIds = args.members.filter(isHonoree).map((member) => member.userId);
+  const payers = new Set(args.payerIds);
+  const lodge =
+    args.lodgeOverrideCents != null
+      ? Math.max(0, args.lodgeOverrideCents - (args.booked ? forfeitedCents(args.payments) : 0))
+      : lodgingBasisCents(args.costs, args.payments, args.booked);
+  const optional = args.costs
+    .filter((cost) => cost.splitType === "optional" && cost.participantIds.some((id) => payers.has(id)))
+    .reduce((sum, cost) => sum + cost.amountCents, 0);
+  const individual =
+    args.costs
+      .filter((cost) => cost.splitType === "individual" && cost.memberId && payers.has(cost.memberId) && !honoreeIds.includes(cost.memberId))
+      .reduce((sum, cost) => sum + cost.amountCents, 0) +
+    (args.extras ?? []).filter((extra) => payers.has(extra.userId)).reduce((sum, extra) => sum + extra.individualCents, 0);
+  return lodge + sharedEvenCents(args.costs, honoreeIds) + optional + individual;
 }
 
 export function committedPayerIds(members: MathMember[]): string[] {
@@ -270,24 +323,58 @@ export function settledBills(args: {
   claims: MathClaim[];
   payments: MathPayment[];
   booked: boolean;
+  lodgeOverrideCents?: number | null;
+  extras?: ForecastExtra[];
 }): PersonBill[] {
   return billsFor({ ...args, payerIds: committedPayerIds(args.members) });
 }
 
 /** Share if exactly these payers commit. Extra people keep whatever bed they already claimed. */
-export function billForUser(
-  args: {
-    members: MathMember[];
-    costs: MathCost[];
-    spots: MathSpot[];
-    claims: MathClaim[];
-    payments: MathPayment[];
-    booked: boolean;
-  },
-  payerIds: string[],
-  userId: string,
-): PersonBill | null {
-  return billsFor({ ...args, payerIds }).find((bill) => bill.userId === userId) ?? null;
+export function projectClaims(spots: MathSpot[], claims: MathClaim[], payerIds: string[]): MathClaim[] {
+  const wanted = new Set(payerIds);
+  const kept = claims.filter((claim) => claim.status === "approved" && wanted.has(claim.userId));
+  const seated = new Set(kept.map((claim) => claim.userId));
+  const occupied = new Map<string, number>();
+  for (const claim of kept) occupied.set(claim.spotId, (occupied.get(claim.spotId) ?? 0) + 1);
+  const result = [...kept];
+  const waiting = payerIds.filter((id) => !seated.has(id));
+  const vacant = spots
+    .filter((spot) => !spot.reservedForHonoree && (occupied.get(spot.id) ?? 0) === 0)
+    .slice()
+    .sort((a, b) => b.weight - a.weight || (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const still: string[] = [];
+  waiting.forEach((id, index) => {
+    const spot = vacant[index];
+    if (!spot) {
+      still.push(id);
+      return;
+    }
+    result.push({ spotId: spot.id, userId: id, status: "approved" });
+    occupied.set(spot.id, 1);
+  });
+  const shares = spots
+    .filter((spot) => !spot.reservedForHonoree && spot.sharingEnabled)
+    .filter((spot) => {
+      const taken = occupied.get(spot.id) ?? 0;
+      return taken > 0 && taken < bedCapacity(spot);
+    })
+    .sort((a, b) => b.weight - a.weight || (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  still.forEach((id, index) => {
+    const spot = shares[index];
+    if (!spot) return;
+    result.push({ spotId: spot.id, userId: id, status: "approved" });
+  });
+  return result;
+}
+
+export function unsharedCapacity(spots: MathSpot[]): number {
+  return spots.filter((spot) => !spot.reservedForHonoree).length;
+}
+
+export function expandedCapacity(spots: MathSpot[]): number {
+  return spots
+    .filter((spot) => !spot.reservedForHonoree)
+    .reduce((sum, spot) => sum + (spot.sharingEnabled ? bedCapacity(spot) : 1), 0);
 }
 
 export function sensitivity(args: {
@@ -300,41 +387,51 @@ export function sensitivity(args: {
   userId: string;
   minimumCommitters: number;
   maxHeadcount?: number;
+  extras?: ForecastExtra[];
+  lodgeOverrideCents?: number | null;
 }): {
   rows: SensitivityRow[];
   currentCents: number | null;
   ifOneMoreSavesCents: number | null;
   ifSomeoneDropsAddsCents: number | null;
+  underMinimumIfDrop: boolean;
 } {
   const committed = committedPayerIds(args.members);
-  const waiting = args.members
-    .filter((member) => member.status === "joined" && !isHonoree(member))
-    .map((member) => member.userId)
-    .sort();
-  const sequence = [...committed];
-  if (!sequence.includes(args.userId) && waiting.includes(args.userId)) sequence.push(args.userId);
-  for (const id of waiting) if (!sequence.includes(id)) sequence.push(id);
+  const pipeline = args.members
+    .filter((member) => !isHonoree(member) && member.status !== "off_trip" && member.status !== "declined" && !committed.includes(member.userId))
+    .slice()
+    .sort((a, b) => (a.forecastOrder ?? 99) - (b.forecastOrder ?? 99) || a.userId.localeCompare(b.userId))
+    .map((member) => member.userId);
+  const extraIds = (args.extras ?? []).map((extra) => extra.userId);
+  const sequence = [...committed, ...pipeline, ...extraIds];
+  const cap = args.maxHeadcount ?? sequence.length;
+  const base = unsharedCapacity(args.spots);
+  const quote = (ids: string[]) =>
+    billsFor({
+      ...args,
+      payerIds: ids,
+      claims: projectClaims(args.spots, args.claims, ids),
+    }).find((bill) => bill.userId === args.userId)?.totalCents ?? null;
 
-  const cap = Math.max(args.maxHeadcount ?? sequence.length, sequence.length);
   const rows: SensitivityRow[] = [];
-  for (let count = 1; count <= cap; count += 1) {
-    const ids = sequence.slice(0, count);
-    while (ids.length < count) ids.push(`forecast-${ids.length}`);
-    if (!ids.includes(args.userId)) continue;
-    if (count < args.minimumCommitters && count !== committed.length) continue;
-    if (args.maxHeadcount && count > args.maxHeadcount && count !== committed.length) continue;
-    const bill = billForUser(args, ids, args.userId);
-    rows.push({ payers: count, totalCents: bill?.totalCents ?? 0 });
+  for (let count = args.minimumCommitters; count <= Math.min(cap, sequence.length); count += 1) {
+    const total = quote(sequence.slice(0, count));
+    if (total === null) continue;
+    rows.push({ payers: count, totalCents: total, expanded: count > base });
   }
-  const currentPayers = committed.includes(args.userId) ? committed.length : 0;
-  const currentCents = rows.find((row) => row.payers === currentPayers)?.totalCents ?? null;
-  const next = rows.find((row) => row.payers === currentPayers + 1);
-  const prev = rows.find((row) => row.payers === currentPayers - 1);
+  const currentCount = committed.includes(args.userId) ? committed.length : 0;
+  const currentCents = currentCount > 0 ? quote(sequence.slice(0, currentCount)) : null;
+  const nextCents = currentCount > 0 && currentCount < sequence.length ? quote(sequence.slice(0, currentCount + 1)) : null;
+  const others = committed.filter((id) => id !== args.userId);
+  const dropTarget = others[others.length - 1];
+  const droppedIds = dropTarget ? committed.filter((id) => id !== dropTarget) : [];
+  const prevCents = droppedIds.includes(args.userId) ? quote(droppedIds) : null;
   return {
     rows,
     currentCents,
-    ifOneMoreSavesCents: currentCents !== null && next ? currentCents - next.totalCents : null,
-    ifSomeoneDropsAddsCents: currentCents !== null && prev ? prev.totalCents - currentCents : null,
+    ifOneMoreSavesCents: currentCents !== null && nextCents !== null ? currentCents - nextCents : null,
+    ifSomeoneDropsAddsCents: currentCents !== null && prevCents !== null ? prevCents - currentCents : null,
+    underMinimumIfDrop: droppedIds.length > 0 && droppedIds.length < args.minimumCommitters,
   };
 }
 
@@ -412,16 +509,18 @@ export function reconcileTrip(args: {
   };
 }
 
-export function spotCapacity(spot: MathSpot): number {
-  if (spot.reservedForHonoree) return 0;
-  return spot.sharingEnabled ? 2 : 1;
+export function openSlots(spots: MathSpot[], claims: MathClaim[]): number {
+  return spots
+    .filter((spot) => !spot.reservedForHonoree)
+    .reduce((open, spot) => {
+      const taken = claims.filter((claim) => claim.spotId === spot.id && claim.status === "approved").length;
+      const direct = spot.sharingEnabled ? bedCapacity(spot) : 1;
+      return open + Math.max(0, direct - taken);
+    }, 0);
 }
 
 export function unclaimedSpots(spots: MathSpot[], claims: MathClaim[]): number {
-  return spots.reduce((open, spot) => {
-    const taken = claims.filter((claim) => claim.spotId === spot.id && claim.status === "approved").length;
-    return open + Math.max(0, spotCapacity(spot) - taken);
-  }, 0);
+  return openSlots(spots, claims);
 }
 
 export interface MilestoneLine {

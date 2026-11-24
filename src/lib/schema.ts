@@ -35,8 +35,22 @@ export const sleepSpots = sqliteTable("sleep_spots", {
   privateBath: integer("private_bath").notNull(),
   privateRoom: integer("private_room").notNull(),
   weight: integer("weight_milli").notNull(),
+  capacity: integer("capacity").notNull().default(1),
   sharingEnabled: integer("sharing_enabled").notNull(),
   reservedForHonoree: integer("reserved_for_honoree").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const spotRequests = sqliteTable("spot_requests", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull(),
+  type: text("type").notNull(),
+  fromSpotId: text("from_spot_id"),
+  toSpotId: text("to_spot_id").notNull(),
+  requesterUserId: text("requester_user_id").notNull(),
+  counterpartUserId: text("counterpart_user_id"),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 
 export const spotClaims = sqliteTable(

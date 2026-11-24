@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  billForUser,
-  lodgingShares,
-  reconcileTrip,
+  billsFor,
+  rawLodgingCents,
+  roundUpDollarCents,
   sensitivity,
-  settledBills,
+  vendorCents,
+  type ForecastExtra,
+  type MathClaim,
   type MathCost,
   type MathMember,
   type MathPayment,
@@ -13,219 +15,287 @@ import {
 
 const dollars = (cents: number) => cents / 100;
 
-const members = (statuses: Record<string, "committed" | "joined">): MathMember[] =>
-  [
-    ["user_chris", "organizer"],
-    ["user_sam", "member"],
-    ["user_jordan", "member"],
-    ["user_drew", "member"],
-    ["user_taylor", "member"],
-    ["user_alex", "honoree"],
-  ].map(([userId, role]) => ({
-    userId,
-    role: role as MathMember["role"],
-    status: userId === "user_alex" ? "committed" : (statuses[userId] ?? "joined"),
-    committedAt: statuses[userId] === "committed" ? `${userId}` : null,
-  }));
+const spot = (
+  id: string,
+  weight: number,
+  extra: Partial<MathSpot> = {},
+): MathSpot => ({
+  id,
+  weight,
+  reservedForHonoree: false,
+  sharingEnabled: false,
+  capacity: 1,
+  sortOrder: 0,
+  ...extra,
+});
 
-const costs: MathCost[] = [
-  { id: "lodge", splitType: "shared", category: "lodging", amountCents: 91_000, memberId: null, participantIds: [], isLodging: true },
-  { id: "fund", splitType: "shared", category: "other", amountCents: 183_000, memberId: null, participantIds: [], isLodging: false },
-  { id: "act", splitType: "shared", category: "activity", amountCents: 60_000, memberId: null, participantIds: [], isLodging: false },
-  { id: "alex", splitType: "shared", category: "flight", amountCents: 29_000, memberId: null, participantIds: [], isLodging: false },
-  { id: "tee", splitType: "optional", category: "golf", amountCents: 48_000, memberId: null, participantIds: ["user_chris", "user_sam", "user_jordan", "user_drew"], isLodging: false },
-  { id: "fc", splitType: "individual", category: "flight", amountCents: 31_400, memberId: "user_chris", participantIds: [], isLodging: false },
-  { id: "fs", splitType: "individual", category: "flight", amountCents: 26_200, memberId: "user_sam", participantIds: [], isLodging: false },
-  { id: "fj", splitType: "individual", category: "flight", amountCents: 12_100, memberId: "user_jordan", participantIds: [], isLodging: false },
-  { id: "fd", splitType: "individual", category: "flight", amountCents: 10_000, memberId: "user_drew", participantIds: [], isLodging: false },
-  { id: "ft", splitType: "individual", category: "flight", amountCents: 18_400, memberId: "user_taylor", participantIds: [], isLodging: false },
+const seedSpots: MathSpot[] = [
+  spot("master", 1.5, { reservedForHonoree: true, sortOrder: 1, bedType: "king" }),
+  spot("bed2", 1.5, { sortOrder: 2, bedType: "queen" }),
+  spot("bed3", 1.25, { capacity: 2, sharingEnabled: true, sortOrder: 3, bedType: "queen" }),
+  spot("bed4", 1, { sortOrder: 4, bedType: "full" }),
+  spot("bunk", 0.8, { sortOrder: 5, bedType: "bunk" }),
+  spot("loft", 0.6, { sortOrder: 6, bedType: "sofa_bed" }),
+  spot("couch", 0.5, { sortOrder: 7, bedType: "couch" }),
+  spot("air", 0.5, { sortOrder: 8, bedType: "air_mattress" }),
 ];
 
-const spots: MathSpot[] = [
-  { id: "s1", weight: 1.5, reservedForHonoree: false, sharingEnabled: false },
-  { id: "s2", weight: 1.25, reservedForHonoree: false, sharingEnabled: true },
-  { id: "s3", weight: 1, reservedForHonoree: false, sharingEnabled: false },
-  { id: "s4", weight: 0.8, reservedForHonoree: false, sharingEnabled: false },
-  { id: "s5", weight: 0.8, reservedForHonoree: false, sharingEnabled: false },
-  { id: "s6", weight: 0.6, reservedForHonoree: false, sharingEnabled: false },
-  { id: "s7", weight: 1.5, reservedForHonoree: true, sharingEnabled: false },
-];
-
-const claims = (extraSpot: string | null = null) => {
-  const rows = [
-    ["s1", "user_chris"],
-    ["s2", "user_sam"],
-    ["s3", "user_jordan"],
-    ["s4", "user_drew"],
-  ].map(([spotId, userId]) => ({ spotId, userId, status: "approved" as const }));
-  if (extraSpot) rows.push({ spotId: extraSpot, userId: "user_taylor", status: "approved" });
-  return rows;
+const flights: Record<string, number> = {
+  user_chris: 280_00,
+  user_sam: 310_00,
+  user_jordan: 250_00,
+  user_drew: 295_00,
+  user_taylor: 270_00,
+  user_riley: 300_00,
+  user_casey: 285_00,
 };
 
-const four: MathMember[] = members({
-  user_chris: "committed",
-  user_sam: "committed",
-  user_jordan: "committed",
-  user_drew: "committed",
-});
+const costs: MathCost[] = [
+  { id: "lodge", splitType: "shared", category: "lodging", amountCents: 2400_00, memberId: null, participantIds: [], isLodging: true },
+  { id: "activities", splitType: "shared", category: "activities", amountCents: 600_00, memberId: null, participantIds: [], isLodging: false },
+  { id: "alex", splitType: "individual", category: "flights", amountCents: 290_00, memberId: "user_alex", participantIds: [], isLodging: false },
+  {
+    id: "tee",
+    splitType: "optional",
+    category: "tee_times",
+    amountCents: 480_00,
+    memberId: null,
+    participantIds: ["user_chris", "user_sam", "user_jordan", "user_drew"],
+    isLodging: false,
+  },
+  ...Object.entries(flights).map(([userId, amountCents]) => ({
+    id: `flight_${userId}`,
+    splitType: "individual" as const,
+    category: "flights",
+    amountCents,
+    memberId: userId,
+    participantIds: [],
+    isLodging: false,
+  })),
+];
 
-const five: MathMember[] = members({
-  user_chris: "committed",
-  user_sam: "committed",
-  user_jordan: "committed",
-  user_drew: "committed",
-  user_taylor: "committed",
-});
+const roster: MathMember[] = [
+  { userId: "user_chris", role: "organizer", status: "committed", committedAt: "1", forecastOrder: 1 },
+  { userId: "user_alex", role: "honoree", status: "committed", committedAt: "1", forecastOrder: 0 },
+  { userId: "user_sam", role: "member", status: "committed", committedAt: "2", forecastOrder: 2 },
+  { userId: "user_jordan", role: "member", status: "committed", committedAt: "3", forecastOrder: 3 },
+  { userId: "user_drew", role: "member", status: "committed", committedAt: "4", forecastOrder: 4 },
+  { userId: "user_taylor", role: "member", status: "joined", forecastOrder: 5 },
+  { userId: "user_riley", role: "member", status: "joined", forecastOrder: 6 },
+  { userId: "user_casey", role: "member", status: "invited", forecastOrder: 7 },
+  { userId: "user_morgan", role: "member", status: "declined", forecastOrder: 9 },
+];
 
-describe("v1.1 worked fixtures", () => {
-  it("N=4 Chris owes $1,414", () => {
-    const bill = settledBills({ members: four, costs, spots, claims: claims(), payments: [], booked: false }).find(
-      (item) => item.userId === "user_chris",
-    );
-    expect(dollars(bill?.totalCents ?? -1)).toBe(1414);
-    expect(dollars(bill?.lodgingCents ?? -1)).toBe(300);
-    expect(dollars(bill?.evenCents ?? -1)).toBe(680);
-    expect(dollars(bill?.optionalCents ?? -1)).toBe(120);
-  });
+const pat: ForecastExtra = { userId: "user_pat", individualCents: 280_00 };
 
-  it("N=5 with Taylor unclaimed: Chris $1,278 and Taylor $728", () => {
-    const bills = settledBills({ members: five, costs, spots, claims: claims(), payments: [], booked: false });
-    expect(dollars(bills.find((item) => item.userId === "user_chris")?.totalCents ?? -1)).toBe(1278);
-    expect(dollars(bills.find((item) => item.userId === "user_taylor")?.totalCents ?? -1)).toBe(728);
-    expect(bills.find((item) => item.userId === "user_taylor")?.lodgingCents).toBe(0);
-    expect(bills.find((item) => item.userId === "user_taylor")?.optionalCents).toBe(0);
-  });
+const seedClaims: MathClaim[] = [
+  { spotId: "master", userId: "user_alex", status: "approved" },
+  { spotId: "bed2", userId: "user_chris", status: "approved" },
+  { spotId: "bed3", userId: "user_sam", status: "approved" },
+  { spotId: "bed4", userId: "user_jordan", status: "approved" },
+  { spotId: "bunk", userId: "user_drew", status: "approved" },
+];
 
-  it("Example E: Taylor's $150 buy-in is forfeited after booking and tee times stay $120", () => {
-    const left = five.map((member) =>
-      member.userId === "user_taylor" ? { ...member, status: "off_trip" as const } : member,
-    );
-    const payments: MathPayment[] = [
-      { milestoneId: "ms_buyin", userId: "user_taylor", amountCents: 15_000, status: "forfeited" },
+function totals(
+  payerIds: string[],
+  claims: MathClaim[],
+  options: { booked?: boolean; payments?: MathPayment[]; lodge?: number; members?: MathMember[] } = {},
+) {
+  const members = options.members ?? roster;
+  const args = {
+    members,
+    costs,
+    spots: seedSpots,
+    claims,
+    payments: options.payments ?? [],
+    booked: options.booked ?? false,
+    payerIds,
+    lodgeOverrideCents: options.lodge,
+    extras: [pat],
+  };
+  const bills = billsFor(args);
+  const byId = Object.fromEntries(bills.map((bill) => [bill.userId, dollars(bill.totalCents)]));
+  const vendor = vendorCents(args);
+  const rounded = bills.filter((bill) => bill.payer).reduce((sum, bill) => sum + bill.totalCents, 0);
+  return { byId, remainder: dollars(rounded - vendor) };
+}
+
+describe("spec v1.2 worked examples", () => {
+  it("Example A: six claimed weights, groom excluded", () => {
+    const claims = [
+      ...seedClaims,
+      { spotId: "loft", userId: "user_taylor", status: "approved" as const },
+      { spotId: "couch", userId: "user_riley", status: "approved" as const },
     ];
-    const bills = settledBills({ members: left, costs, spots, claims: claims(), payments, booked: true });
-    expect(dollars(bills.find((item) => item.userId === "user_chris")?.totalCents ?? -1)).toBe(1365);
-    expect(dollars(bills.find((item) => item.userId === "user_sam")?.totalCents ?? -1)).toBe(1271);
-    expect(dollars(bills.find((item) => item.userId === "user_jordan")?.totalCents ?? -1)).toBe(1088);
-    expect(dollars(bills.find((item) => item.userId === "user_drew")?.totalCents ?? -1)).toBe(1034);
-    for (const id of ["user_chris", "user_sam", "user_jordan", "user_drew"]) {
-      expect(dollars(bills.find((item) => item.userId === id)?.optionalCents ?? -1)).toBe(120);
-    }
+    const payers = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley"];
+    const lodge = rawLodgingCents(2400_00, seedSpots, claims, payers);
+    expect(dollars(lodge.get("user_chris") ?? 0)).toBeCloseTo(637.17, 2);
+    expect(dollars(lodge.get("user_riley") ?? 0)).toBeCloseTo(212.39, 2);
+    expect(lodge.get("user_alex") ?? 0).toBe(0);
   });
 
-  it("one more commit saves Chris $136 when the new payer has not taken a bed", () => {
-    const table = sensitivity({
-      members: four,
+  it("rounds a shared pool up and keeps the remainder", () => {
+    expect(roundUpDollarCents(290_000 / 6)).toBe(484_00);
+    expect(6 * 484_00 - 290_000).toBe(4_00);
+  });
+
+  it("N=4 unofficial, below the minimum", () => {
+    const result = totals(
+      ["user_chris", "user_sam", "user_jordan", "user_drew"],
+      seedClaims,
+    );
+    expect(result.byId).toMatchObject({ user_chris: 1414, user_sam: 1312, user_jordan: 1120, user_drew: 1060 });
+    expect(result.remainder).toBe(1);
+  });
+
+  it("N=5 Taylor takes the sofa", () => {
+    const result = totals(
+      ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor"],
+      [...seedClaims, { spotId: "loft", userId: "user_taylor", status: "approved" }],
+    );
+    expect(result.byId).toMatchObject({
+      user_chris: 1278,
+      user_sam: 1191,
+      user_jordan: 1015,
+      user_drew: 966,
+      user_taylor: 728,
+    });
+    expect(result.remainder).toBe(3);
+  });
+
+  it("N=6 Riley takes the couch", () => {
+    const result = totals(
+      ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley"],
+      [
+        ...seedClaims,
+        { spotId: "loft", userId: "user_taylor", status: "approved" },
+        { spotId: "couch", userId: "user_riley", status: "approved" },
+      ],
+    );
+    expect(result.byId).toMatchObject({
+      user_chris: 1186,
+      user_sam: 1110,
+      user_jordan: 944,
+      user_drew: 904,
+      user_taylor: 674,
+      user_riley: 661,
+    });
+    expect(result.remainder).toBe(4);
+  });
+
+  it("N=7 Casey takes the air mattress", () => {
+    const ids = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley", "user_casey"];
+    const result = totals(ids, [
+      ...seedClaims,
+      { spotId: "loft", userId: "user_taylor", status: "approved" },
+      { spotId: "couch", userId: "user_riley", status: "approved" },
+      { spotId: "air", userId: "user_casey", status: "approved" },
+    ]);
+    expect(result.byId.user_chris).toBe(1113);
+    expect(result.byId.user_casey).toBe(608);
+    expect(result.byId).toMatchObject({
+      user_sam: 1045,
+      user_jordan: 888,
+      user_drew: 855,
+      user_taylor: 632,
+      user_riley: 623,
+    });
+    expect(result.remainder).toBe(4);
+  });
+
+  it("N=8 expanded, Pat shares Sam's queen", () => {
+    const ids = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley", "user_casey", "user_pat"];
+    const result = totals(ids, [
+      ...seedClaims,
+      { spotId: "loft", userId: "user_taylor", status: "approved" },
+      { spotId: "couch", userId: "user_riley", status: "approved" },
+      { spotId: "air", userId: "user_casey", status: "approved" },
+      { spotId: "bed3", userId: "user_pat", status: "approved" },
+    ]);
+    expect(result.byId.user_sam).toBe(786);
+    expect(result.byId.user_pat).toBe(636);
+    expect(result.byId).toMatchObject({
+      user_chris: 1097,
+      user_jordan: 872,
+      user_drew: 839,
+      user_taylor: 616,
+      user_riley: 607,
+      user_casey: 592,
+    });
+    expect(result.remainder).toBe(5);
+  });
+
+  it("mid-path share: Taylor shares the queen at N=5 instead of the sofa", () => {
+    const result = totals(
+      ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor"],
+      [...seedClaims, { spotId: "bed3", userId: "user_taylor", status: "approved" }],
+    );
+    expect(result.byId).toMatchObject({
+      user_chris: 1370,
+      user_sam: 938,
+      user_jordan: 1076,
+      user_drew: 1015,
+      user_taylor: 778,
+    });
+    expect(result.remainder).toBe(2);
+  });
+
+  it("rebases N=5 when the actual lodging total is $2,640", () => {
+    const payers = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor"];
+    const claims: MathClaim[] = [...seedClaims, { spotId: "loft", userId: "user_taylor", status: "approved" }];
+    const result = totals(payers, claims, { booked: true, lodge: 2640_00 });
+    expect(result.byId).toMatchObject({
+      user_chris: 1347,
+      user_sam: 1249,
+      user_jordan: 1061,
+      user_drew: 1004,
+      user_taylor: 756,
+    });
+    expect(result.remainder).toBe(2);
+  });
+
+  it("Example E: Taylor late-drops after booking and the buy-in pays down lodging", () => {
+    const payments: MathPayment[] = [
+      { milestoneId: "buy", userId: "user_taylor", amountCents: 150_00, status: "forfeited" },
+    ];
+    const result = totals(
+      ["user_chris", "user_sam", "user_jordan", "user_drew"],
+      seedClaims,
+      { booked: true, payments },
+    );
+    expect(result.byId).toMatchObject({
+      user_chris: 1365,
+      user_sam: 1271,
+      user_jordan: 1088,
+      user_drew: 1034,
+    });
+    expect(result.remainder).toBe(3);
+  });
+
+  it("Example D: minimum lowered to 3", () => {
+    const result = totals(["user_chris", "user_sam", "user_jordan"], seedClaims);
+    expect(result.byId).toMatchObject({ user_chris: 1697, user_sam: 1567, user_jordan: 1347 });
+    expect(result.remainder).toBe(1);
+  });
+
+  it("forecast slider matches Chris at N=5 through N=8, with the live deltas", () => {
+    const sense = sensitivity({
+      members: roster,
       costs,
-      spots,
-      claims: claims(),
+      spots: seedSpots,
+      claims: seedClaims,
       payments: [],
       booked: false,
       userId: "user_chris",
       minimumCommitters: 5,
+      maxHeadcount: 8,
+      extras: [pat],
     });
-    expect(dollars(table.currentCents ?? -1)).toBe(1414);
-    expect(dollars(table.ifOneMoreSavesCents ?? -1)).toBe(136);
-    const at5 = table.rows.find((row) => row.payers === 5);
-    expect(dollars(at5?.totalCents ?? -1)).toBe(1278);
-  });
-});
-
-describe("lodging rules", () => {
-  it("excludes the honoree's reserved weight and prices an unclaimed spot at zero", () => {
-    const shares = lodgingShares(91_000, spots, claims(), ["user_chris", "user_sam", "user_jordan", "user_drew"]);
-    expect(dollars(shares.get("user_chris") ?? -1)).toBe(300);
-    expect(shares.get("user_alex")).toBeUndefined();
-    const withTaylor = lodgingShares(91_000, spots, claims(), ["user_chris", "user_taylor"]);
-    expect(withTaylor.get("user_taylor")).toBe(0);
-    expect(dollars(withTaylor.get("user_chris") ?? -1)).toBe(910);
-  });
-
-  it("splits a shared king or queen between two approved claims", () => {
-    const shared = spots.map((spot) => (spot.id === "s1" ? { ...spot, sharingEnabled: true } : spot));
-    const both = [
-      ...claims(),
-      { spotId: "s1", userId: "user_sam", status: "approved" as const },
-    ].filter((claim) => claim.spotId !== "s2");
-    const shares = lodgingShares(91_000, shared, both, ["user_chris", "user_sam", "user_jordan", "user_drew"]);
-    expect(shares.get("user_chris")).toBe(shares.get("user_sam"));
-  });
-
-  it("re-prices the room when a claimed weight leaves the payer set", () => {
-    const before = lodgingShares(91_000, spots, claims(), ["user_chris", "user_sam", "user_jordan", "user_drew"]);
-    const after = lodgingShares(91_000, spots, claims(), ["user_chris", "user_sam", "user_jordan"]);
-    expect((after.get("user_chris") ?? 0) > (before.get("user_chris") ?? 0)).toBe(true);
-  });
-});
-
-describe("commit then book", () => {
-  it("reaches booking_ready once payers meet the minimum, before the deadline", () => {
-    const outcome = reconcileTrip({
-      status: "buy_in_open",
-      buyInDeadline: "2026-12-16T05:59:00.000Z",
-      minimumCommitters: 5,
-      now: "2026-11-24T18:00:00.000Z",
-      members: five,
-    });
-    expect(outcome.status).toBe("booking_ready");
-    expect(outcome.payerCount).toBe(5);
-    expect(outcome.refundBuyIns).toBe(false);
-  });
-
-  it("a booking_ready drop under the minimum reopens buy-in before the deadline", () => {
-    const outcome = reconcileTrip({
-      status: "booking_ready",
-      buyInDeadline: "2026-12-16T05:59:00.000Z",
-      minimumCommitters: 5,
-      now: "2026-11-24T18:00:00.000Z",
-      members: four,
-    });
-    expect(outcome.status).toBe("buy_in_open");
-    expect(outcome.refundBuyIns).toBe(false);
-  });
-
-  it("the same short crew is under_minimum once the deadline has passed, and buy-ins refund", () => {
-    const outcome = reconcileTrip({
-      status: "booking_ready",
-      buyInDeadline: "2026-12-16T05:59:00.000Z",
-      minimumCommitters: 5,
-      now: "2026-12-16T06:00:00.000Z",
-      members: four,
-    });
-    expect(outcome.status).toBe("under_minimum");
-    expect(outcome.payerCount).toBe(4);
-    expect(outcome.refundBuyIns).toBe(true);
-    expect(outcome.droppedUserIds).toContain("user_taylor");
-    expect(outcome.members.find((member) => member.userId === "user_alex")?.status).toBe("committed");
-  });
-
-  it("does not refund or reopen a trip that is already booked", () => {
-    const outcome = reconcileTrip({
-      status: "booked",
-      buyInDeadline: "2026-12-16T05:59:00.000Z",
-      minimumCommitters: 5,
-      now: "2026-12-16T06:00:00.000Z",
-      members: four,
-    });
-    expect(outcome.status).toBe("booked");
-    expect(outcome.refundBuyIns).toBe(false);
-    expect(outcome.deadlineRan).toBe(false);
-  });
-});
-
-describe("spot claim changes the live price", () => {
-  it("giving Taylor the sofa bed changes Chris's N=5 share", () => {
-    const open = billForUser(
-      { members: five, costs, spots, claims: claims(), payments: [], booked: false },
-      ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor"],
-      "user_chris",
-    );
-    const claimed = billForUser(
-      { members: five, costs, spots, claims: claims("s6"), payments: [], booked: false },
-      ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor"],
-      "user_chris",
-    );
-    expect(dollars(open?.totalCents ?? -1)).toBe(1278);
-    expect(claimed?.lodgingCents).not.toBe(open?.lodgingCents);
+    expect(sense.rows.map((row) => dollars(row.totalCents))).toEqual([1278, 1186, 1113, 1097]);
+    expect(sense.rows.map((row) => row.expanded)).toEqual([false, false, false, true]);
+    expect(dollars(sense.currentCents ?? 0)).toBe(1414);
+    expect(dollars(sense.ifOneMoreSavesCents ?? 0)).toBe(136);
+    expect(dollars(sense.ifSomeoneDropsAddsCents ?? 0)).toBe(283);
+    expect(sense.underMinimumIfDrop).toBe(true);
   });
 });

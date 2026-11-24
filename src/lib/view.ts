@@ -15,6 +15,7 @@ import {
   nextDue,
   sensitivity,
   settledBills,
+  vendorCents,
   sharedEvenCents,
   type MilestoneLine,
   type PersonBill,
@@ -87,6 +88,8 @@ export interface TripView {
   buyInAmountCents: number;
   buyInDeadline: string | null;
   minHeadcount: number;
+  maxHeadcount: number;
+  bedChangePolicy: "member_requests" | "locked";
   inviteToken: string;
   organizerName: string;
   guestName: string;
@@ -115,6 +118,7 @@ export interface TripView {
   notices: Notice[];
   nextPayment: PayLine | null;
   sensitivityRows: SensitivityRow[];
+  rebase: { userId: string; name: string; beforeCents: number; afterCents: number }[];
   currentShareCents: number | null;
   saveIfOneMoreCents: number | null;
   addIfSomeoneDropsCents: number | null;
@@ -221,26 +225,40 @@ function buildMember(raw: RawTrip, member: MemberRecord, bill: PersonBill | unde
 
 function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
   const now = tripNow(raw);
+  const forecastOrder = ["user_taylor", "user_riley", "user_casey", "user_morgan"];
   const membersMath = raw.members.map((member) => ({
     userId: member.userId,
     role: member.role,
     status: member.status,
+    committedAt: member.committedAt,
+    forecastOrder: forecastOrder.indexOf(member.userId),
   }));
-  const bills = settledBills({
+  const extras = raw.costs
+    .filter((cost) => cost.splitType === "individual" && cost.memberId && !raw.members.some((member) => member.userId === cost.memberId))
+    .map((cost) => ({ userId: cost.memberId as string, individualCents: cost.amountCents }));
+  const lodgeOverride = raw.trip.actualLodgingTotal;
+  const billArgs = {
     members: membersMath,
     costs: raw.costs,
     spots: raw.spots,
     claims: raw.claims,
     payments: raw.payments,
     booked: raw.trip.status === "booked",
-  });
+    lodgeOverrideCents: lodgeOverride,
+    extras,
+  };
+  const bills = settledBills(billArgs);
+  const previousBills =
+    lodgeOverride != null
+      ? settledBills({ ...billArgs, lodgeOverrideCents: null })
+      : null;
   const billOf = new Map(bills.map((bill) => [bill.userId, bill]));
   const nameOf = new Map(raw.members.map((member) => [member.userId, member.name]));
 
   const members = raw.members
     .map((member) => buildMember(raw, member, billOf.get(member.userId), now))
     .sort((a, b) => {
-      const statusOrder = { committed: 0, joined: 1, invited: 2, off_trip: 3 };
+      const statusOrder = { committed: 0, joined: 1, invited: 2, declined: 3, off_trip: 4 };
       const roleOrder = { organizer: 0, honoree: 1, member: 2 };
       return statusOrder[a.status] - statusOrder[b.status] || roleOrder[a.role] - roleOrder[b.role] || a.name.localeCompare(b.name);
     });
@@ -252,12 +270,7 @@ function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
   const sense =
     viewer && !isHonoree(viewer)
       ? sensitivity({
-          members: membersMath,
-          costs: raw.costs,
-          spots: raw.spots,
-          claims: raw.claims,
-          payments: raw.payments,
-          booked: raw.trip.status === "booked",
+          ...billArgs,
           userId: viewer.userId,
           minimumCommitters: raw.trip.minHeadcount,
           maxHeadcount: raw.trip.maxHeadcount,
@@ -315,6 +328,8 @@ function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
     buyInAmountCents: raw.trip.buyInAmount,
     buyInDeadline: raw.trip.buyInDeadline,
     minHeadcount: raw.trip.minHeadcount,
+    maxHeadcount: raw.trip.maxHeadcount,
+    bedChangePolicy: raw.trip.bedChangePolicy,
     inviteToken: raw.trip.inviteToken,
     organizerName: raw.members.find((member) => member.role === "organizer")?.name ?? "Organizer",
     guestName: raw.members.find((member) => member.userId === raw.trip.guestOfHonorUserId)?.name ?? "the guest of honor",
@@ -339,10 +354,27 @@ function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
     suggestedBuyInCents: lodgingCents(raw.costs),
     sharedCents: sharedEvenCents(raw.costs),
     forfeitedPotCents: forfeitedCents(raw.payments),
-    roundingCents: 0,
+    roundingCents: Math.max(
+      0,
+      bills.filter((bill) => bill.payer).reduce((sum, bill) => sum + bill.totalCents, 0) -
+        vendorCents({
+          ...billArgs,
+          payerIds: raw.members.filter(isCommittedPayer).map((member) => member.userId),
+        }),
+    ),
     notices,
     nextPayment: viewer ? (nextDue(viewer.lines.filter((line) => line.canPay)) as PayLine | null) : null,
     sensitivityRows: sense?.rows ?? [],
+    rebase: previousBills
+      ? bills
+          .filter((bill) => bill.payer)
+          .map((bill) => ({
+            userId: bill.userId,
+            name: nameOf.get(bill.userId) ?? "Someone",
+            beforeCents: previousBills.find((prior) => prior.userId === bill.userId)?.totalCents ?? bill.totalCents,
+            afterCents: bill.totalCents,
+          }))
+      : [],
     currentShareCents: sense?.currentCents ?? viewer?.bill?.totalCents ?? null,
     saveIfOneMoreCents: sense?.ifOneMoreSavesCents ?? null,
     addIfSomeoneDropsCents: sense?.ifSomeoneDropsAddsCents ?? null,
@@ -372,7 +404,7 @@ function buildNotices(args: {
   if (raw.trip.status === "buy_in_open") {
     notices.push({
       tone: "info",
-      text: "The buy-in is part of your share, not a fee on top. It is non-refundable after the trip locks in. If the crew misses the minimum, or the trip is cancelled, the test payment is refunded.",
+      text: "The buy-in is part of your share, not a fee on top. It is refundable until the stay is booked, and forfeited only after that. If the crew misses the minimum, or the trip is cancelled before booking, the test payment is refunded.",
     });
   }
   if (viewer?.status === "joined" && raw.trip.status === "buy_in_open") {

@@ -30,8 +30,18 @@ export default async function BookPage({
         {view.payerCount} of {view.minPayerCount} payers committed. Estimate {lodging ? money(lodging.amountCents) : "not set"}.
       </p>
       {view.status === "booked" ? (
-        <p className="rounded-2xl bg-good-soft px-3 py-3 text-sm text-good">The stay is booked. Buy-ins are no longer refundable.</p>
+        <div className="rounded-2xl bg-good-soft px-3 py-3 text-sm text-good">
+          <p>The stay is booked. Buy-ins are no longer refundable.</p>
+          {view.rebase.length > 0 ? (
+            <ul className="mt-2 grid gap-1">
+              {view.rebase.map((row) => (
+                <li key={row.userId}>{row.name.split(" ")[0]}: {money(row.beforeCents)} was, {money(row.afterCents)} now</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
+      <p className="text-sm text-muted">Booking closes buy-in and drops anyone who has not committed.</p>
       {view.isOrganizer && view.status === "booking_ready" ? (
         <form action={bookStayAction} className="grid gap-3 rounded-3xl border border-line bg-card p-4">
           <input type="hidden" name="tripId" value={view.id} />

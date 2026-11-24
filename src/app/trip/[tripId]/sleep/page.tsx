@@ -23,6 +23,9 @@ export default async function SleepSetupPage({
           One lodging bill, split by bed weight. The guest of honor&apos;s room is not in the split. An empty bed costs nothing. Defaults: 1.5 king suite, 1.25 queen, 1.0 full, 0.8 bunk, 0.6 sofa bed, 0.5 couch.
         </p>
       </div>
+      {view.spots.filter((spot) => !spot.reservedForHonoree).reduce((sum, spot) => sum + (spot.sharingEnabled ? spot.capacity : 1), 0) < view.maxHeadcount ? (
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">Payer beds cannot cover the max headcount of {view.maxHeadcount}. Add a spot or turn on sharing.</p>
+      ) : null}
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
       <ul className="grid gap-2">
         {view.spots.map((spot) => (

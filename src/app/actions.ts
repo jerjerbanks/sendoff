@@ -21,6 +21,9 @@ import {
   bookStay,
   claimSpot,
   releaseSpot,
+  requestSpot,
+  resolveSpotRequest,
+  setBedPolicy,
   resetDemoTrip,
   saveBuyIn,
   setClock,
@@ -185,7 +188,7 @@ export async function payAction(formData: FormData) {
   const ack = text(formData, "ack");
   const kind = text(formData, "kind");
   if (kind === "buy_in" && ack !== "yes") {
-    fail(`/trip/${tripId}/pay`, "Check the box. The buy-in is non-refundable once the trip locks in.");
+    fail(`/trip/${tripId}/pay`, "Check the box. The buy-in is refundable until the stay is booked, and forfeited after.");
   }
   done(tripId, await payMilestone(tripId, userId, milestoneId), `/trip/${tripId}/pay`);
 }
@@ -266,6 +269,31 @@ export async function bookStayAction(formData: FormData) {
   const confirmation = text(formData, "confirmation");
   if (amount === null || !confirmation) fail(`/trip/${tripId}/book`, "Add a confirmation number and the actual lodging total.");
   done(tripId, await bookStay(tripId, userId, confirmation, amount), `/trip/${tripId}/book`);
+}
+
+export async function requestSpotAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const type = text(formData, "type") === "share" ? "share" : "switch";
+  done(
+    tripId,
+    await requestSpot({ tripId, userId: text(formData, "userId"), toSpotId: text(formData, "spotId"), type }),
+    `/trip/${tripId}/spots`,
+  );
+}
+
+export async function resolveRequestAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await resolveSpotRequest(tripId, text(formData, "userId"), text(formData, "requestId"), text(formData, "decision") === "approve"),
+    `/trip/${tripId}/approvals`,
+  );
+}
+
+export async function bedPolicyAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const policy = text(formData, "policy") === "locked" ? "locked" : "member_requests";
+  done(tripId, await setBedPolicy(tripId, text(formData, "userId"), policy), `/trip/${tripId}/settings`);
 }
 
 export async function resetDemoAction(formData: FormData) {

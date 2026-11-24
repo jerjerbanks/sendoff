@@ -80,7 +80,7 @@ for (const milestone of demoMilestones) {
 
 for (const spot of demoSpots) {
   lines.push(
-    `INSERT OR IGNORE INTO sleep_spots (id, trip_id, room_name, bed_type, private_bath, private_room, weight_milli, sharing_enabled, reserved_for_honoree) VALUES (${sql(spot.id)}, ${sql(demoTrip.id)}, ${sql(spot.roomName)}, ${sql(spot.bedType)}, ${sql(spot.privateBath)}, ${sql(spot.privateRoom)}, ${sql(spot.weight)}, ${sql(spot.sharingEnabled)}, ${sql(spot.reservedForHonoree)});`,
+    `INSERT OR IGNORE INTO sleep_spots (id, trip_id, room_name, bed_type, private_bath, private_room, weight_milli, capacity, sharing_enabled, reserved_for_honoree, sort_order) VALUES (${sql(spot.id)}, ${sql(demoTrip.id)}, ${sql(spot.roomName)}, ${sql(spot.bedType)}, ${sql(spot.privateBath)}, ${sql(spot.privateRoom)}, ${sql(spot.weight)}, ${sql(spot.capacity)}, ${sql(spot.sharingEnabled)}, ${sql(spot.reservedForHonoree)}, ${sql(spot.sortOrder)});`,
   );
 }
 

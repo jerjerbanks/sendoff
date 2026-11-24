@@ -68,6 +68,8 @@ export default async function DashboardPage({
           <Link href={`/trip/${view.id}/spots`}>Beds</Link>
           <Link href={`/trip/${view.id}/sleep`}>Spot setup</Link>
           <Link href={`/trip/${view.id}/book`}>Book stay</Link>
+          <Link href={`/trip/${view.id}/settings`}>Settings</Link>
+          <Link href={`/trip/${view.id}/approvals`}>Approvals</Link>
         </div>
       </section>
 
@@ -83,7 +85,26 @@ export default async function DashboardPage({
           <p className="mt-2 text-sm">If one more person commits, you save {money(view.saveIfOneMoreCents)}.</p>
         ) : null}
         {view.addIfSomeoneDropsCents !== null ? (
-          <p className="text-sm">If someone drops, you pay {money(view.addIfSomeoneDropsCents)} more.</p>
+          <p className="text-sm">If someone drops, you pay {money(view.addIfSomeoneDropsCents)} more. That can put the trip under the minimum.</p>
+        ) : null}
+        {view.sensitivityRows.length > 0 ? (
+          <ul className="mt-3 grid gap-1 text-sm">
+            {view.sensitivityRows.map((row) => (
+              <li key={row.payers} className="flex justify-between">
+                <span>{row.expanded ? `N=${row.payers} expanded` : `If ${row.payers} commit`}</span>
+                <span className="font-semibold">{money(row.totalCents)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {view.rebase.length > 0 ? (
+          <ul className="mt-3 grid gap-1 text-sm">
+            {view.rebase.map((row) => (
+              <li key={row.userId}>
+                {row.name.split(" ")[0]}: {money(row.beforeCents)} → {money(row.afterCents)}
+              </li>
+            ))}
+          </ul>
         ) : null}
         {view.viewer ? (
           <p className="mt-2 text-sm font-semibold">

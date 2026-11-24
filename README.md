@@ -80,7 +80,7 @@ People who miss the deadline cannot rejoin. Extending a short trip does not brin
 
 ## Tests
 
-`npm test` covers the v1.1 fixtures: N=4 Chris is $1,414, N=5 is Chris $1,278 and Taylor $728, and Example E after a booked late drop is Chris $1,365, Sam $1,271, Jordan $1,088, Drew $1,034, with tee times still $120.
+The normative spec is `docs/spec-v1.2.md`. `npm test` encodes its worked examples with round-up (not nearest dollar): N=4 Chris $1,414, N=7 Chris $1,113 and Casey $608, N=8 Sam $786 and Pat $636, and the $2,640 rebase Chris $1,347.
 
 ## Deploy to Cloudflare Workers + D1
 
