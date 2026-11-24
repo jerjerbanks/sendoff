@@ -58,7 +58,8 @@ export function ogCard(view: Pick<
     view.payerCount < view.minHeadcount
       ? `${view.payerCount} of ${view.minHeadcount} parties in`
       : `${view.payerCount} ${view.payerCount === 1 ? "party" : "parties"} in`;
-  const line = `${inLine} · ${view.travelerCount} going · ${amount}`;
+  // Money first: if the card has to drop a segment to fit, it drops the least important one.
+  const line = `${amount} · ${inLine} · ${view.travelerCount} going`;
   return {
     eyebrow: "SENDOFF",
     title,
