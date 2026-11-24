@@ -1,9 +1,12 @@
 import { cache } from "react";
 import { money } from "./format";
 import { DEMO_TRIP_ID } from "./constants";
-import { ensureDemoSeed, loadTrip, tripNow, buyInTermsLocked, type MemberRecord, type RawTrip } from "./store";
+import { fitForOption, medianWeight, privateFit } from "./budgets";
+import { ensureDemoSeed, listBudgets, listFlightQuotes, loadTrip, tripNow, buyInTermsLocked, type MemberRecord, type RawTrip } from "./store";
 import {
+  claimedWeight,
   forfeitedCents,
+  projectClaims,
   type MathClaim,
   type MathSpot,
   isBooked,
@@ -49,6 +52,10 @@ export interface PollOptionView {
   link: string;
   votes: number;
   votedByMe: boolean;
+  badge: string | null;
+  countLabel: string | null;
+  privateLine: string | null;
+  hidden: boolean;
 }
 
 export interface PollView {
@@ -121,6 +128,8 @@ export interface TripView {
   rebase: { userId: string; name: string; beforeCents: number; afterCents: number }[];
   currentShareCents: number | null;
   saveIfOneMoreCents: number | null;
+  shareLowCents: number | null;
+  shareHighCents: number | null;
   addIfSomeoneDropsCents: number | null;
   isDemo: boolean;
 }
@@ -223,7 +232,12 @@ function buildMember(raw: RawTrip, member: MemberRecord, bill: PersonBill | unde
   };
 }
 
-function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
+function buildView(
+  raw: RawTrip,
+  viewerUserId: string | null,
+  budgets: { userId: string; maxAllIn: number; flexNote: string | null; mustHaves: string | null }[],
+  quotes: { userId: string; optionId: string; highCents: number }[],
+): TripView {
   const now = tripNow(raw);
   const forecastOrder = ["user_taylor", "user_riley", "user_casey", "user_morgan"];
   const membersMath = raw.members.map((member) => ({
@@ -283,14 +297,22 @@ function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
       const options = raw.options
         .filter((option) => option.pollId === poll.id)
         .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((option) => ({
-          id: option.id,
-          label: option.label,
-          estCost: option.estCost,
-          link: option.link,
-          votes: raw.votes.filter((vote) => vote.pollOptionId === option.id).length,
-          votedByMe: !!viewerUserId && raw.votes.some((vote) => vote.pollOptionId === option.id && vote.userId === viewerUserId),
-        }));
+        .map((option) => {
+          const fit = optionFit(raw, option, budgets, quotes);
+          const line = viewerUserId ? privateLine(raw, option, viewerUserId, budgets, quotes) : null;
+          return {
+            id: option.id,
+            label: option.label,
+            estCost: option.estCost,
+            link: option.link,
+            votes: raw.votes.filter((vote) => vote.pollOptionId === option.id).length,
+            votedByMe: !!viewerUserId && raw.votes.some((vote) => vote.pollOptionId === option.id && vote.userId === viewerUserId),
+            badge: fit?.label ?? null,
+            countLabel: fit?.countLabel ?? null,
+            privateLine: line,
+            hidden: option.hidden,
+          };
+        });
       return {
         id: poll.id,
         kind: poll.kind,
@@ -377,6 +399,8 @@ function buildView(raw: RawTrip, viewerUserId: string | null): TripView {
       : [],
     currentShareCents: sense?.currentCents ?? viewer?.bill?.totalCents ?? null,
     saveIfOneMoreCents: sense?.ifOneMoreSavesCents ?? null,
+    shareLowCents: flightBand(raw, billArgs, viewerUserId, "low"),
+    shareHighCents: flightBand(raw, billArgs, viewerUserId, "high"),
     addIfSomeoneDropsCents: sense?.ifSomeoneDropsAddsCents ?? null,
     isDemo: raw.trip.id === DEMO_TRIP_ID,
   };
@@ -442,5 +466,90 @@ export const loadTripView = cache(async (tripId: string, viewerUserId: string | 
   await ensureDemoSeed();
   const raw = await loadTrip(tripId);
   if (!raw) return null;
-  return buildView(raw, viewerUserId);
+  return buildView(raw, viewerUserId, await listBudgets(tripId), await listFlightQuotes());
 });
+
+function optionFit(
+  raw: RawTrip,
+  option: RawTrip["options"][number],
+  budgets: { userId: string; maxAllIn: number }[],
+  quotes: { userId: string; optionId: string; highCents: number }[],
+) {
+  if (option.lodgingEstimate == null) return null;
+  const basis = feasibilityBasis(raw);
+  if (!basis) return null;
+  return fitForOption({
+    lodgingCents: option.lodgingEstimate,
+    evenPoolCents: basis.even,
+    headcount: raw.trip.minHeadcount,
+    weightSum: basis.weightSum,
+    medianWeight: basis.median,
+    people: basis.people.map((person) => ({
+      userId: person.userId,
+      budgetCents: budgets.find((budget) => budget.userId === person.userId)?.maxAllIn ?? null,
+      highFlightCents: quotes.find((quote) => quote.userId === person.userId && quote.optionId === option.id)?.highCents ?? person.tripHigh,
+    })),
+  });
+}
+
+function privateLine(
+  raw: RawTrip,
+  option: RawTrip["options"][number],
+  viewerId: string,
+  budgets: { userId: string; maxAllIn: number; mustHaves: string | null }[],
+  quotes: { userId: string; optionId: string; highCents: number }[],
+) {
+  if (option.lodgingEstimate == null) return null;
+  const own = budgets.find((budget) => budget.userId === viewerId);
+  const basis = feasibilityBasis(raw);
+  const person = basis?.people.find((item) => item.userId === viewerId);
+  const high = quotes.find((quote) => quote.userId === viewerId && quote.optionId === option.id)?.highCents ?? person?.tripHigh ?? null;
+  if (!own || !basis || high == null) return null;
+  const fit = privateFit({
+    lodgingCents: option.lodgingEstimate,
+    evenPoolCents: basis.even,
+    headcount: raw.trip.minHeadcount,
+    weightSum: basis.weightSum,
+    medianWeight: basis.median,
+    flightCents: high,
+    budgetCents: own.maxAllIn,
+    wantsOwnRoom: (own.mustHaves ?? "").includes("own_room"),
+  });
+  const moneyGap = `$${(fit.deltaCents / 100).toFixed(0)}`;
+  if (fit.direction === "under") return `You're ${moneyGap} under`;
+  const hints = fit.hints
+    .map((hint) => `${hint.label === "couch" ? "A couch" : "A shared queen"} gets you under by $${(hint.underByCents / 100).toFixed(0)}${hint.conflictsWithOwnRoom ? " (this gives up your own room)" : ""}`)
+    .join("; ");
+  return hints ? `You're ${moneyGap} over. ${hints}.` : `You're ${moneyGap} over. Even the cheapest bed is still over.`;
+}
+
+function feasibilityBasis(raw: RawTrip) {
+  const honorees = raw.members.filter((member) => member.role === "honoree").map((member) => member.userId);
+  const people = raw.members
+    .filter((member) => member.role !== "honoree" && member.status !== "declined" && member.status !== "off_trip")
+    .map((member) => ({
+      userId: member.userId,
+      tripHigh: raw.costs.find((cost) => cost.splitType === "individual" && cost.memberId === member.userId)?.highEstimate ?? null,
+    }));
+  const order = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley", "user_casey", "user_pat"];
+  const ids = [...people].sort((a, b) => order.indexOf(a.userId) - order.indexOf(b.userId)).slice(0, raw.trip.minHeadcount).map((person) => person.userId);
+  if (ids.length < raw.trip.minHeadcount) return null;
+  const claims = projectClaims(raw.spots, raw.claims, ids);
+  const weightSum = claimedWeight(raw.spots, claims, new Set(ids)).reduce((sum, claim) => sum + claim.weight, 0);
+  const weights = raw.spots.filter((spot) => !spot.reservedForHonoree).map((spot) => spot.weight);
+  return { even: sharedEvenCents(raw.costs, honorees), weightSum, median: medianWeight(weights), people };
+}
+
+function flightBand(
+  raw: RawTrip,
+  billArgs: Parameters<typeof settledBills>[0],
+  viewerId: string | null,
+  end: "low" | "high",
+) {
+  if (!viewerId) return null;
+  const flight = raw.costs.find((cost) => cost.splitType === "individual" && cost.memberId === viewerId && cost.lowEstimate && cost.highEstimate);
+  if (!flight?.lowEstimate || !flight.highEstimate) return null;
+  const amount = end === "low" ? flight.lowEstimate : flight.highEstimate;
+  const costs = billArgs.costs.map((cost) => (cost.id === flight.id ? { ...cost, amountCents: amount } : cost));
+  return settledBills({ ...billArgs, costs }).find((bill) => bill.userId === viewerId)?.totalCents ?? null;
+}

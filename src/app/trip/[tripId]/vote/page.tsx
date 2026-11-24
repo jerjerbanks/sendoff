@@ -1,4 +1,4 @@
-import { addOptionAction, clearLockAction, lockOptionAction, pollDeadlineAction, voteAction } from "@/app/actions";
+import { addOptionAction, clearLockAction, hideOptionAction, lockOptionAction, pollDeadlineAction, voteAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { fieldClass } from "@/components/ui/input";
@@ -51,7 +51,7 @@ export default async function VotePage({
             </div>
             <div className="mt-4 grid gap-2">
               {poll.options.length === 0 ? <p className="text-sm text-muted">No options yet.</p> : null}
-              {poll.options.map((option) => {
+              {poll.options.filter((option) => view.isOrganizer || !option.hidden).map((option) => {
                 const width = Math.round((option.votes / top) * 100);
                 return (
                   <div key={option.id} className="rounded-2xl border border-line p-3">
@@ -71,6 +71,13 @@ export default async function VotePage({
                         <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-chip">
                           <span className="block h-full bg-accent" style={{ width: `${width}%` }} />
                         </span>
+                        {option.badge ? (
+                          <span className="mt-1 block text-xs font-semibold">
+                            {option.badge}
+                            {option.countLabel ? ` (${option.countLabel})` : ""}
+                          </span>
+                        ) : null}
+                        {option.privateLine ? <span className="mt-1 block text-xs">{option.privateLine}</span> : null}
                         <span className="mt-2 block text-xs text-muted">
                           {option.votedByMe ? "Approved · tap to take it back" : canVote && !poll.closed ? "Tap to approve" : "Voting closed"}
                           {option.estCost > 0 ? ` · estimate ${money(option.estCost)}` : ""}
@@ -83,6 +90,15 @@ export default async function VotePage({
                           Details
                         </a>
                       ) : <span />}
+                      {view.isOrganizer && poll.kind === "destination" && !poll.lockedOptionId ? (
+                        <form action={hideOptionAction}>
+                          <input type="hidden" name="tripId" value={view.id} />
+                          <input type="hidden" name="userId" value={viewer?.userId} />
+                          <input type="hidden" name="optionId" value={option.id} />
+                          <input type="hidden" name="hidden" value={option.hidden ? "no" : "yes"} />
+                          <SubmitButton variant="outline">{option.hidden ? "Unhide" : "Hide from the vote"}</SubmitButton>
+                        </form>
+                      ) : null}
                       {view.isOrganizer && !poll.lockedOptionId ? (
                         <form action={lockOptionAction}>
                           <input type="hidden" name="tripId" value={view.id} />

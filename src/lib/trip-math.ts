@@ -43,6 +43,8 @@ export interface MathCost {
   memberId: string | null;
   participantIds: string[];
   isLodging: boolean;
+  lowEstimate?: number | null;
+  highEstimate?: number | null;
 }
 
 export type ClaimStatus = "pending" | "approved" | "denied";

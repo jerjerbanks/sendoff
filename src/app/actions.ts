@@ -25,7 +25,10 @@ import {
   resolveSpotRequest,
   setBedPolicy,
   resetDemoTrip,
+  recordEvent,
+  saveBudget,
   saveBuyIn,
+  setOptionHidden,
   setClock,
   setPollDeadline,
   simulateDeadline,
@@ -78,7 +81,7 @@ export async function joinTripAction(formData: FormData) {
     fail(`/join/${token}`, result.ok ? "Could not join." : result.error ?? "Could not join.");
   }
   await setViewerCookie(result.userId);
-  redirect(`/trip/${result.tripId}`);
+  redirect(`/trip/${result.tripId}/budget`);
 }
 
 export async function switchUserAction(formData: FormData) {
@@ -294,6 +297,39 @@ export async function bedPolicyAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const policy = text(formData, "policy") === "locked" ? "locked" : "member_requests";
   done(tripId, await setBedPolicy(tripId, text(formData, "userId"), policy), `/trip/${tripId}/settings`);
+}
+
+export async function saveBudgetAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const amount = dollars(formData, "maxAllIn");
+  if (amount === null) fail(`/trip/${tripId}/budget`, "Enter an all-in number.");
+  const musts = ["golf", "own_room", "nightlife", "other"].filter((item) => formData.get(item) === "yes");
+  done(
+    tripId,
+    await saveBudget({
+      tripId,
+      userId: text(formData, "userId"),
+      maxAllInCents: amount,
+      flexNote: text(formData, "flexNote"),
+      mustHaves: musts,
+    }),
+    `/trip/${tripId}/budget`,
+  );
+}
+
+export async function outOfPocketAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  await recordEvent(tripId, text(formData, "userId"), "out_of_pocket", `previous=${text(formData, "previous")};current=${text(formData, "current")}`);
+  redirect(`/trip/${tripId}/metrics`);
+}
+
+export async function hideOptionAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await setOptionHidden(tripId, text(formData, "userId"), text(formData, "optionId"), text(formData, "hidden") === "yes"),
+    `/trip/${tripId}/vote`,
+  );
 }
 
 export async function resetDemoAction(formData: FormData) {

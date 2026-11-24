@@ -10,7 +10,10 @@ import {
   demoOptions,
   demoPayments,
   demoPolls,
+  demoAirports,
+  demoBudgets,
   demoClaims,
+  demoQuotes,
   demoSpots,
   demoTeeParticipants,
   demoTrip,
@@ -20,6 +23,9 @@ import {
 import {
   costItemParticipants,
   costItems,
+  flightQuotes,
+  privateBudgets,
+  tripEvents,
   milestones,
   payments,
   pollOptions,
@@ -91,7 +97,7 @@ export interface RawTrip {
   claims: MathClaim[];
   members: MemberRecord[];
   polls: { id: string; kind: string; deadline: string; lockedOptionId: string | null }[];
-  options: { id: string; pollId: string; label: string; estCost: number; link: string; sortOrder: number }[];
+  options: { id: string; pollId: string; label: string; estCost: number; link: string; sortOrder: number; lodgingEstimate: number | null; hidden: boolean }[];
   votes: { pollOptionId: string; userId: string }[];
   costs: MathCost[];
   costLabels: { id: string; label: string }[];
@@ -251,6 +257,8 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       estCost: option.estCost,
       link: option.link,
       sortOrder: option.sortOrder,
+      lodgingEstimate: option.lodgingEstimate,
+      hidden: option.hiddenByOrganizer === 1,
     })),
     votes: voteRows.map((vote) => ({ pollOptionId: vote.pollOptionId, userId: vote.userId })),
     costs: costRows.map((cost) => ({
@@ -261,6 +269,8 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       memberId: cost.memberId,
       participantIds: participantRows.filter((row) => row.costItemId === cost.id).map((row) => row.userId),
       isLodging: cost.isLodging === 1,
+      lowEstimate: cost.lowEstimate,
+      highEstimate: cost.highEstimate,
     })),
     costLabels: costRows.map((cost) => ({ id: cost.id, label: cost.label })),
     milestones: milestoneRows.map((milestone) => ({
@@ -495,8 +505,8 @@ export async function ensureDemoSeed() {
   const db = getDb();
   const existing = (await db.select().from(trips).where(eq(trips.id, DEMO_TRIP_ID)))[0];
   if (existing) {
-    const lodge = (await db.select().from(costItems).where(eq(costItems.id, "cost_lodge")))[0];
-    if (lodge?.amount === 240_000) return;
+    const cabo = (await db.select().from(pollOptions).where(eq(pollOptions.id, "opt_cabo")))[0];
+    if (cabo) return;
     await resetDemoTrip();
     return;
   }
@@ -508,7 +518,16 @@ export async function ensureDemoSeed() {
   for (const vote of demoVotes) {
     await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId });
   }
-  for (const cost of demoCosts) await db.insert(costItems).values({ tripId: DEMO_TRIP_ID, ...cost });
+  for (const cost of demoCosts) {
+    const airport = demoAirports[cost.memberId ?? ""];
+    await db.insert(costItems).values({
+      tripId: DEMO_TRIP_ID,
+      ...cost,
+      homeAirport: airport?.airport || null,
+      lowEstimate: airport && cost.splitType === "individual" ? airport.low : null,
+      highEstimate: airport && cost.splitType === "individual" ? airport.high : null,
+    });
+  }
   for (const userId of demoTeeParticipants) {
     await db.insert(costItemParticipants).values({ costItemId: "cost_tee", userId });
   }
@@ -516,6 +535,19 @@ export async function ensureDemoSeed() {
   for (const payment of demoPayments) await db.insert(payments).values({ ...payment });
   for (const spot of demoSpots) await db.insert(sleepSpots).values({ tripId: DEMO_TRIP_ID, ...spot });
   for (const claim of demoClaims) await db.insert(spotClaims).values(claim);
+  for (const budget of demoBudgets) {
+    await db.insert(privateBudgets).values({
+      tripId: DEMO_TRIP_ID,
+      userId: budget.userId,
+      maxAllIn: budget.maxAllIn,
+      flexNote: budget.flexNote,
+      mustHaves: budget.mustHaves,
+      updatedAt: "2026-11-20T16:00:00.000Z",
+    });
+  }
+  for (const [userId, optionId, highCents] of demoQuotes) {
+    await db.insert(flightQuotes).values({ userId, optionId, highCents });
+  }
 }
 
 export async function resetDemoTrip() {
@@ -546,6 +578,9 @@ export async function resetDemoTrip() {
   if (demoSpotIds.length) await db.delete(spotClaims).where(inArray(spotClaims.spotId, demoSpotIds));
   await db.delete(spotRequests).where(eq(spotRequests.tripId, DEMO_TRIP_ID));
   await db.delete(sleepSpots).where(eq(sleepSpots.tripId, DEMO_TRIP_ID));
+  await db.delete(flightQuotes).where(inArray(flightQuotes.userId, demoUsers.map((user) => user.id)));
+  await db.delete(privateBudgets).where(eq(privateBudgets.tripId, DEMO_TRIP_ID));
+  await db.delete(tripEvents).where(eq(tripEvents.tripId, DEMO_TRIP_ID));
   await db.delete(tripMembers).where(eq(tripMembers.tripId, DEMO_TRIP_ID));
   await db.delete(trips).where(eq(trips.id, DEMO_TRIP_ID));
   await ensureDemoSeed();
@@ -1206,6 +1241,74 @@ export async function simulateDeadline(tripId: string) {
   if (!raw.trip.buyInDeadline) return { ok: false, error: "Set a buy-in deadline first." };
   const jump = new Date(new Date(raw.trip.buyInDeadline).getTime() + 60_000).toISOString();
   return await setClock(tripId, jump);
+}
+
+export async function saveBudget(input: {
+  tripId: string;
+  userId: string;
+  maxAllInCents: number;
+  flexNote: string;
+  mustHaves: string[];
+}) {
+  const raw = await readRaw(input.tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const member = memberOf(raw, input.userId);
+  if (!member) return { ok: false, error: "Join the trip first." };
+  if (member.status === "committed" || member.status === "off_trip") {
+    return { ok: false, error: "Your budget locks once you buy in." };
+  }
+  await getDb().insert(privateBudgets).values({
+    tripId: input.tripId,
+    userId: input.userId,
+    maxAllIn: input.maxAllInCents,
+    flexNote: input.flexNote || null,
+    mustHaves: input.mustHaves.join(","),
+    updatedAt: tripNow(raw),
+  }).onConflictDoUpdate({
+    target: [privateBudgets.tripId, privateBudgets.userId],
+    set: {
+      maxAllIn: input.maxAllInCents,
+      flexNote: input.flexNote || null,
+      mustHaves: input.mustHaves.join(","),
+      updatedAt: tripNow(raw),
+    },
+  });
+  return { ok: true };
+}
+
+export async function setOptionHidden(tripId: string, userId: string, optionId: string, hidden: boolean) {
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  await getDb().update(pollOptions).set({ hiddenByOrganizer: hidden ? 1 : 0 }).where(eq(pollOptions.id, optionId));
+  return { ok: true };
+}
+
+export async function recordEvent(tripId: string, userId: string | null, kind: string, detail: string | null = null) {
+  await getDb().insert(tripEvents).values({
+    id: crypto.randomUUID(),
+    tripId,
+    userId,
+    kind,
+    at: new Date().toISOString(),
+    detail,
+  });
+}
+
+export async function listEvents(tripId: string) {
+  return getDb().select().from(tripEvents).where(eq(tripEvents.tripId, tripId));
+}
+
+/** Budgets for the feasibility math. Callers must not send this list to a browser. */
+export async function ownBudget(tripId: string, userId: string) {
+  return (await getDb().select().from(privateBudgets).where(and(eq(privateBudgets.tripId, tripId), eq(privateBudgets.userId, userId))))[0] ?? null;
+}
+
+export async function listBudgets(tripId: string) {
+  return getDb().select().from(privateBudgets).where(eq(privateBudgets.tripId, tripId));
+}
+
+export async function listFlightQuotes() {
+  return getDb().select().from(flightQuotes);
 }
 
 export async function jumpPastSecondPayment(tripId: string) {

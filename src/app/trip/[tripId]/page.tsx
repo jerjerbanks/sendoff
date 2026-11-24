@@ -70,11 +70,16 @@ export default async function DashboardPage({
           <Link href={`/trip/${view.id}/book`}>Book stay</Link>
           <Link href={`/trip/${view.id}/settings`}>Settings</Link>
           <Link href={`/trip/${view.id}/approvals`}>Approvals</Link>
+          <Link href={`/trip/${view.id}/budget`}>Budget</Link>
+          <Link href={`/trip/${view.id}/metrics`}>Metrics</Link>
         </div>
       </section>
 
       <section className="rounded-3xl border border-line bg-card p-4">
         <h2 className="font-serif text-2xl">{viewer ? `Your number, ${viewer.name.split(" ")[0]}` : "Your number"}</h2>
+        {view.shareLowCents != null && view.shareHighCents != null ? (
+          <p className="mt-1 text-sm font-semibold">Flight band {money(view.shareLowCents)}–{money(view.shareHighCents)} around the midpoint.</p>
+        ) : null}
         <ShareSummary view={view} />
         {view.viewer?.bill ? (
           <p className="mt-2 text-sm text-muted">
@@ -92,7 +97,11 @@ export default async function DashboardPage({
             {view.sensitivityRows.map((row) => (
               <li key={row.payers} className="flex justify-between">
                 <span>{row.expanded ? `N=${row.payers} expanded` : `If ${row.payers} commit`}</span>
-                <span className="font-semibold">{money(row.totalCents)}</span>
+                <span className="font-semibold">
+                  {view.shareLowCents != null && view.shareHighCents != null && view.currentShareCents != null
+                    ? `${money(row.totalCents + view.shareLowCents - view.currentShareCents)}–${money(row.totalCents + view.shareHighCents - view.currentShareCents)}`
+                    : money(row.totalCents)}
+                </span>
               </li>
             ))}
           </ul>

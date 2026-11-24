@@ -90,6 +90,8 @@ export const pollOptions = sqliteTable("poll_options", {
   estCost: integer("est_cost").notNull(),
   link: text("link").notNull(),
   sortOrder: integer("sort_order").notNull(),
+  lodgingEstimate: integer("lodging_estimate"),
+  hiddenByOrganizer: integer("hidden_by_organizer").notNull().default(0),
 });
 
 export const votes = sqliteTable(
@@ -110,6 +112,41 @@ export const costItems = sqliteTable("cost_items", {
   amount: integer("amount").notNull(),
   memberId: text("member_id"),
   isLodging: integer("is_lodging").notNull(),
+  homeAirport: text("home_airport"),
+  lowEstimate: integer("low_estimate"),
+  highEstimate: integer("high_estimate"),
+});
+
+export const privateBudgets = sqliteTable(
+  "private_budgets",
+  {
+    tripId: text("trip_id").notNull(),
+    userId: text("user_id").notNull(),
+    maxAllIn: integer("max_all_in").notNull(),
+    flexNote: text("flex_note"),
+    mustHaves: text("must_haves"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tripId, table.userId] })],
+);
+
+export const flightQuotes = sqliteTable(
+  "flight_quotes",
+  {
+    userId: text("user_id").notNull(),
+    optionId: text("option_id").notNull(),
+    highCents: integer("high_cents").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.optionId] })],
+);
+
+export const tripEvents = sqliteTable("trip_events", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull(),
+  userId: text("user_id"),
+  kind: text("kind").notNull(),
+  at: text("at").notNull(),
+  detail: text("detail"),
 });
 
 export const costItemParticipants = sqliteTable(

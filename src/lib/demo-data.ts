@@ -61,15 +61,59 @@ export const demoPolls = [
 ] as const;
 
 export const demoOptions = [
-  { id: "opt_nash", pollId: "poll_destination", label: "Nashville", estCost: 240000, link: "https://www.visitmusiccity.com", sortOrder: 0 },
-  { id: "opt_austin", pollId: "poll_destination", label: "Austin", estCost: 260000, link: "https://www.austintexas.org", sortOrder: 1 },
-  { id: "opt_scotts", pollId: "poll_destination", label: "Scottsdale", estCost: 310000, link: "https://www.experiencescottsdale.com", sortOrder: 2 },
-  { id: "opt_may14", pollId: "poll_dates", label: "May 14–17, 2027", estCost: 0, link: "", sortOrder: 0 },
-  { id: "opt_may21", pollId: "poll_dates", label: "May 21–24, 2027", estCost: 0, link: "", sortOrder: 1 },
-  { id: "opt_brew", pollId: "poll_activity", label: "Brewery day", estCost: 60000, link: "", sortOrder: 0 },
-  { id: "opt_tee", pollId: "poll_activity", label: "Golf / tee times", estCost: 48000, link: "", sortOrder: 1 },
-  { id: "opt_show", pollId: "poll_activity", label: "Dinner and a show", estCost: 80000, link: "", sortOrder: 2 },
+  { id: "opt_nash", pollId: "poll_destination", label: "Nashville", estCost: 240000, link: "https://www.visitmusiccity.com", sortOrder: 0, lodgingEstimate: 240000, hiddenByOrganizer: 0 },
+  { id: "opt_austin", pollId: "poll_destination", label: "Austin", estCost: 220000, link: "https://www.austintexas.org", sortOrder: 1, lodgingEstimate: 220000, hiddenByOrganizer: 0 },
+  { id: "opt_scotts", pollId: "poll_destination", label: "Scottsdale", estCost: 200000, link: "https://www.experiencescottsdale.com", sortOrder: 2, lodgingEstimate: 200000, hiddenByOrganizer: 0 },
+  { id: "opt_cabo", pollId: "poll_destination", label: "Cabo", estCost: 420000, link: "https://www.visitloscabos.travel", sortOrder: 3, lodgingEstimate: 420000, hiddenByOrganizer: 0 },
+  { id: "opt_may14", pollId: "poll_dates", label: "May 14–17, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "opt_may21", pollId: "poll_dates", label: "May 21–24, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "opt_brew", pollId: "poll_activity", label: "Brewery day", estCost: 60000, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "opt_tee", pollId: "poll_activity", label: "Golf / tee times", estCost: 48000, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "opt_show", pollId: "poll_activity", label: "Dinner and a show", estCost: 80000, link: "", sortOrder: 2, lodgingEstimate: null, hiddenByOrganizer: 0 },
 ] as const;
+
+export const demoBudgets = [
+  { userId: "user_chris", maxAllIn: 200000, flexNote: null, mustHaves: "" },
+  { userId: "user_sam", maxAllIn: 180000, flexNote: null, mustHaves: "" },
+  { userId: "user_jordan", maxAllIn: 150000, flexNote: null, mustHaves: "golf" },
+  { userId: "user_drew", maxAllIn: 140000, flexNote: null, mustHaves: "" },
+  { userId: "user_taylor", maxAllIn: 130000, flexNote: null, mustHaves: "" },
+  { userId: "user_riley", maxAllIn: 160000, flexNote: null, mustHaves: "" },
+] as const;
+
+/** Destination highs that differ from the Nashville trip-level high. */
+export const demoQuotes = [
+  ["user_chris", "opt_scotts", 31000],
+  ["user_sam", "opt_scotts", 35000],
+  ["user_jordan", "opt_scotts", 29000],
+  ["user_drew", "opt_scotts", 32000],
+  ["user_taylor", "opt_scotts", 28000],
+  ["user_riley", "opt_scotts", 33000],
+  ["user_casey", "opt_scotts", 32000],
+  ["user_pat", "opt_scotts", 32000],
+  ["user_alex", "opt_scotts", 33000],
+  ["user_chris", "opt_cabo", 70000],
+  ["user_sam", "opt_cabo", 72000],
+  ["user_jordan", "opt_cabo", 58000],
+  ["user_drew", "opt_cabo", 65000],
+  ["user_taylor", "opt_cabo", 36000],
+  ["user_riley", "opt_cabo", 64000],
+  ["user_casey", "opt_cabo", 60000],
+  ["user_pat", "opt_cabo", 62000],
+  ["user_alex", "opt_cabo", 65000],
+] as const;
+
+export const demoAirports: Record<string, { airport: string; low: number; high: number }> = {
+  user_chris: { airport: "ORD", low: 25000, high: 31000 },
+  user_sam: { airport: "DEN", low: 27000, high: 35000 },
+  user_jordan: { airport: "ATL", low: 21000, high: 29000 },
+  user_drew: { airport: "DTW", low: 25000, high: 34000 },
+  user_taylor: { airport: "IAH", low: 23000, high: 31000 },
+  user_riley: { airport: "CLT", low: 26000, high: 34000 },
+  user_casey: { airport: "MSP", low: 25000, high: 32000 },
+  user_pat: { airport: "PHL", low: 24000, high: 32000 },
+  user_alex: { airport: "", low: 25000, high: 33000 },
+};
 
 const votePairs: [string, string][] = [
   ["opt_nash", "user_chris"],
