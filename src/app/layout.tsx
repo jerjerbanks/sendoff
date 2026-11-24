@@ -27,6 +27,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0c0b0a",
+  // Lets the tab bar pad for the iPhone home indicator via env(safe-area-inset-bottom).
+  viewportFit: "cover",
 };
 
 export const dynamic = "force-dynamic";

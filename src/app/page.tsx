@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input, fieldClass } from "@/components/ui/input";
@@ -25,14 +24,16 @@ export default async function HomePage({
         <a href="#start" className="flex min-h-14 items-center justify-center rounded-xl bg-accent px-5 font-semibold text-accent-ink">
           Start a trip
         </a>
-        <Link href="/demo" className="flex min-h-14 flex-col justify-center rounded-xl border border-line bg-card px-5 py-3 font-semibold">
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+        <a href="/demo" className="flex min-h-14 flex-col justify-center rounded-xl border border-line bg-card px-5 py-3 font-semibold">
           Take the 2-minute tour
           <span className="text-xs font-normal text-muted">7 steps through a sample bachelor party</span>
-        </Link>
+        </a>
       </div>
-      <Link href="/demo/7" className="mt-3 text-sm font-semibold text-muted">
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+      <a href="/demo/7" className="mt-3 text-sm font-semibold text-muted">
         Or see a family trip: four households, kids, and grandparents →
-      </Link>
+      </a>
       <ol className="mt-8 grid gap-3 md:grid-cols-3">
         {[
           ["1", "Vote", "Approve any place, weekend, or plan you'd actually do. A private budget shows whether it fits the group without telling anyone your number."],

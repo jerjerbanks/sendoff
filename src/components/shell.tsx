@@ -55,7 +55,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
             }))}
           />
         ) : null}
-        <main className="flex-1 px-4 py-5 pb-28 md:pb-10">{children}</main>
+        <main className="flex-1 px-4 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-10">{children}</main>
       </div>
       <div className="md:hidden">
         <TripNav tripId={view.id} />

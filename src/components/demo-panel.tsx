@@ -45,9 +45,9 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
           <p className="mt-1 text-sm text-muted">{step.why}</p>
           <div className="mt-3 flex items-center gap-2">
             {step.n > 1 ? (
-              <Link href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold">
+              <a href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold">
                 Back
-              </Link>
+              </a>
             ) : null}
             {step.n === 5 && deadlinePending ? (
               <form action={simulateDeadlineAction}>
@@ -58,12 +58,12 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
               </form>
             ) : null}
             {step.n < total ? (
-              <Link
+              <a
                 href={`/demo/${step.n + 1}`}
                 className={`ml-auto inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold ${step.n === 5 && deadlinePending ? "border border-line" : "bg-accent text-accent-ink"}`}
               >
                 Next step →
-              </Link>
+              </a>
             ) : (
               <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
                 Start your own trip →
@@ -74,9 +74,10 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
       ) : (
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
-          <Link href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+          <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
             Start the tour
-          </Link>
+          </a>
         </div>
       )}
       {view ? <DemoControls view={view} /> : null}
@@ -130,9 +131,10 @@ function DemoControls({ view }: { view: TripView }) {
                 Real time
               </button>
             </form>
-            <Link href="/demo/1" className="inline-flex min-h-9 items-center rounded-full border border-line px-3 text-xs font-semibold">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+            <a href="/demo/1" className="inline-flex min-h-9 items-center rounded-full border border-line px-3 text-xs font-semibold">
               Restart the tour
-            </Link>
+            </a>
           </div>
         </div>
       </div>
