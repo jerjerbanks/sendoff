@@ -83,9 +83,10 @@ export default async function HomePage({
         <fieldset className="grid gap-3">
           <legend className="text-sm font-medium">Guests of honor (optional — leave blank for none)</legend>
           <p className="text-xs text-muted">They come along, the group covers their share, and they can&apos;t be dropped. Name up to two here.</p>
-          {[1, 2].map((index) => (
-            <div key={index} className="grid grid-cols-[1fr_auto] gap-2">
-              <Input name={`honoree${index}Name`} placeholder={index === 1 ? "Name" : "Second name (optional)"} aria-label={`Guest of honor ${index}`} />
+          {[1, 2].map((index) => {
+            const row = (
+            <div key={index} className="grid grid-cols-[1fr_auto] gap-2 [&>*]:min-w-0">
+              <Input name={`honoree${index}Name`} placeholder="Name" aria-label={`Guest of honor ${index}`} />
               <select className={`${fieldClass} w-32`} name={`honoree${index}Role`} defaultValue="other" aria-label={`Guest of honor ${index} role`}>
                 <option value="bride">Bride</option>
                 <option value="groom">Groom</option>
@@ -94,7 +95,16 @@ export default async function HomePage({
               </select>
               <Input className="col-span-2" name={`honoree${index}Contact`} placeholder="Their phone or email (optional)" aria-label={`Guest of honor ${index} contact`} />
             </div>
-          ))}
+            );
+            return index === 1 ? (
+              row
+            ) : (
+              <details key={index}>
+                <summary className="cursor-pointer text-sm font-semibold text-muted">Add a second guest of honor</summary>
+                <div className="mt-2">{row}</div>
+              </details>
+            );
+          })}
         </fieldset>
         <Field label="Rough date window" name="dateWindow" placeholder="A long weekend in April or May 2027" />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>

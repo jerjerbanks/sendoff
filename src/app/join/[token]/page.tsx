@@ -48,15 +48,28 @@ export default async function JoinPage({
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
       {view ? (
         <>
-          <h1 className="mt-2 font-serif text-4xl leading-tight">{view.name}</h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            {view.organizerName} is planning {view.subtitle.charAt(0).toLowerCase() + view.subtitle.slice(1)}. {view.dateWindow}. Join, then add
-            anyone you&apos;re bringing. This is a mock login — the phone or email is just how we recognize you next time.
+          <p className="mt-6 text-sm text-muted">{view.organizerName.split(" ")[0]} invited you to</p>
+          <h1 className="mt-1 font-serif text-5xl leading-[0.95]">{view.name}</h1>
+          <p className="mt-3 text-base text-muted">
+            {view.place !== view.name ? `${view.place.split(",")[0]} · ` : ""}
+            {joinWhen(view)}
           </p>
-          <p className="mt-3 text-sm">
-            {view.payerCount} {view.payerCount === 1 ? "party" : "parties"} committed ·{" "}
-            {view.parties.filter((party) => party.status === "joined").length} still deciding · {view.travelerCount} travelers so far
-          </p>
+          <div className="mt-5 flex items-center gap-3">
+            <div className="flex -space-x-2" aria-hidden>
+              {view.parties
+                .filter((party) => party.status === "committed")
+                .slice(0, 6)
+                .map((party) => (
+                  <span key={party.payerUserId} className="flex size-9 items-center justify-center rounded-full border-2 border-paper bg-accent font-serif text-accent-ink">
+                    {party.name.charAt(0)}
+                  </span>
+                ))}
+            </div>
+            <p className="text-sm">
+              {view.payerCount} {view.payerCount === 1 ? "party is" : "parties are"} in
+              {view.payerCount < view.minPayerCount ? ` · ${view.minPayerCount - view.payerCount} more needed to book` : ""}
+            </p>
+          </div>
           {closed ? (
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">
               The buy-in deadline has passed. You can&apos;t join or rejoin.
@@ -74,6 +87,7 @@ export default async function JoinPage({
                 <Input className="mt-1.5" name="contact" required placeholder="taylor@example.com" />
               </label>
               <SubmitButton>Join the trip</SubmitButton>
+              <p className="text-center text-xs text-muted">No app to install. No password: your phone or email is just how we recognize you next time.</p>
             </form>
           )}
         </>
@@ -88,4 +102,9 @@ export default async function JoinPage({
       </Link>
     </main>
   );
+}
+
+function joinWhen(view: { polls: { kind: string; lockedLabel: string | null; options: { label: string; votes: number }[] }[]; dateWindow: string }): string {
+  const dates = view.polls.find((poll) => poll.kind === "dates");
+  return dates?.lockedLabel ?? dates?.options.slice().sort((a, b) => b.votes - a.votes).find((option) => option.votes > 0)?.label ?? view.dateWindow;
 }

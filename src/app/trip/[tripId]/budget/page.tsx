@@ -36,55 +36,76 @@ export default async function BudgetPage({
   return (
     <div className="grid gap-4">
       <div>
-        {welcome ? <p className="text-xs font-semibold uppercase tracking-wide text-accent">Step 2 of 2 · Private</p> : null}
-        <h2 className="font-serif text-3xl">{size > 1 ? "Your party's private budget" : "Your private budget"}</h2>
-        <p className="mt-1 text-sm leading-relaxed">
-          Only you see this number. The organizer and the group will never see your budget or whether a destination is over for your party.
-          Polls show only an anonymous &ldquo;fits the group&rdquo; signal.
+        {welcome ? <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Step 2 of 2</p> : null}
+        <h2 className="font-serif text-4xl leading-none">What can {size > 1 ? "your party" : "you"} spend?</h2>
+        <p className="mt-3 rounded-2xl bg-chip px-4 py-3 text-sm leading-relaxed">
+          <span className="font-semibold">Private.</span> Only you see this number. The organizer and the group will never see your budget or
+          whether a destination is over for your party.
         </p>
       </div>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
-      {!own ? (
-        <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">Even a rough number helps the group pick a destination you can actually do. You can skip it.</p>
-      ) : null}
-      <form action={saveBudgetAction} className="grid gap-3 rounded-3xl border border-line bg-card p-4">
+      <form action={saveBudgetAction} className="grid gap-4">
         <input type="hidden" name="tripId" value={view.id} />
         <input type="hidden" name="userId" value={view.viewer.userId} />
         {welcome ? <input type="hidden" name="welcome" value="1" /> : null}
-        <label className="text-sm font-medium">
-          {size > 1 ? `All-in for all ${size} of you, including travel` : "All-in, including flights"}
-          <Input className="mt-1.5" name="maxAllIn" type="number" min={1} step="1" defaultValue={own ? own.maxAllIn / 100 : ""} disabled={locked} required />
+        <label className="block">
+          <span className="text-sm text-muted">{size > 1 ? `All-in for all ${size} of you, travel included` : "All-in, flights included"}</span>
+          <span className="mt-2 flex items-center gap-2 rounded-3xl border border-line bg-card px-5">
+            <span className="font-serif text-4xl text-muted">$</span>
+            <input
+              className="h-20 w-full min-w-0 bg-transparent font-serif text-5xl text-ink outline-none placeholder:text-line"
+              name="maxAllIn"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step="1"
+              placeholder="1500"
+              defaultValue={own ? own.maxAllIn / 100 : ""}
+              disabled={locked}
+              required
+              aria-label="All-in budget in dollars"
+            />
+          </span>
         </label>
-        <label className="text-sm font-medium">
-          A private note
-          <Input className="mt-1.5" name="flexNote" defaultValue={own?.flexNote ?? ""} disabled={locked} />
-        </label>
-        <fieldset className="grid gap-2 text-sm" disabled={locked}>
-          <legend className="font-medium">Must-haves</legend>
-          {[
-            ["golf", "Golf"],
-            ["own_room", "Our own room"],
-            ["nightlife", "Nightlife"],
-            ["ground_floor", "Ground floor"],
-            ["crib_space", "Room for a crib"],
-            ["other", "Something else"],
-          ].map(([id, label]) => (
-            <label key={id} className="flex items-center gap-2">
-              <input type="checkbox" name={id} value="yes" defaultChecked={(own?.mustHaves ?? "").split(",").includes(id)} />
-              {label}
-            </label>
-          ))}
-        </fieldset>
+        <p className="text-sm text-muted">
+          The polls then tag each option &ldquo;fits everyone&rdquo;, &ldquo;fits most&rdquo;, or &ldquo;over budget for the group&rdquo; — never naming
+          anyone. Only you see whether you&apos;re over.
+        </p>
+        <details className="rounded-2xl border border-line">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-muted">Anything you need? (optional)</summary>
+          <div className="grid gap-3 px-4 pb-4">
+            <fieldset className="flex flex-wrap gap-2 text-sm" disabled={locked}>
+              <legend className="sr-only">Must-haves</legend>
+              {[
+                ["golf", "Golf"],
+                ["own_room", "Our own room"],
+                ["nightlife", "Nightlife"],
+                ["ground_floor", "Ground floor"],
+                ["crib_space", "Room for a crib"],
+                ["other", "Something else"],
+              ].map(([id, label]) => (
+                <label
+                  key={id}
+                  className="flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-accent-ink"
+                >
+                  <input className="sr-only" type="checkbox" name={id} value="yes" defaultChecked={(own?.mustHaves ?? "").split(",").includes(id)} />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+            <Input name="flexNote" defaultValue={own?.flexNote ?? ""} disabled={locked} placeholder="A private note to yourself" aria-label="A private note" />
+          </div>
+        </details>
         {locked ? (
           <p className="text-sm text-muted">This locked when your party bought in. You can still see it.</p>
         ) : (
           <>
             <SubmitButton>Save budget</SubmitButton>
-            <p className="text-xs text-muted">You can edit it until your party buys in. It never blocks a vote or a buy-in.</p>
+            <p className="text-center text-xs text-muted">Edit it anytime until you buy in. It never blocks a vote or a buy-in.</p>
           </>
         )}
       </form>
-      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent">{welcome ? "Skip for now and go vote" : "Continue to the polls"}</Link>
+      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
     </div>
   );
 }
