@@ -6,6 +6,7 @@ import { Shell } from "@/components/shell";
 import { ogCard } from "@/lib/og-copy";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 async function origin() {
   const headerList = await headers();
@@ -17,17 +18,16 @@ async function origin() {
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
   const shell = await loadTripView(tripId, null);
-  const payer = shell?.members.find((member) => member.status === "committed" && member.role !== "honoree");
-  const view = payer ? await loadTripView(tripId, payer.userId) : shell;
-  if (!view) return { title: "Sendoff" };
+  const view = shell;
+  if (!view) return { title: APP_NAME };
   const card = ogCard(view);
   const base = await origin();
   const image = `${base}/og/trip/${tripId}`;
   return {
-    title: card.alt,
+    title: card.pageTitle,
     description: card.alt,
-    openGraph: { title: card.title, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
-    twitter: { card: "summary_large_image", title: card.title, description: card.alt, images: [image] },
+    openGraph: { title: card.shareTitle, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: card.shareTitle, description: card.alt, images: [image] },
   };
 }
 

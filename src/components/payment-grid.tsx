@@ -19,7 +19,7 @@ export function PaymentGrid({ view }: { view: TripView }) {
       <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
         <thead className="bg-chip text-xs uppercase tracking-wide text-muted">
           <tr>
-            <th className="sticky left-0 bg-chip px-3 py-2 font-semibold">Who</th>
+            <th className="sticky left-0 bg-chip px-3 py-2 font-semibold">Party</th>
             {view.milestones.map((milestone) => (
               <th key={milestone.id} className="px-3 py-2 font-semibold">
                 {milestone.name}
@@ -28,16 +28,23 @@ export function PaymentGrid({ view }: { view: TripView }) {
           </tr>
         </thead>
         <tbody>
-          {view.members.map((member) => (
+          {view.members.filter((member) => member.isPayer).map((member) => {
+            const party = view.parties.find((item) => item.payerUserId === member.userId);
+            const showParty = party && party.travelers.length > 1;
+            return (
             <tr key={member.userId} className="border-t border-line">
-              <th className="sticky left-0 bg-card px-3 py-2 text-left font-medium">{member.name}</th>
+              <th className="sticky left-0 bg-card px-3 py-2 text-left font-medium">
+                {member.name}
+                {showParty ? <span className="block text-xs font-normal text-muted">{party.name} · {party.travelers.length} people</span> : null}
+              </th>
               {view.milestones.map((milestone) => (
                 <td key={milestone.id} className="px-3 py-2">
                   <Cell member={member} milestoneId={milestone.id} honoree={member.role === "honoree"} />
                 </td>
               ))}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -45,9 +52,9 @@ export function PaymentGrid({ view }: { view: TripView }) {
 }
 
 function Cell({ member, milestoneId, honoree }: { member: MemberView; milestoneId: string; honoree: boolean }) {
-  if (honoree) return <span className="text-xs text-muted">Covered</span>;
+  if (honoree) return <span className="text-xs text-muted">Waived</span>;
   if (member.status === "off_trip" && !member.lines.some((line) => line.milestoneId === milestoneId)) {
-    return <span className="text-xs text-muted">Off</span>;
+    return <span className="text-xs text-muted">Off trip</span>;
   }
   const line = member.lines.find((item) => item.milestoneId === milestoneId);
   if (!line || (line.amountCents === 0 && line.status !== "paid" && line.status !== "forfeited" && line.status !== "refunded")) {

@@ -15,7 +15,7 @@ const items = [
 export function TripNav({ tripId }: { tripId: string }) {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 backdrop-blur md:static md:border-t-0 md:bg-transparent">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:static md:border-t-0 md:bg-transparent md:pb-0">
       <div className="mx-auto flex max-w-lg md:max-w-3xl">
         {items.map((item) => {
           const href = `/trip/${tripId}${item.href}`;

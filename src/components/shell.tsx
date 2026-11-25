@@ -1,89 +1,62 @@
 import type { ReactNode } from "react";
-import { headers } from "next/headers";
-import {
-  jumpSecondAction,
-  resetClockAction,
-  resetDemoAction,
-  simulateDeadlineAction,
-  switchUserAction,
-} from "@/app/actions";
+import Link from "next/link";
+import { DemoBanner } from "@/components/demo-panel";
 import { Identify } from "@/components/identify";
 import { TripNav } from "@/components/nav";
-import { ShareLauncher } from "@/components/share-launcher";
 import { Badge } from "@/components/ui/badge";
-import { roleLabel, statusLabel, tripStatusLabel } from "@/lib/labels";
-import { formatWhen } from "@/lib/format";
+import { isDemoTrip } from "@/lib/demo-tour";
+import { tripStatusLabel } from "@/lib/labels";
+import { formatDay } from "@/lib/format";
 import type { TripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 export async function Shell({ view, children }: { view: TripView; children: ReactNode }) {
-  const headerList = await headers();
-  const proto = headerList.get("x-forwarded-proto") ?? "http";
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747";
-  const origin = `${proto}://${host}`;
+  const demo = isDemoTrip(view.id);
   const tone =
     view.cancelled || view.underMinimum ? "bad" : view.lockedIn ? "good" : view.buyInOpen ? "warn" : "default";
+  // A real trip shows nothing to someone who isn't on it: no roster, no plan, no numbers.
+  if (!demo && !view.viewer) return <PrivateTrip />;
   return (
     <div className="min-h-dvh">
-      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col md:max-w-3xl">
-        <header className="px-4 pt-4">
+      <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-0 md:max-w-3xl">
+        {demo ? (
+          <div className="px-4">
+            <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} />
+          </div>
+        ) : null}
+        <header className="px-4 pt-5">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
-              <h1 className="font-serif text-3xl leading-tight">{view.name}</h1>
-              <p className="mt-1 text-sm text-muted">
-                Bachelor party for {view.guestName}
+            <div className="min-w-0">
+              <Link href={`/trip/${view.id}`} className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                {APP_NAME}
+              </Link>
+              <h1 className="mt-0.5 font-serif text-2xl leading-tight">{view.name}</h1>
+              <p className="mt-0.5 text-sm text-muted">
+                {view.subtitle}
+                {view.buyInOpen && view.buyInDeadline ? ` · commit by ${formatDay(view.buyInDeadline)}` : ""}
               </p>
             </div>
-            <Badge tone={tone}>{tripStatusLabel(view.status)}</Badge>
+            <Badge tone={tone} className="mt-1 shrink-0">
+              {tripStatusLabel(view.status)}
+            </Badge>
           </div>
-          <details className="mt-3 rounded-2xl border border-line bg-card">
-            <summary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold">
-              Viewing as {view.viewer ? `${view.viewer.name} · ${roleLabel(view.viewer.role)}` : "nobody yet — pick a person"}
-            </summary>
-            <div className="grid gap-1 border-t border-line p-2">
-              {view.members.map((member) => (
-                <form key={member.userId} action={switchUserAction}>
-                  <input type="hidden" name="tripId" value={view.id} />
-                  <input type="hidden" name="userId" value={member.userId} />
-                  <button
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm hover:bg-chip"
-                    type="submit"
-                  >
-                    <span>
-                      {member.name}
-                      <span className="text-muted"> · {roleLabel(member.role)}</span>
-                    </span>
-                    <span className="text-xs text-muted">{statusLabel(member.status)}</span>
-                  </button>
-                </form>
-              ))}
-            </div>
-          </details>
-          <ShareLauncher
-            origin={origin}
-            view={{
-              id: view.id,
-              name: view.name,
-              inviteToken: view.inviteToken,
-              organizerName: view.organizerName,
-              guestName: view.guestName,
-              buyInDeadline: view.buyInDeadline,
-              currentShareCents: view.currentShareCents,
-            }}
-          />
           <div className="mt-3 hidden md:block">
             <TripNav tripId={view.id} />
           </div>
         </header>
-        <Identify
-          tripId={view.id}
-          hasViewer={!!view.viewer}
-          members={view.members.map((member) => ({ userId: member.userId, name: member.name, role: member.role }))}
-        />
-        <div className="px-4 pt-3">
-          <QaBar view={view} />
-        </div>
-        <main className="flex-1 px-4 py-4 pb-28 md:pb-10">{children}</main>
+        {demo ? (
+          <Identify
+            tripId={view.id}
+            hasViewer={!!view.viewer}
+            members={view.members.map((member) => ({
+              userId: member.userId,
+              name: member.name,
+              role: member.role,
+              party: view.parties.find((party) => party.payerUserId === member.partyUserId)?.name ?? null,
+            }))}
+          />
+        ) : null}
+        <main className="flex-1 px-4 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-10">{children}</main>
       </div>
       <div className="md:hidden">
         <TripNav tripId={view.id} />
@@ -92,43 +65,18 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
   );
 }
 
-function QaBar({ view }: { view: TripView }) {
+function PrivateTrip() {
   return (
-    <details className="rounded-2xl border border-dashed border-line bg-chip/70">
-      <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted">
-        QA clock · {view.simulated ? formatWhen(view.now) : "real time"} · Simulate deadline now
-      </summary>
-      <div className="flex flex-wrap gap-2 px-3 pb-3">
-        <form action={simulateDeadlineAction}>
-          <input type="hidden" name="tripId" value={view.id} />
-          <button className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-card" type="submit">
-            Simulate deadline now
-          </button>
-        </form>
-        <form action={jumpSecondAction}>
-          <input type="hidden" name="tripId" value={view.id} />
-          <button className="rounded-full border border-line bg-card px-3 py-1.5 text-xs font-semibold" type="submit">
-            Day after 2nd payment
-          </button>
-        </form>
-        <form action={resetClockAction}>
-          <input type="hidden" name="tripId" value={view.id} />
-          <button className="rounded-full border border-line bg-card px-3 py-1.5 text-xs font-semibold" type="submit">
-            Real time
-          </button>
-        </form>
-        {view.isDemo ? (
-          <form action={resetDemoAction}>
-            <input type="hidden" name="tripId" value={view.id} />
-            <button className="rounded-full border border-line bg-card px-3 py-1.5 text-xs font-semibold" type="submit">
-              Reset demo
-            </button>
-          </form>
-        ) : null}
-      </div>
-      <p className="px-3 pb-3 text-xs text-muted">
-        The clock only moves when you use these controls. Resetting time does not undo drops. Reset demo puts Alex&apos;s party back to the seeded crew.
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
+      <h1 className="mt-2 font-serif text-4xl leading-tight">This trip is private.</h1>
+      <p className="mt-3 text-base text-muted">
+        Open the invite link you were sent to join or get back in. If you joined on another phone, open the same link here and use the same
+        phone number or email.
       </p>
-    </details>
+      <Link href="/" className="mt-6 text-sm font-semibold text-accent">
+        Go to {APP_NAME}
+      </Link>
+    </main>
   );
 }

@@ -18,7 +18,12 @@
     "dev:vinext": "vite dev --port 4747",
     "build:vinext": "vite build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
-    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
+    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
+    "build:staging": "CLOUDFLARE_ENV=staging vite build",
+    "deploy:staging": "npm run build:staging && wrangler deploy --config dist/server/wrangler.json",
+    "db:migrate:staging": "wrangler d1 migrations apply sendoff-staging --env staging --remote",
+    "db:migrate:list": "wrangler d1 migrations list sendoff --remote",
+    "db:seed:staging": "tsx scripts/render-seed.ts && wrangler d1 execute sendoff-staging --env staging --remote --file=./seed/demo.sql"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

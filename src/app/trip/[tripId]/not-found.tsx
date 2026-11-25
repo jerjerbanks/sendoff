@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_NAME } from "@/lib/constants";
 
 export default function TripNotFound() {
   return (
@@ -6,7 +7,7 @@ export default function TripNotFound() {
       <h1 className="font-serif text-4xl">No trip here.</h1>
       <p className="mt-2 text-sm text-muted">That link doesn&apos;t match a trip in this local database.</p>
       <Link href="/" className="mt-4 inline-block font-semibold text-accent">
-        Back to Sendoff
+        Back to {APP_NAME}
       </Link>
     </main>
   );

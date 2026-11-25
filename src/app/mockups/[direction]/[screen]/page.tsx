@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { APP_NAME } from "@/lib/constants";
 
 const screens = ["join", "vote", "share", "commit", "dashboard"] as const;
 type Screen = (typeof screens)[number];
@@ -27,7 +28,7 @@ function Phone({ direction, screen }: { direction: Direction; screen: Screen }) 
   const muted = playful ? "#5c4636" : "#b3a89c";
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[390px] px-4 py-6" style={{ color: ink, background: paper, fontFamily: playful ? "ui-rounded, system-ui, sans-serif" : "Georgia, ui-serif, serif" }}>
-      <p className="text-[11px] font-bold tracking-[0.22em]" style={{ color: accent }}>{playful ? "SENDOFF" : "SENDOFF"}</p>
+      <p className="text-[11px] font-bold tracking-[0.22em]" style={{ color: accent }}>{APP_NAME.toUpperCase()}</p>
       {screen === "join" ? <Join playful={playful} card={card} accent={accent} muted={muted} /> : null}
       {screen === "vote" ? <Vote playful={playful} card={card} accent={accent} muted={muted} ink={ink} /> : null}
       {screen === "share" ? <Share playful={playful} card={card} accent={accent} muted={muted} ink={ink} /> : null}

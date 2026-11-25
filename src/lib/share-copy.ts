@@ -42,7 +42,7 @@ export function shareDraft(view: ShareTrip, moment: ShareMoment, origin: string)
   if (moment === "resplit") {
     return {
       title: `${view.name}: new share`,
-      text: `The crew changed, so the share moved. Yours is about ${amount}. Open the link and pick your name.`,
+      text: `Who's going changed, so the share moved. Yours is about ${amount}. Open the link and pick your name.`,
       url: home,
     };
   }

@@ -81,6 +81,35 @@ function fill(image: Uint8ClampedArray, width: number, x: number, y: number, w: 
   }
 }
 
+const SAFE_WIDTH = 1200 - 72 * 2;
+
+/** Width in pixels of text drawn in this face. Unknown characters draw as a space. */
+export function measure(face: Face, text: string): number {
+  let width = 0;
+  for (const ch of text) width += (face.glyphs[ch] ?? face.glyphs[" "])?.advance ?? 0;
+  return width;
+}
+
+/**
+ * Fit a " · "-separated line into maxWidth by dropping whole trailing segments,
+ * so a word is never cut mid-way. A lone segment that still overflows gets an ellipsis.
+ */
+export function fitLine(face: Face, text: string, maxWidth = SAFE_WIDTH): string {
+  if (measure(face, text) <= maxWidth) return text;
+  const parts = text.split(" · ");
+  while (parts.length > 1) {
+    parts.pop();
+    const joined = parts.join(" · ");
+    if (measure(face, joined) <= maxWidth) return joined;
+  }
+  let out = parts[0] ?? "";
+  const dots = face.glyphs["…"] ? "…" : "...";
+  while (out.length > 1 && measure(face, `${out}${dots}`) > maxWidth) out = out.slice(0, -1).trimEnd();
+  return `${out}${dots}`;
+}
+
+export const faces = atlas;
+
 export function paintCard(lines: { eyebrow: string; title: string; line: string; foot: string }): Uint8ClampedArray {
   const width = 1200;
   const height = 630;
@@ -89,9 +118,9 @@ export function paintCard(lines: { eyebrow: string; title: string; line: string;
   fill(image, width, 0, 0, 28, height, [228, 196, 138]);
   fill(image, width, 72, 168, 180, 8, [228, 196, 138]);
   blitText(image, width, atlas.label, lines.eyebrow, 72, 130, [228, 196, 138]);
-  blitText(image, width, atlas.display, lines.title.slice(0, 28), 72, 280, [246, 241, 232]);
-  blitText(image, width, atlas.body, lines.line.slice(0, 48), 72, 390, [228, 196, 138]);
-  blitText(image, width, atlas.body, lines.foot.slice(0, 48), 72, 500, [179, 168, 156]);
+  blitText(image, width, atlas.display, fitLine(atlas.display, lines.title), 72, 280, [246, 241, 232]);
+  blitText(image, width, atlas.body, fitLine(atlas.body, lines.line), 72, 390, [228, 196, 138]);
+  blitText(image, width, atlas.body, fitLine(atlas.body, lines.foot), 72, 500, [179, 168, 156]);
   return image;
 }
 

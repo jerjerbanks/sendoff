@@ -2,8 +2,14 @@ import { roundUpDollarCents } from "./trip-math";
 
 export type FitBadge = "fits_everyone" | "fits_most" | "over_budget" | "none";
 
+/** One paying party in the badge set. `userId` is the party's payer. */
 export interface BudgetPerson {
   userId: string;
+  /**
+   * This party's age-weighted share of the per-head pool at N_ref.
+   * Omitted means a party of one adult: pool / N_ref, as in v1.3.
+   */
+  evenShareCents?: number;
   /** Null when this person skipped a budget. They are left out of the badge. */
   budgetCents: number | null;
   /** Null when this option has no high fare for them. They are left out. */
@@ -34,10 +40,11 @@ export function feasibilityCents(args: {
   weightSum: number;
   weight: number;
   flightCents: number;
+  evenShareCents?: number;
 }): number {
   if (args.headcount <= 0 || args.weightSum <= 0) return roundUpDollarCents(args.flightCents);
   const lodging = (args.lodgingCents * args.weight) / args.weightSum;
-  const even = args.evenPoolCents / args.headcount;
+  const even = args.evenShareCents ?? args.evenPoolCents / args.headcount;
   return roundUpDollarCents(lodging + even + args.flightCents);
 }
 
@@ -60,6 +67,7 @@ export function fitForOption(args: {
       weightSum: args.weightSum,
       weight: args.medianWeight,
       flightCents: person.highFlightCents ?? 0,
+      evenShareCents: person.evenShareCents,
     });
     if (allIn <= (person.budgetCents ?? 0)) fits += 1;
   }
@@ -74,6 +82,19 @@ export function fitForOption(args: {
     label,
   };
 }
+
+/** A cheaper place to sleep, for the private suggestion line. */
+export interface BedOption {
+  label: string;
+  weight: number;
+  ownRoom: boolean;
+}
+
+/** v1.3 suggestions for a party of one: the couch and a shared queen. */
+export const SOLO_BED_OPTIONS: BedOption[] = [
+  { label: "couch", weight: 0.5, ownRoom: false },
+  { label: "shared queen", weight: 0.625, ownRoom: false },
+];
 
 export interface BedHint {
   label: string;
@@ -97,20 +118,21 @@ export function privateFit(args: {
   flightCents: number;
   budgetCents: number;
   wantsOwnRoom: boolean;
+  evenShareCents?: number;
+  /** Cheaper places that can house this party. Defaults to the solo couch / shared queen. */
+  bedOptions?: BedOption[];
 }): PrivateFit {
   const base = {
     lodgingCents: args.lodgingCents,
     evenPoolCents: args.evenPoolCents,
     headcount: args.headcount,
     weightSum: args.weightSum,
+    evenShareCents: args.evenShareCents,
   };
   const allIn = feasibilityCents({ ...base, weight: args.medianWeight, flightCents: args.flightCents });
   const hints: BedHint[] = [];
   if (allIn > args.budgetCents) {
-    for (const bed of [
-      { label: "couch", weight: 0.5, ownRoom: false },
-      { label: "shared queen", weight: 0.625, ownRoom: false },
-    ]) {
+    for (const bed of args.bedOptions ?? SOLO_BED_OPTIONS) {
       const cost = feasibilityCents({ ...base, weight: bed.weight, flightCents: args.flightCents });
       if (cost <= args.budgetCents) {
         hints.push({
