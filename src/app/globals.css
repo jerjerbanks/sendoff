@@ -620,3 +620,8 @@ body {
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .ft-glass { background: var(--glass-solid); }
 }
+
+/* Start a trip: guests of honor show only for a wedding sub-type. Works before hydration and without JS. */
+form:has(select[name="subType"] option[value="none"]:checked) .ft-honorees {
+  display: none;
+}

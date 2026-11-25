@@ -674,7 +674,11 @@ function honoreeIdsOf(raw: RawTrip): string[] {
 /** Gender-neutral by default. Only the organizer's chosen style names a bachelor or bachelorette. */
 export function tripSubtitle(tripType: string, style: string | null, honorees: string[]): string {
   const who = honorees.length > 0 ? ` for ${joinNames(honorees)}` : "";
-  if (tripType === "family") return honorees.length > 0 ? `Family trip${who}` : "Family trip";
+  if (tripType === "family") {
+    const occasion = style === "bachelor" ? "Bachelor" : style === "bachelorette" ? "Bachelorette" : style === "joint" ? "Joint party" : null;
+    if (occasion) return `Family trip · ${occasion}${who}`;
+    return honorees.length > 0 ? `Family trip${who}` : "Family trip";
+  }
   if (tripType === "pre_wedding" || tripType === "bachelor") {
     if (style === "bachelor") return `Bachelor party${who}`;
     if (style === "bachelorette") return `Bachelorette party${who}`;

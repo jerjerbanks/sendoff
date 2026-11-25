@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { AppMenu, type MenuShare } from "@/components/app-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 
@@ -23,7 +24,7 @@ const titles: Record<string, string> = {
 /**
  * 52px top bar with a 1px line. Home shows the wordmark; every other screen gets a
  * back arrow and its title. The right side is a live dot with mono status text, then the
- * Light / Dark / Auto toggle.
+ * Light / Dark / Auto toggle and the Menu sheet.
  */
 export function TopBar({
   tripId,
@@ -31,7 +32,11 @@ export function TopBar({
   payLabel,
   status,
   tone,
+  isOrganizer = false,
+  share = null,
 }: {
+  isOrganizer?: boolean;
+  share?: MenuShare | null;
   tripId: string;
   tripName: string;
   payLabel: string;
@@ -75,7 +80,9 @@ export function TopBar({
             <span className="truncate">{status}</span>
           </span>
         )}
-        <ThemeToggle variant="bar" />
+        {/* Below 480px the theme toggle lives in the menu, so the Beds Plan/List segment still fits. */}
+        <ThemeToggle variant="bar" className="max-[479px]:hidden" />
+        <AppMenu tripId={tripId} isOrganizer={isOrganizer} share={share} />
       </div>
     </header>
   );

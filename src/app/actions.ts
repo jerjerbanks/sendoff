@@ -8,6 +8,7 @@ import { zonedToUtc } from "@/lib/format";
 import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { isContact } from "@/lib/tokens";
+import { parseTripKind } from "@/lib/trip-kind";
 import { withinLimit } from "@/lib/limit-check";
 import {
   addCost,
@@ -59,7 +60,6 @@ import {
   importRooms,
   updateTraveler,
   type HonoreeRole,
-  type PreWeddingStyle,
 } from "@/lib/store";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, SIGN_IN_LINK_COOKIE } from "@/lib/constants";
 import { cleanImportRooms } from "@/lib/listing-import";
@@ -107,17 +107,20 @@ export async function createTripAction(formData: FormData) {
   const organizerName = text(formData, "organizerName", NAME_MAX);
   const organizerContact = text(formData, "organizerContact", 120);
   const dateWindow = text(formData, "dateWindow", 120);
-  const tripType = text(formData, "tripType") === "family" ? "family" : "pre_wedding";
-  const styleRaw = text(formData, "preWeddingStyle");
-  const preWeddingStyle: PreWeddingStyle | null =
-    tripType === "pre_wedding" ? (styleRaw === "bachelor" || styleRaw === "bachelorette" ? styleRaw : "joint") : null;
+  const { tripType, preWeddingStyle, allowsHonorees } = parseTripKind({
+    tripKind: text(formData, "tripKind"),
+    subType: text(formData, "subType"),
+    tripType: text(formData, "tripType"),
+    preWeddingStyle: text(formData, "preWeddingStyle"),
+  });
   if (!name || !organizerName || !organizerContact || !dateWindow) {
     fail("/new", "Fill in the trip name, your name and contact, and a rough date window.");
   }
   if (!isContact(organizerContact)) fail("/new", "Add a phone number or an email address you can be reached at.");
   // 0..n guests of honor. A row counts once it has a name.
   const honorees: { name: string; contact: string; contactGiven: boolean; role: HonoreeRole }[] = [];
-  for (const index of [1, 2]) {
+  // Guests of honor only on wedding sub-types; anything posted otherwise is ignored.
+  for (const index of allowsHonorees ? [1, 2] : []) {
     const honoreeName = text(formData, `honoree${index}Name`, NAME_MAX);
     if (!honoreeName) continue;
     const given = text(formData, `honoree${index}Contact`, 120);

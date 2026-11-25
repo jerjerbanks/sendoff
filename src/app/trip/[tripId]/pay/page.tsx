@@ -162,6 +162,7 @@ export default async function PayPage({
               <input className="mt-0.5 size-6 shrink-0 accent-[var(--clay)]" type="checkbox" name="ack" value="yes" required />
               I understand it&apos;s refundable only until the stay is booked.
             </label>
+            <TestModeNotice />
             <CommitButton label="Commit" amount={whole(view.buyInAmountCents)} doneLabel={`Committed · ${whole(view.buyInAmountCents)}`} />
             <p className="flex items-center justify-between gap-3">
               <span className="ft-meta">Test payment, no card charged</span>
@@ -215,7 +216,8 @@ export default async function PayPage({
           {line.status === "late" ? (
             <p className="mt-2 text-sm text-warn">You&apos;re late. The organizer can take your party off the trip and keep what you&apos;ve paid.</p>
           ) : null}
-          <form action={payAction} className="mt-4">
+          <TestModeNotice className="mt-4" />
+          <form action={payAction} className="mt-3">
             <input type="hidden" name="tripId" value={view.id} />
             <input type="hidden" name="userId" value={viewer?.userId} />
             <input type="hidden" name="milestoneId" value={line.milestoneId} />
@@ -323,5 +325,14 @@ export default async function PayPage({
         </details>
       ) : null}
     </div>
+  );
+}
+
+/** Shown above every commit and pay button until real payments exist (they don't yet). */
+function TestModeNotice({ className = "" }: { className?: string }) {
+  return (
+    <p role="note" className={`rounded-xl border border-line bg-chip px-3 py-2.5 text-[15px] leading-snug text-ink ${className}`}>
+      <strong className="font-semibold">Test mode: no real money moves.</strong> Nothing is charged and no card is asked for.
+    </p>
   );
 }

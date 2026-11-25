@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -222,6 +222,18 @@ export const tripEvents = sqliteTable("trip_events", {
   at: text("at").notNull(),
   detail: text("detail"),
 });
+
+/** 0010: tester funnel, one row per member per step per trip. Written only through lib/funnel. */
+export const funnelEvents = sqliteTable(
+  "funnel_events",
+  {
+    tripId: text("trip_id").notNull(),
+    userId: text("user_id"),
+    step: text("step").notNull(),
+    at: text("at").notNull(),
+  },
+  (table) => [unique().on(table.tripId, table.userId, table.step), index("funnel_events_step_at_idx").on(table.step, table.at)],
+);
 
 export const costItemParticipants = sqliteTable(
   "cost_item_participants",

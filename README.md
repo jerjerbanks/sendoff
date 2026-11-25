@@ -53,3 +53,15 @@ and pull request (`.github/workflows/ci.yml`).
 
 See [docs/DEPLOY.md](docs/DEPLOY.md): staging first, migrations before code,
 and how to restore from a backup.
+
+## Funnel
+
+Tester funnel counts live in D1's `funnel_events` (migration 0010): one row per member per step per trip, steps `trip_created`, `member_joined`, `voted`, `committed`. Demo trips (`trip_demo`, `trip_lake`) never write rows, and vote toggles or repeat payments don't add any. There's no admin route; read it with SQL.
+
+Counts by step, all time and the last 7 days (live; for staging run `npx wrangler d1 execute sendoff-staging --env staging --remote --command "…"` with the same SQL):
+
+```sh
+npx wrangler d1 execute sendoff --remote --command "SELECT step, COUNT(*) AS all_time, SUM(at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')) AS last_7_days, COUNT(DISTINCT trip_id) AS trips FROM funnel_events GROUP BY step ORDER BY CASE step WHEN 'trip_created' THEN 1 WHEN 'member_joined' THEN 2 WHEN 'voted' THEN 3 WHEN 'committed' THEN 4 END"
+```
+
+Cleaning up a test trip deletes its rows with the rest of the trip: `DELETE FROM funnel_events WHERE trip_id = '…'`.

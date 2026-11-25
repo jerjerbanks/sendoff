@@ -9,6 +9,9 @@ import { isDemoTrip } from "@/lib/demo-tour";
 import { tripStatusLabel } from "@/lib/labels";
 import type { TripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
+import { FeedbackButton } from "@/components/feedback-button";
+import { requestOrigin } from "@/lib/origin";
+import { shareDraft } from "@/lib/share-copy";
 
 export async function Shell({ view, children }: { view: TripView; children: ReactNode }) {
   const demo = isDemoTrip(view.id);
@@ -21,11 +24,27 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
     : view.buyInOpen || view.lockedIn
       ? `${view.payerCount}/${view.minPayerCount} in`
       : tripStatusLabel(view.status);
+  const share =
+    view.cancelled || view.lockedIn
+      ? null
+      : shareDraft(
+          {
+            id: view.id,
+            name: view.name,
+            inviteToken: view.inviteToken,
+            organizerName: view.organizerName,
+            guestName: view.guestName,
+            buyInDeadline: view.buyInDeadline,
+            currentShareCents: view.currentShareCents,
+          },
+          "invite",
+          await requestOrigin(),
+        );
   return (
     <div className="min-h-dvh">
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
         {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} /> : null}
-        <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} />
+        <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} isOrganizer={view.isOrganizer} share={share} />
         {demo ? (
           <Identify
             tripId={view.id}
@@ -38,7 +57,11 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
             }))}
           />
         ) : null}
-        <main className="flex-1 px-5 pt-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">{children}</main>
+        <main className="flex-1 px-5 pt-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+          {children}
+          {/* Inline at the end of the page, above the tab bar's reserved space: it never covers the tabs or a CTA. */}
+          <FeedbackButton className="mt-10" />
+        </main>
       </div>
       <TripNav tripId={view.id} payLabel={payLabel} />
     </div>
@@ -61,6 +84,7 @@ function PrivateTrip() {
       <Link href="/" className="ft-link mt-6">
         Go to {APP_NAME}
       </Link>
+      <FeedbackButton className="mt-4" />
     </main>
   );
 }

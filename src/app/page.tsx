@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LandingEnhance, LandingMenu } from "@/components/landing-client";
+import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
 import { landingDestination } from "@/lib/landing";
@@ -83,6 +84,10 @@ export default async function LandingPage() {
         <div className="contents" dangerouslySetInnerHTML={{ __html: HERO_HTML }} />
       </header>
       <main className="lower" dangerouslySetInnerHTML={{ __html: LOWER_HTML }} />
+      {/* Static: renders nothing until FEEDBACK_URL is set, and never touches the DB. */}
+      <div className="flex justify-center px-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+        <FeedbackButton />
+      </div>
       <LandingEnhance />
     </div>
   );

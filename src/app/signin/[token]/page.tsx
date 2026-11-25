@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FeedbackButton } from "@/components/feedback-button";
 import Link from "next/link";
 import { redeemSignInLinkAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
@@ -47,9 +48,10 @@ export default async function SignInPage({
           </p>
         </>
       )}
-      <Link href="/" className="mt-6 text-sm font-semibold text-accent">
+      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent">
         Go to {APP_NAME}
       </Link>
+      <FeedbackButton className="mt-2 self-start" />
     </main>
   );
 }

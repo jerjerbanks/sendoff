@@ -8,3 +8,8 @@ export type AppDatabase = ReturnType<typeof drizzle<typeof schema>>;
 export function getDb(): AppDatabase {
   return drizzle(env.DB, { schema });
 }
+
+/** The raw D1 binding, for the few writes that use plain SQL (lib/funnel). */
+export function getD1() {
+  return env.DB;
+}

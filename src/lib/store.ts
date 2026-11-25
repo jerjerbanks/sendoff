@@ -3,7 +3,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
 import { RULES } from "./rules";
 import { contactKey } from "./tokens";
-import { getDb } from "./db";
+import { getD1, getDb } from "./db";
+import { recordFunnel, type FunnelStep } from "./funnel";
 import { importedRoomSpots, type ImportRoom } from "./listing-import";
 import {
   demoCosts,
@@ -43,6 +44,7 @@ import {
   flightQuotes,
   privateBudgets,
   tripEvents,
+  funnelEvents,
   milestones,
   parties,
   payments,
@@ -587,6 +589,7 @@ export async function persistMath(tripId: string, rawIn?: RawTrip | null): Promi
   if (outcome.deadlineRan || outcome.status !== raw.trip.status) {
     dirty = true;
     await db.update(trips).set({ status: outcome.status }).where(eq(trips.id, tripId));
+    if (outcome.status === "booking_ready" && raw.trip.status !== "booking_ready") await safeEvent(tripId, null, "booking_ready");
     for (const member of outcome.members) {
       const previous = raw.members.find((item) => item.userId === member.userId);
       if (!previous || previous.status === member.status) continue;
@@ -910,6 +913,7 @@ async function wipeTrip(tripId: string) {
   }
   await db.delete(privateBudgets).where(eq(privateBudgets.tripId, tripId));
   await db.delete(tripEvents).where(eq(tripEvents.tripId, tripId));
+  await db.delete(funnelEvents).where(eq(funnelEvents.tripId, tripId));
   await db.delete(travelers).where(eq(travelers.tripId, tripId));
   await db.delete(parties).where(eq(parties.tripId, tripId));
   await db.delete(tripMembers).where(eq(tripMembers.tripId, tripId));
@@ -928,7 +932,8 @@ export async function resetDemoTrip() {
   return { ok: true };
 }
 
-export type TripType = "pre_wedding" | "family";
+/** "adult" is a plain adults trip; wedding occasions stay "pre_wedding". */
+export type TripType = "pre_wedding" | "adult" | "family";
 export type PreWeddingStyle = "bachelor" | "bachelorette" | "joint";
 export type HonoreeRole = "bride" | "groom" | "birthday" | "other";
 
@@ -961,7 +966,8 @@ export async function createTrip(input: {
     id: tripId,
     name: input.name,
     tripType: input.tripType,
-    preWeddingStyle: input.tripType === "pre_wedding" ? (input.preWeddingStyle ?? "joint") : null,
+    // A family trip can carry a wedding style too (Family · Joint); a plain adult trip never does.
+    preWeddingStyle: input.tripType === "pre_wedding" ? (input.preWeddingStyle ?? "joint") : input.tripType === "family" ? input.preWeddingStyle : null,
     organizerId,
     guestOfHonorUserId: honorees[0]?.id ?? "",
     dateWindow: input.dateWindow,
@@ -1011,6 +1017,7 @@ export async function createTrip(input: {
       lockedOptionId: null,
     });
   }
+  await funnel(tripId, organizerId, "trip_created");
   return { tripId, organizerId };
 }
 
@@ -1075,6 +1082,9 @@ export async function joinTrip(input: {
     ;
   // A solo joiner is a party of one adult. They can add people on the party screen.
   await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: userId, name: defaultPartyName(input.name, raw.trip.tripType) });
+  await funnel(raw.trip.id, userId, "member_joined");
+  // The Metrics page reads the first "joined" event.
+  await safeEvent(raw.trip.id, userId, "joined");
   return { ok: true, tripId: raw.trip.id, userId, isNew: true };
 }
 
@@ -1113,6 +1123,7 @@ export async function toggleVote(tripId: string, userId: string, optionId: strin
     await db.delete(votes).where(and(eq(votes.pollOptionId, optionId), eq(votes.userId, userId)));
   } else {
     await db.insert(votes).values({ pollOptionId: optionId, userId });
+    await funnel(tripId, userId, "voted");
   }
   return { ok: true };
 }
@@ -1423,6 +1434,7 @@ export async function payMilestone(tripId: string, userId: string, milestoneId: 
       .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)))
       ;
   }
+  if (milestone.kind === "buy_in") await funnel(tripId, userId, "committed");
   await persistMath(tripId);
   return { ok: true };
 }
@@ -1978,6 +1990,19 @@ export async function recordEvent(tripId: string, userId: string | null, kind: s
   });
 }
 
+/** A trip_events row that can never fail the action that caused it. */
+async function safeEvent(tripId: string, userId: string | null, kind: string, detail: string | null = null) {
+  try {
+    await recordEvent(tripId, userId, kind, detail);
+  } catch (error) {
+    console.warn("event write failed", kind, error instanceof Error ? error.message : error);
+  }
+}
+
+function funnel(tripId: string, userId: string, step: FunnelStep) {
+  return recordFunnel(getD1(), tripId, userId, step);
+}
+
 export async function listEvents(tripId: string) {
   return getDb().select().from(tripEvents).where(eq(tripEvents.tripId, tripId));
 }
@@ -2252,6 +2277,7 @@ export async function setHeadcounts(tripId: string, userId: string, minPayers: n
   if (raw.trip.status === "under_minimum" && raw.members.filter(isCommittedPayer).length >= minPayers) {
     // 6.5: lowering the minimum so |P| meets it moves the trip to booking_ready.
     await getDb().update(trips).set({ status: "booking_ready" }).where(eq(trips.id, tripId));
+    await safeEvent(tripId, userId, "booking_ready");
     const buyIn = raw.milestones.find((milestone) => milestone.kind === "buy_in");
     for (const payment of raw.payments) {
       if (buyIn && payment.milestoneId === buyIn.id && payment.status === "refunded") {
