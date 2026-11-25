@@ -175,9 +175,11 @@ export function ForecastSlider({
       <div className={compact ? "sr-only" : "ft-glow -mx-5 px-5 py-2"} aria-live="polite">
         {label ? <p className="ft-lbl">{label}</p> : null}
         <p className="ft-money mt-1 text-[68px]">
-          <span ref={amount} className="inline-block" style={{ minWidth: `${widest - 0.6}ch` }}>
-            {dollars(row.totalCents)}
+          {/* The spring writes this one; React only renders its first value, so it never flashes the target. */}
+          <span ref={amount} className="inline-block" style={{ minWidth: `${widest - 0.6}ch` }} aria-hidden>
+            {dollars(rows[startIndex]?.totalCents ?? 0)}
           </span>
+          <span className="sr-only">{dollars(row.totalCents)}</span>
         </p>
         {bandLowDeltaCents != null && bandHighDeltaCents != null ? (
           <span ref={band} className="ft-mono mt-1 block text-[15px] text-clay-ink" />
