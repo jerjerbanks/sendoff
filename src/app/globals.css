@@ -267,6 +267,11 @@ body {
     color: var(--ink-2);
     transition: background var(--dur-fade) var(--ease-out), color var(--dur-fade) var(--ease-out);
   }
+  /* Floor plan SVG: fonts and the lifted "yours" bed read tokens, so dark mode can swap them. */
+  .ft-svg-ui { font-family: var(--font-ui); }
+  .ft-svg-mono { font-family: var(--font-mono); }
+  .ft-bed-lift { filter: drop-shadow(0 3px 2.5px color-mix(in srgb, var(--clay-ink) 24%, transparent)); }
+
   /* Demo banner goal: 16px on phones, the 22px h2 from md up. */
   .ft-demo-goal { font: 600 16px/1.35 var(--font-ui); letter-spacing: -0.01em; }
   @media (min-width: 48rem) {
@@ -274,8 +279,8 @@ body {
   }
 
   /* Compact segmented control for the 52px top bar (03-sleeping-spots: Plan / List). */
-  .ft-seg.ft-seg-sm { grid-auto-columns: auto; padding: 2px; }
-  .ft-seg.ft-seg-sm > * { min-height: 32px; padding: 0 12px; font-size: 14px; }
+  .ft-seg.ft-seg-sm { grid-auto-columns: auto; padding: 1px; }
+  .ft-seg.ft-seg-sm > * { min-height: 44px; min-width: 52px; padding: 0 12px; font-size: 14px; }
   .ft-seg > .on,
   .ft-seg > [aria-current="page"] {
     background: var(--bg-surface);

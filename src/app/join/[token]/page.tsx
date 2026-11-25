@@ -53,7 +53,7 @@ export default async function JoinPage({
   const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
 
   return (
-    <main className={`mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10 ${isDemoTrip(tripId) && tripId ? "pt-64" : ""}`}>
+    <main className={`mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10 ${isDemoTrip(tripId) && tripId ? "pt-16 md:pt-64" : ""}`}>
       {isDemoTrip(tripId) && tripId ? (
         <div className="fixed inset-x-0 top-0 z-30 mx-auto max-w-lg">
           <DemoBanner view={null} tripId={tripId} viewerName={onTour ? "Taylor" : null} />

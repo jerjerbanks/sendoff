@@ -3,7 +3,7 @@ import { claimRoomAction, claimSpotAction, coSleepAction, optInShareAction, rele
 import { SubmitButton } from "@/components/bits";
 import { FloorPlan, type BedState, type PlanRoom } from "@/components/floor-plan";
 import { HeadcountMeter, Toast } from "@/components/motion";
-import { meterCells } from "@/lib/meter";
+import { meterCells, meterSub, tripMeter } from "@/lib/meter";
 import { fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { bedLabel, splitModeLabel } from "@/lib/labels";
@@ -103,7 +103,7 @@ export default async function RoomsPage({
             cells={meterCells(view, { youPending: true })}
             need={view.minPayerCount}
             unit="parties"
-            sub={view.payerCount >= view.minPayerCount ? `Minimum of ${view.minPayerCount} met` : `${view.minPayerCount} needed to book`}
+            sub={meterSub(tripMeter(view), "parties")}
           />
         </>
       ) : null}

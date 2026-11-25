@@ -2,12 +2,12 @@ import { openBuyInAction, payAction, removeMemberAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { CommitButton, HeadcountMeter } from "@/components/motion";
 import { PaymentGrid } from "@/components/payment-grid";
-import { meterCells } from "@/lib/meter";
+import { meterCells, meterSub, restScheduleNote, tripMeter } from "@/lib/meter";
 import { Input, fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { paymentStatusLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView, type TripView } from "@/lib/view";
+import { loadTripView } from "@/lib/view";
 
 export default async function PayPage({
   params,
@@ -94,7 +94,8 @@ export default async function PayPage({
             cells={meterCells(view)}
             need={view.minPayerCount}
             unit="parties"
-            sub={meterSub(view)}
+            sub={meterSub(tripMeter(view), "parties")}
+            booked={view.lockedIn || view.status === "booked"}
           />
 
           <section className="ft-rule -mx-5 px-5 pt-5">
@@ -174,14 +175,23 @@ export default async function PayPage({
               <i>{viewer.balanceCents ? "The rest comes later." : "All squared up."}</i>
             </h1>
             <p className="ft-lead mt-4">
-              {view.lockedIn
-                ? "Each party pays its own share, so nobody fronts the bill."
-                : view.payerCount < view.minPayerCount
-                  ? `The rest of your share is scheduled once ${view.minPayerCount} parties commit.`
-                  : `The minimum is met. The rest of your share is scheduled when ${view.organizerName.split(" ")[0]} books the stay.`}
+              {restScheduleNote({
+                lockedIn: view.lockedIn,
+                payerCount: view.payerCount,
+                minPayers: view.minPayerCount,
+                organizerFirstName: view.organizerName.split(" ")[0] ?? view.organizerName,
+                viewerIsOrganizer: view.isOrganizer,
+              })}
             </p>
           </section>
-          <HeadcountMeter framed cells={meterCells(view)} need={view.minPayerCount} unit="parties" sub={meterSub(view)} />
+          <HeadcountMeter
+            framed
+            cells={meterCells(view)}
+            need={view.minPayerCount}
+            unit="parties"
+            sub={meterSub(tripMeter(view), "parties")}
+            booked={view.lockedIn || view.status === "booked"}
+          />
         </>
       ) : null}
 
@@ -308,11 +318,4 @@ export default async function PayPage({
       ) : null}
     </div>
   );
-}
-
-/** Under the meter's label: how far to the line, or that it's been cleared. */
-function meterSub(view: TripView): string {
-  if (view.payerCount >= view.minPayerCount) return `Minimum of ${view.minPayerCount} met`;
-  const left = view.minPayerCount - view.payerCount;
-  return `${left} more to book · minimum ${view.minPayerCount}`;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { SPRINGS, prefersReducedMotion, springStep } from "@/lib/spring";
+import { meterState } from "@/lib/meter";
 
 /**
  * Spring-driven number (snappy, k520 c36). Tabular figures and a width reserved
@@ -76,6 +77,7 @@ export function HeadcountMeter({
   updated,
   commit = false,
   framed = false,
+  booked = false,
 }: {
   cells: CellState[];
   need: number;
@@ -84,6 +86,8 @@ export function HeadcountMeter({
   updated?: string;
   commit?: boolean;
   framed?: boolean;
+  /** The organizer has booked the stay: label "Booked", threshold BOOKING. */
+  booked?: boolean;
 }) {
   const [phase, setPhase] = useState<0 | 1 | 2>(commit ? 0 : 2);
   useEffect(() => {
@@ -102,8 +106,7 @@ export function HeadcountMeter({
 
   const youCount = cells.filter((cell) => cell === "you").length;
   const countNow = cells.filter((cell) => cell === "in" || cell === "booked").length;
-  // Booked by the organizer (pine cells passed in) vs. only past the line.
-  const bookedNow = cells.includes("booked");
+  const bookedNow = booked;
   const shown: CellState[] = cells.map((cell) => {
     if (!commit) return cell === "in" && countNow >= need ? "booked" : cell;
     if (phase === 0) return cell;
@@ -113,7 +116,7 @@ export function HeadcountMeter({
   });
   const count = commit && phase > 0 ? countNow + youCount : countNow;
   const booking = shown.some((cell) => cell === "booked");
-  const met = count >= need;
+  const { met } = meterState(count, need);
   // Static meter past the line but not booked yet: "ready", not "booking".
   const ready = booking && !bookedNow && !commit;
   const anyYou = shown.includes("you");
@@ -126,7 +129,7 @@ export function HeadcountMeter({
       <div className="flex items-end gap-4">
         <p
           className={`ft-h1 flex shrink-0 items-baseline leading-none ${met ? "text-pine" : ""}`}
-          aria-label={met ? `${count} ${unit} committed, enough to book` : `${count} of ${need} ${unit} committed`}
+          aria-label={met ? `Booking ready: ${count} ${unit} committed` : `${count} of ${need} ${unit} committed`}
         >
           <span className="text-[64px]">
             {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : count}
@@ -134,7 +137,7 @@ export function HeadcountMeter({
           {met ? null : <span className="ml-0.5 text-[30px] text-ink-2">/{need}</span>}
         </p>
         <div className="min-w-0 pb-1.5">
-          <p className={`ft-lbl ${met ? "pine" : "ink"}`}>{met ? (bookedNow ? "Booked" : "Enough to book") : "Committed"}</p>
+          <p className={`ft-lbl ${met ? "pine" : "ink"}`}>{met ? (bookedNow ? "Booked" : "Booking ready") : "Committed"}</p>
           <p className="ft-meta">{sub}</p>
         </div>
       </div>
@@ -169,7 +172,7 @@ export function HeadcountMeter({
         ) : null}
         {booking ? (
           <span className="flex items-center gap-1.5">
-            <i className="ft-key bg-pine" aria-hidden /> {ready ? "In · enough to book" : "Booking"}
+            <i className="ft-key bg-pine" aria-hidden /> {ready ? "In · booking ready" : "Booking"}
           </span>
         ) : null}
         {anyOpen ? (

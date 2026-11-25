@@ -28,193 +28,218 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
     (view.status === "buy_in_open" || view.status === "booking_ready") &&
     view.parties.some((party) => party.status === "joined" || party.status === "invited");
   const runDeadline = step?.n === 5 && deadlinePending;
-  // Below md the banner is two lines plus a fold: the step, Back/Next in the label
-  // row, and the goal; the why, Exit and controls fold away. At md and up it is the
-  // full banner. Either way it scrolls with the page on phones so it never covers content.
   return (
-    <div className="relative z-30 border-b border-line-strong bg-chip px-5 py-2.5 md:sticky md:top-0 md:py-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="ft-lbl clay">
-          Demo
-          {step ? (
-            <>
-              <span className="md:hidden"> · {step.n}/{total}</span>
-              <span className="hidden md:inline"> · Step {step.n} of {total}</span>
-            </>
-          ) : null}
-        </p>
-        {step ? (
-          <div className="flex items-center gap-1.5 md:hidden">
-            {step.n > 1 ? (
-              <a href={`/demo/${step.n - 1}`} className="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-line" aria-label="Back a step">
-                ←
-              </a>
-            ) : null}
-            {runDeadline ? <DeadlineButton tripId={tripId} compact /> : null}
-            {step.n < total ? (
-              <a
-                href={`/demo/${step.n + 1}`}
-                className={`inline-flex h-9 items-center rounded-sm px-3 text-sm font-semibold ${runDeadline ? "border border-line" : "bg-accent text-accent-ink"}`}
-              >
-                Next →
-              </a>
-            ) : (
-              <Link href="/#start" className="inline-flex h-9 items-center rounded-sm bg-accent px-3 text-sm font-semibold text-accent-ink">
-                Start yours →
-              </Link>
-            )}
-            {view ? <DemoControls view={view} why={step.why} compact /> : null}
-          </div>
-        ) : null}
-        <Link href="/" className={`text-xs font-semibold text-muted ${step ? "hidden md:inline" : ""}`}>
-          Exit demo
-        </Link>
-      </div>
-      {step ? (
-        <>
-          <p className="ft-demo-goal mt-1">
-            You&apos;re {who}. <span className="text-ink/90">{step.goal}</span>
+    <>
+      <PhoneDemoBar view={view} step={step} total={total} who={who} runDeadline={runDeadline} tripId={tripId} />
+      <div className="sticky top-0 z-30 hidden border-b border-line-strong bg-chip px-5 py-3 md:block">
+        <div className="flex items-center justify-between gap-3">
+          <p className="ft-lbl clay">
+            Demo{step ? ` · Step ${step.n} of ${total}` : ""}
           </p>
-          <p className="mt-1 hidden text-sm text-muted md:block">{step.why}</p>
-          <div className="mt-3 hidden items-center gap-2 md:flex">
-            {step.n > 1 ? (
-              <a href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-sm border border-line px-4 text-sm font-semibold">
-                Back
-              </a>
-            ) : null}
-            {runDeadline ? <DeadlineButton tripId={tripId} /> : null}
-            {step.n < total ? (
-              <a
-                href={`/demo/${step.n + 1}`}
-                className={`ml-auto inline-flex h-10 items-center rounded-sm px-4 text-sm font-semibold ${runDeadline ? "border border-line" : "bg-accent text-accent-ink"}`}
-              >
-                Next step →
-              </a>
-            ) : (
-              <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
-                Start your own trip →
-              </Link>
-            )}
+          <Link href="/" className="text-xs font-semibold text-muted">
+            Exit demo
+          </Link>
+        </div>
+        {step ? (
+          <>
+            <p className="ft-h2 mt-1 leading-tight">
+              You&apos;re {who}. <span className="text-ink/90">{step.goal}</span>
+            </p>
+            <p className="mt-1 text-sm text-muted">{step.why}</p>
+            <div className="mt-3 flex items-center gap-2">
+              {step.n > 1 ? (
+                <a href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-sm border border-line px-4 text-sm font-semibold">
+                  Back
+                </a>
+              ) : null}
+              {runDeadline ? <DeadlineButton tripId={tripId} /> : null}
+              {step.n < total ? (
+                <a
+                  href={`/demo/${step.n + 1}`}
+                  className={`ml-auto inline-flex h-10 items-center rounded-sm px-4 text-sm font-semibold ${runDeadline ? "border border-line" : "bg-accent text-accent-ink"}`}
+                >
+                  Next step →
+                </a>
+              ) : (
+                <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
+                  Start your own trip →
+                </Link>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+            <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
+              Start the tour
+            </a>
           </div>
-        </>
-      ) : (
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-          <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
+        )}
+        {view ? (
+          <details className="mt-2">
+            <summary className="ft-summary text-[15px] font-medium text-ink-2">Demo controls · viewing as {view.viewer?.name.split(" ")[0] ?? "nobody"}</summary>
+            <div className="mt-2 rounded-md border border-line bg-card p-3">
+              <DemoControls view={view} />
+            </div>
+          </details>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Phones (up to 767px): one 40px row. The step label, Back / Next (or the tour's
+ * deadline action), and a disclosure that drops down over the page with the step's
+ * goal and why, the persona switcher, the clock and Exit. It scrolls with the page.
+ */
+function PhoneDemoBar({
+  view,
+  step,
+  total,
+  who,
+  runDeadline,
+  tripId,
+}: {
+  view: TripView | null;
+  step: ReturnType<typeof tourStep> | null;
+  total: number;
+  who: string;
+  runDeadline: boolean;
+  tripId: string;
+}) {
+  const cell = "inline-flex h-full min-w-11 items-center justify-center border-l border-line-strong px-3 text-sm font-semibold";
+  return (
+    <div className="relative z-30 md:hidden">
+      <div className="flex h-10 items-stretch border-b border-line-strong bg-chip pl-5">
+        <p className="ft-lbl clay flex min-w-0 flex-1 items-center truncate">
+          Demo · {step ? `${step.n}/${total} · ${who}` : "sample trip"}
+        </p>
+        {step && step.n > 1 ? (
+          <a href={`/demo/${step.n - 1}`} className={cell} aria-label="Back a step">
+            ←
+          </a>
+        ) : null}
+        {runDeadline ? (
+          <form action={simulateDeadlineAction} className="contents">
+            <input type="hidden" name="tripId" value={tripId} />
+            <button type="submit" className={`${cell} bg-accent text-accent-ink`}>
+              Run deadline
+            </button>
+          </form>
+        ) : null}
+        {step ? (
+          step.n < total ? (
+            <a href={`/demo/${step.n + 1}`} className={`${cell} ${runDeadline ? "" : "bg-accent text-accent-ink"}`}>
+              Next →
+            </a>
+          ) : (
+            <Link href="/#start" className={`${cell} bg-accent text-accent-ink`}>
+              Start yours →
+            </Link>
+          )
+        ) : (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation
+          <a href="/demo/1" className={`${cell} bg-accent text-accent-ink`}>
             Start the tour
           </a>
-        </div>
-      )}
-      {view ? (
-        <div className={step ? "hidden md:block" : ""}>
-          <DemoControls view={view} why={null} />
-        </div>
-      ) : null}
+        )}
+        <details className="group flex">
+          <summary
+            className={`${cell} h-full cursor-pointer list-none text-ink-2 group-open:bg-card [&::-webkit-details-marker]:hidden`}
+            aria-label={`What to do, and who you're viewing as (${who})`}
+          >
+            <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden className="transition-transform group-open:rotate-180">
+              <path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </summary>
+          <div className="absolute inset-x-0 top-full grid max-h-[70dvh] gap-3 overflow-y-auto border-b border-line-strong bg-chip px-5 pb-4 pt-3 shadow-[var(--shadow-2)]">
+            {step ? (
+              <div>
+                <p className="text-[16px] font-semibold leading-snug">
+                  You&apos;re {who}. <span className="text-ink/90">{step.goal}</span>
+                </p>
+                <p className="mt-1 text-sm text-muted">{step.why}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
+            )}
+            {view ? <DemoControls view={view} /> : null}
+            <Link href="/" className="ft-link justify-self-start text-sm">
+              Exit demo
+            </Link>
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
 
-function DeadlineButton({ tripId, compact = false }: { tripId: string; compact?: boolean }) {
+function DeadlineButton({ tripId }: { tripId: string }) {
   return (
     <form action={simulateDeadlineAction}>
       <input type="hidden" name="tripId" value={tripId} />
       <button
         type="submit"
-        className={`inline-flex items-center rounded-sm bg-accent text-sm font-semibold text-accent-ink ${compact ? "h-9 px-3" : "h-10 px-4"}`}
+        className="inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink"
       >
-        {compact ? "Run deadline" : "Run the deadline"}
+        Run the deadline
       </button>
     </form>
   );
 }
 
 /** Off-script tools for poking around: anyone on the trip, the clock, a reset. Demo trips only. */
-function DemoControls({ view, why, compact = false }: { view: TripView; why: string | null; compact?: boolean }) {
-  const as = view.viewer?.name.split(" ")[0] ?? "nobody";
-  // Compact (phones, on a tour step): a 36px "More" button in the banner's top row
-  // that drops the why, the controls and Exit over the page below the banner.
+function DemoControls({ view }: { view: TripView }) {
   return (
-    <details className={compact ? "group" : "mt-2"}>
-      <summary
-        className={
-          compact
-            ? "inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-sm border border-line text-ink-2 group-open:bg-card [&::-webkit-details-marker]:hidden"
-            : "ft-summary text-[15px] font-medium text-ink-2"
-        }
-        aria-label={compact ? `Why this step, and demo controls (viewing as ${as})` : undefined}
-      >
-        {compact ? (
-          <svg width="16" height="4" viewBox="0 0 16 4" aria-hidden>
-            <circle cx="2" cy="2" r="1.6" fill="currentColor" />
-            <circle cx="8" cy="2" r="1.6" fill="currentColor" />
-            <circle cx="14" cy="2" r="1.6" fill="currentColor" />
-          </svg>
-        ) : (
-          `Demo controls · viewing as ${as}`
+    <div className="grid gap-3">
+      <div className="grid gap-1">
+        {view.parties.map((party) =>
+          view.members
+            .filter((member) => member.partyUserId === party.payerUserId)
+            .map((member) => (
+              <form key={member.userId} action={switchUserAction}>
+                <input type="hidden" name="tripId" value={view.id} />
+                <input type="hidden" name="userId" value={member.userId} />
+                <button type="submit" className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-sm hover:bg-chip">
+                  <span>
+                    {member.name}
+                    <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
+                  </span>
+                  {member.userId === view.viewer?.userId ? <span className="text-xs text-clay-ink">You</span> : null}
+                </button>
+              </form>
+            )),
         )}
-      </summary>
-      <div
-        className={
-          compact
-            ? "absolute inset-x-0 top-full z-40 grid gap-3 border-b border-line-strong bg-chip px-5 pb-4 pt-3 shadow-[var(--shadow-2)]"
-            : "mt-2 grid gap-3 rounded-md border border-line bg-card p-3"
-        }
-      >
-        {why ? <p className="text-sm text-muted">{why}</p> : null}
-        {compact ? <p className="ft-lbl">Viewing as {as}</p> : null}
-        <div className="grid gap-1">
-          {view.parties.map((party) =>
-            view.members
-              .filter((member) => member.partyUserId === party.payerUserId)
-              .map((member) => (
-                <form key={member.userId} action={switchUserAction}>
-                  <input type="hidden" name="tripId" value={view.id} />
-                  <input type="hidden" name="userId" value={member.userId} />
-                  <button type="submit" className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-sm hover:bg-chip">
-                    <span>
-                      {member.name}
-                      <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
-                    </span>
-                    {member.userId === view.viewer?.userId ? <span className="text-xs text-clay-ink">You</span> : null}
-                  </button>
-                </form>
-              )),
-          )}
-        </div>
-        <div>
-          <p className="ft-lbl">Clock · {view.simulated ? formatWhen(view.now) : "real time"}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <form action={simulateDeadlineAction}>
-              <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-sm bg-ink px-3 text-xs font-semibold text-card" type="submit">
-                Run the deadline
-              </button>
-            </form>
-            <form action={jumpSecondAction}>
-              <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
-                Skip past a payment
-              </button>
-            </form>
-            <form action={resetClockAction}>
-              <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
-                Real time
-              </button>
-            </form>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-            <a href="/demo/1" className="inline-flex min-h-9 items-center rounded-sm border border-line px-3 text-xs font-semibold">
-              Restart the tour
-            </a>
-            {compact ? (
-              <Link href="/" className="inline-flex min-h-9 items-center rounded-sm border border-line px-3 text-xs font-semibold">
-                Exit demo
-              </Link>
-            ) : null}
-          </div>
+      </div>
+      <div>
+        <p className="ft-lbl">Clock · {view.simulated ? formatWhen(view.now) : "real time"}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <form action={simulateDeadlineAction}>
+            <input type="hidden" name="tripId" value={view.id} />
+            <button className="min-h-9 rounded-sm bg-ink px-3 text-xs font-semibold text-card" type="submit">
+              Run the deadline
+            </button>
+          </form>
+          <form action={jumpSecondAction}>
+            <input type="hidden" name="tripId" value={view.id} />
+            <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
+              Skip past a payment
+            </button>
+          </form>
+          <form action={resetClockAction}>
+            <input type="hidden" name="tripId" value={view.id} />
+            <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
+              Real time
+            </button>
+          </form>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
+          <a href="/demo/1" className="inline-flex min-h-9 items-center rounded-sm border border-line px-3 text-xs font-semibold">
+            Restart the tour
+          </a>
         </div>
       </div>
-    </details>
+    </div>
   );
 }

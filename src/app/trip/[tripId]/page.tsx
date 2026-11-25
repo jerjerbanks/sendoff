@@ -5,7 +5,7 @@ import { ShareLauncher } from "@/components/share-launcher";
 import { Arrow, HeadcountMeter } from "@/components/motion";
 import { money } from "@/lib/format";
 import { ageBandLabel, honoreeRoleLabel } from "@/lib/labels";
-import { meterCells } from "@/lib/meter";
+import { meterCells, meterSub, tripMeter } from "@/lib/meter";
 import type { JourneyStep, NextStep } from "@/lib/next-step";
 import { getViewerId } from "@/lib/session";
 import { loadTripView, type PartyView, type TripView } from "@/lib/view";
@@ -29,6 +29,8 @@ export default async function DashboardPage({
     <div className="grid grid-cols-1 gap-10 [&>*]:min-w-0">
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
       <div className="grid gap-6">
+        {/* TODO(map): the v4 pack opens Plan with a lake map. Deferred (Jeremy, Nov 24): trips have no
+            coordinates yet, so there is no map slot here. No tiles, no map API until that's decided. */}
         <Hero view={view} />
         {view.journey.some((step) => step.state === "current" || step.state === "todo") ? <Journey tripId={view.id} steps={view.journey} /> : null}
       </div>
@@ -196,7 +198,6 @@ function statusWord(party: PartyView): { text: string; tone: string; dot: string
 }
 
 function WhoCard({ view }: { view: TripView }) {
-  const committed = view.payerCount;
   const need = view.minPayerCount;
   const active = view.parties.filter((party) => party.status !== "off_trip" && party.status !== "declined");
   const gone = view.parties.length - active.length;
@@ -211,11 +212,8 @@ function WhoCard({ view }: { view: TripView }) {
           cells={meterCells(view)}
           need={need}
           unit="households"
-          sub={
-            committed >= need
-              ? `Minimum of ${need} met · ${view.travelerCount} people`
-              : `${need} needed to book · ${view.travelerCount} people`
-          }
+          sub={meterSub(tripMeter(view), "households", `${view.travelerCount} people`)}
+          booked={view.lockedIn || view.status === "booked"}
         />
       </div>
       <ul className="mt-5 border-t border-line">
