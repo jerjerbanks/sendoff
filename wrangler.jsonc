@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "sendoff",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "863cbb95-5059-418b-90c1-965e8b3b07f3",
       "migrations_dir": "migrations"
     }
   ],
@@ -25,5 +25,26 @@
       "!/_next/static/*",
       "!/*/_next/static/*"
     ]
+  },
+  // Staging: its own Worker (sendoff-staging.<account>.workers.dev) and its own
+  // empty D1, so test deploys and burst tests never touch real trips. Bindings
+  // don't inherit between environments, so they're repeated here.
+  // Build with CLOUDFLARE_ENV=staging (see npm run build:staging).
+  "env": {
+    "staging": {
+      "name": "sendoff-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "sendoff-staging",
+          "database_id": "61f28fc3-d6a5-4e3d-8617-81be04364664",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ratelimits": [
+        { "name": "JOIN_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+        { "name": "CREATE_TRIP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } }
+      ]
+    }
   }
 }

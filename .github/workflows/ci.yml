@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      # Every migration must apply cleanly, in order, to an empty database.
+      - name: Migrations apply from scratch
+        run: |
+          set -e
+          node -e '
+            const Database = require("better-sqlite3");
+            const fs = require("fs");
+            const db = new Database(":memory:");
+            for (const f of fs.readdirSync("migrations").filter(f => f.endsWith(".sql")).sort()) {
+              db.exec(fs.readFileSync("migrations/" + f, "utf8"));
+              console.log("applied", f);
+            }'
+      - run: npm run build
+      - run: npm run build:staging
