@@ -34,7 +34,8 @@
     "run_worker_first": [
       "/*",
       "!/_next/static/*",
-      "!/*/_next/static/*"
+      "!/*/_next/static/*",
+      "!/landing/*"
     ]
   },
   // Staging: its own Worker (sendoff-staging.<account>.workers.dev) and its own

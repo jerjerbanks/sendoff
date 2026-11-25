@@ -21,7 +21,8 @@
   --color-line-strong: var(--line-strong);
   --color-ctl: var(--border-ctl);
   --color-accent: var(--clay);
-  --color-accent-ink: var(--bg-surface);
+  /* Text on a clay fill stays white in both themes (4.99:1); clay never flips. */
+  --color-accent-ink: var(--on-clay);
   --color-clay: var(--clay);
   --color-clay-ink: var(--clay-ink);
   --color-clay-tint: var(--tint-clay);
@@ -65,7 +66,6 @@ body {
 
 html {
   background: var(--bg-canvas);
-  color-scheme: light;
 }
 
 body {
@@ -96,6 +96,39 @@ body {
 }
 
 @layer components {
+  /* ---------- theme toggle: Light / Dark / Auto, 44px targets ----------
+     The checked look reads <html data-theme-mode>, which the boot script sets before first
+     paint, so it is right before React hydrates. */
+  .ft-theme {
+    display: inline-flex;
+    flex: none;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--r-pill);
+    background: var(--nav-glass);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 12%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .ft-theme button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-pill);
+    color: var(--hero-ink2);
+    transition: background-color var(--dur-fade) var(--ease-out), color var(--dur-fade) var(--ease-out);
+  }
+  .ft-theme button svg { width: 18px; height: 18px; }
+  :root[data-theme-mode="light"] .ft-theme [data-mode="light"],
+  :root[data-theme-mode="dark"] .ft-theme [data-mode="dark"],
+  :root[data-theme-mode="auto"] .ft-theme [data-mode="auto"] {
+    background: var(--bg-surface);
+    color: var(--ink-1);
+    box-shadow: var(--shadow-1);
+  }
+  .ft-theme.bar { background: var(--bg-sunken); box-shadow: 0 0 0 1px var(--line); backdrop-filter: none; }
+  .ft-theme.bar button { color: var(--ink-3); }
+
   /* ---------- type roles ---------- */
   .ft-display {
     font: 400 var(--t-display) / var(--lh-display) var(--font-display);
@@ -344,7 +377,7 @@ body {
     padding: 0 16px 0 18px;
     border-radius: var(--r-sm);
     background: var(--clay);
-    color: var(--bg-surface);
+    color: var(--on-clay);
     font: 600 16px var(--font-ui);
     letter-spacing: -0.01em;
     box-shadow: 0 0 0 1px rgba(120, 58, 24, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 14px -6px rgba(120, 58, 24, 0.55);
@@ -355,6 +388,8 @@ body {
   .ft-btn:disabled { cursor: default; }
   .ft-btn.done {
     background: var(--pine);
+    /* Pine lightens in dark, so its label follows the surface instead of staying white. */
+    color: var(--bg-surface);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--pine) 60%, black), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 6px 14px -6px color-mix(in srgb, var(--pine) 60%, transparent);
   }
   .ft-btn .amt { font: 500 16px var(--font-mono); letter-spacing: 0; font-variant-numeric: var(--num); }
@@ -393,7 +428,7 @@ body {
     border: 1px solid var(--border-ctl);
     border-radius: 6px;
     background: var(--bg-surface);
-    color: var(--bg-surface);
+    color: var(--on-clay);
     transition: transform var(--dur-micro) var(--spring-micro), background var(--dur-fade) var(--ease-out);
   }
   .ft-check.on { background: var(--clay); border-color: var(--clay); box-shadow: 0 2px 6px -2px rgba(120, 58, 24, 0.5); }

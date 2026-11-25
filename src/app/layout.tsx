@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { APP_NAME } from "@/lib/constants";
+import { THEME_BOOT } from "@/lib/theme";
 
 const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-geist-mono" });
@@ -28,7 +29,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#FBF7F0",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FBF7F0" },
+    { media: "(prefers-color-scheme: dark)", color: "#17130F" },
+  ],
+  colorScheme: "light dark",
   // Lets the tab bar pad for the iPhone home indicator via env(safe-area-inset-bottom).
   viewportFit: "cover",
 };
@@ -37,7 +42,13 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The boot script sets data-theme and data-theme-mode before first paint, so React must
+    // not complain that they differ from the server's light defaults.
+    <html lang="en" data-theme="light" data-theme-mode="light" suppressHydrationWarning>
+      <head>
+        {/* Before any CSS: the theme is resolved here, never in a React effect. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+      </head>
       <body className={`${geist.variable} ${geistMono.variable} ${instrument.variable} antialiased`}>{children}</body>
     </html>
   );
