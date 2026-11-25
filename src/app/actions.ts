@@ -9,6 +9,7 @@ import { zonedToUtc } from "@/lib/format";
 import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { hashToken, isContact } from "@/lib/tokens";
+import { countHit, RATE_LIMITS, type RateBucket } from "@/lib/rate-limit";
 import {
   addCost,
   addPollOption,
@@ -68,36 +69,61 @@ async function me(): Promise<string> {
 }
 
 /**
- * Workers Rate Limiting, per client IP. Runs before any database work. If the
- * binding is missing (a misconfigured deploy) or the call throws, let the request
- * through and log a warning: this guards against floods, and a broken limiter
- * shouldn't lock everyone out. Every check is logged for Workers Logs. The IP is
- * never logged, only a short hash so repeated requests can be matched up.
+ * Per-client-IP rate limit, checked before any other database work. Two
+ * counters, and either one can refuse:
+ * - Cloudflare's Workers Rate Limiting binding. On the live Worker it never
+ *   refused anything (v1.17 logs), so it is kept only in case it starts working.
+ * - A strict counter in D1 (rate_hits, migration 0008), in one-minute windows.
+ * If either is missing or throws, that one lets the request through and logs a
+ * warning: this guards against floods, and a broken limiter shouldn't lock
+ * everyone out. Every check is logged for Workers Logs. The IP is never stored
+ * or logged, only its SHA-256 hash (the first 8 characters in logs).
  */
 async function withinLimit(binding: "JOIN_RATE_LIMITER" | "CREATE_TRIP_RATE_LIMITER"): Promise<boolean> {
+  const bucket: RateBucket = binding === "JOIN_RATE_LIMITER" ? "join" : "create";
+  const limit = RATE_LIMITS[bucket];
   const limiter = env[binding];
   const ip = (await headers()).get("cf-connecting-ip");
+  const key = hashToken(ip ?? "unknown");
   const base = {
     event: "rate_limit",
     binding,
+    bucket,
     joinBound: Boolean(env.JOIN_RATE_LIMITER),
     createBound: Boolean(env.CREATE_TRIP_RATE_LIMITER),
     limitIsFunction: typeof limiter?.limit === "function",
     hasIp: !!ip,
-    keyHash: hashToken(ip ?? "unknown").slice(0, 8),
+    keyHash: key.slice(0, 8),
   };
-  if (!limiter || typeof limiter.limit !== "function") {
-    console.warn({ ...base, outcome: "binding_missing_allowed" });
-    return true;
+
+  let cf: "allowed" | "limited" | "binding_missing" | "threw" = "binding_missing";
+  let cfResult: unknown;
+  if (limiter && typeof limiter.limit === "function") {
+    try {
+      cfResult = await limiter.limit({ key: ip ?? "unknown" });
+      cf = (cfResult as { success: boolean }).success ? "allowed" : "limited";
+    } catch (error) {
+      cf = "threw";
+      cfResult = String(error);
+    }
   }
+
+  let d1: "allowed" | "limited" | "threw" = "allowed";
+  let d1Count: number | null = null;
   try {
-    const result = await limiter.limit({ key: ip ?? "unknown" });
-    console.log({ ...base, outcome: result.success ? "allowed" : "limited", result });
-    return result.success;
+    d1Count = await countHit(env.DB, key, bucket, Date.now());
+    d1 = d1Count > limit ? "limited" : "allowed";
   } catch (error) {
-    console.warn({ ...base, outcome: "limit_threw_allowed", error: String(error) });
-    return true;
+    d1 = "threw";
+    cfResult = { cf: cfResult, d1Error: String(error) };
   }
+
+  const allowed = cf !== "limited" && d1 !== "limited";
+  const outcome = allowed ? "allowed" : "limited";
+  const entry = { ...base, outcome, cf, d1, d1Count, limit, result: cfResult };
+  if (cf === "binding_missing" || cf === "threw" || d1 === "threw") console.warn(entry);
+  else console.log(entry);
+  return allowed;
 }
 
 const TOO_MANY = "Too many tries. Wait a minute and try again.";
