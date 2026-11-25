@@ -5,7 +5,8 @@ import { joinTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
-import { ensureDemoSeed, tripIdForToken } from "@/lib/store";
+import { getViewerId } from "@/lib/session";
+import { ensureDemoSeed, isMemberOf, tripIdForToken } from "@/lib/store";
 import { DemoBanner } from "@/components/demo-panel";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { loadTripView } from "@/lib/view";
@@ -45,6 +46,9 @@ export default async function JoinPage({
   // The tour's step 2 pre-fills Taylor; a real invite never pre-fills anyone.
   const onTour = tour === "2" && isDemoTrip(tripId);
   const closed = !!view && (view.lockedIn || view.underMinimum || view.cancelled);
+  // Already on this trip on this phone: no second sign-up, just the way in.
+  const viewerId = tripId && !onTour ? await getViewerId() : null;
+  const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10">
@@ -78,7 +82,14 @@ export default async function JoinPage({
               {view.payerCount < view.minPayerCount ? ` · ${view.minPayerCount - view.payerCount} more needed to book` : ""}
             </p>
           </div>
-          {closed ? (
+          {alreadyIn ? (
+            <Link
+              href={`/trip/${tripId}`}
+              className="mt-6 flex h-12 items-center justify-center rounded-2xl bg-accent font-semibold text-accent-ink"
+            >
+              You&apos;re on this trip. Open it
+            </Link>
+          ) : closed ? (
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">
               The buy-in deadline has passed. You can&apos;t join or rejoin.
             </p>
@@ -95,7 +106,10 @@ export default async function JoinPage({
                 <Input className="mt-1.5" name="contact" required placeholder="you@example.com" defaultValue={onTour ? "taylor@example.com" : undefined} />
               </label>
               <SubmitButton>Join the trip</SubmitButton>
-              <p className="text-center text-xs text-muted">No app to install. No password: your phone or email is just how we recognize you next time.</p>
+              <p className="text-center text-xs text-muted">
+                No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
+                this one.
+              </p>
             </form>
           )}
         </>

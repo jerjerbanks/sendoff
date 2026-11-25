@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
-import { getViewerId, setViewerCookie } from "@/lib/session";
+import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { isDemoTrip } from "@/lib/demo-tour";
+import { isContact } from "@/lib/tokens";
 import {
   addCost,
   addPollOption,
@@ -57,7 +59,7 @@ import {
   type HonoreeRole,
   type PreWeddingStyle,
 } from "@/lib/store";
-import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "@/lib/constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID, SIGN_IN_LINK_COOKIE } from "@/lib/constants";
 
 /** The person acting is whoever this browser is signed in as. Never trust an id sent in the form. */
 async function me(): Promise<string> {
@@ -73,15 +75,21 @@ function done(tripId: string, result: { ok: boolean; error?: string }, path: str
   revalidatePath(`/trip/${tripId}`, "layout");
 }
 
-function text(formData: FormData, key: string): string {
-  return String(formData.get(key) ?? "").trim();
+/** A trimmed form field, capped so nobody can stuff the database. */
+function text(formData: FormData, key: string, max = 300): string {
+  return String(formData.get(key) ?? "").trim().slice(0, max);
 }
 
+/** Names show up everywhere; keep them short. */
+const NAME_MAX = 60;
+
+/** Dollars to cents. Anything that isn't a plain amount up to $1,000,000 is refused. */
 function dollars(formData: FormData, key: string): number | null {
-  const raw = text(formData, key);
-  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return null;
+  const raw = text(formData, key).replace(/[$,]/g, "");
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(raw)) return null;
   const [whole, fraction = ""] = raw.split(".");
-  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return cents <= 100_000_000 ? cents : null;
 }
 
 function honoreeRole(value: string): HonoreeRole {
@@ -89,10 +97,10 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
-  const name = text(formData, "name");
-  const organizerName = text(formData, "organizerName");
-  const organizerContact = text(formData, "organizerContact");
-  const dateWindow = text(formData, "dateWindow");
+  const name = text(formData, "name", 80);
+  const organizerName = text(formData, "organizerName", NAME_MAX);
+  const organizerContact = text(formData, "organizerContact", 120);
+  const dateWindow = text(formData, "dateWindow", 120);
   const tripType = text(formData, "tripType") === "family" ? "family" : "pre_wedding";
   const styleRaw = text(formData, "preWeddingStyle");
   const preWeddingStyle: PreWeddingStyle | null =
@@ -100,32 +108,38 @@ export async function createTripAction(formData: FormData) {
   if (!name || !organizerName || !organizerContact || !dateWindow) {
     fail("/", "Fill in the trip name, your name and contact, and a rough date window.");
   }
+  if (!isContact(organizerContact)) fail("/", "Add a phone number or an email address you can be reached at.");
   // 0..n guests of honor. A row counts once it has a name.
-  const honorees: { name: string; contact: string; role: HonoreeRole }[] = [];
+  const honorees: { name: string; contact: string; contactGiven: boolean; role: HonoreeRole }[] = [];
   for (const index of [1, 2]) {
-    const honoreeName = text(formData, `honoree${index}Name`);
+    const honoreeName = text(formData, `honoree${index}Name`, NAME_MAX);
     if (!honoreeName) continue;
+    const given = text(formData, `honoree${index}Contact`, 120);
+    if (given && !isContact(given)) fail("/", `${honoreeName}'s contact needs to be a phone number or an email address.`);
     honorees.push({
       name: honoreeName,
-      contact: text(formData, `honoree${index}Contact`) || `${honoreeName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+      // A made-up placeholder can never be used to sign in as the honoree.
+      contact: given || `${honoreeName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+      contactGiven: !!given,
       role: honoreeRole(text(formData, `honoree${index}Role`)),
     });
   }
   const created = await createTrip({ name, organizerName, organizerContact, tripType, preWeddingStyle, honorees, dateWindow });
-  await setViewerCookie(created.organizerId);
+  await startSession(created.organizerId);
   redirect(`/trip/${created.tripId}/party?welcome=1`);
 }
 
 export async function joinTripAction(formData: FormData) {
-  const token = text(formData, "token");
-  const name = text(formData, "name");
-  const contact = text(formData, "contact");
+  const token = text(formData, "token", 40);
+  const name = text(formData, "name", NAME_MAX);
+  const contact = text(formData, "contact", 120);
   if (!name || !contact) fail(`/join/${token}`, "Add your name and a phone or email.");
-  const result = await joinTrip({ token, name, contact });
+  if (!isContact(contact)) fail(`/join/${token}`, "That doesn't look like a phone number or an email address.");
+  const result = await joinTrip({ token, name, contact, viewerId: await getViewerId() });
   if (!result.ok || !result.userId || !result.tripId) {
     fail(`/join/${token}`, result.ok ? "Could not join." : result.error ?? "Could not join.");
   }
-  await setViewerCookie(result.userId);
+  await startSession(result.userId, { demo: isDemoTrip(result.tripId) });
   // S18 then S17: confirm the party and its travelers, then the private budget.
   redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
 }
@@ -137,7 +151,7 @@ export async function switchUserAction(formData: FormData) {
   if (!isDemoTrip(tripId) || !(await isMemberOf(tripId, target))) {
     fail(`/trip/${tripId}`, "Switching people only works in the demo.");
   }
-  await setViewerCookie(target);
+  await startSession(target, { demo: true });
   revalidatePath(`/trip/${tripId}`, "layout");
   // Demo stories land on the screen that tells the story.
   const next = text(formData, "next");
@@ -155,8 +169,8 @@ export async function addOptionAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = await me();
   const pollId = text(formData, "pollId");
-  const label = text(formData, "label");
-  const link = text(formData, "link");
+  const label = text(formData, "label", 80);
+  const link = text(formData, "link", 500);
   const est = dollars(formData, "estCost") ?? 0;
   if (!label) fail(`/trip/${tripId}/vote`, "Name the option.");
   if (link && !/^https?:\/\//.test(link)) fail(`/trip/${tripId}/vote`, "Links need to start with http:// or https://.");
@@ -186,8 +200,8 @@ export async function pollDeadlineAction(formData: FormData) {
 export async function addCostAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = await me();
-  const label = text(formData, "label");
-  const category = text(formData, "category") || "other";
+  const label = text(formData, "label", 80);
+  const category = text(formData, "category", 20) || "other";
   const splitType = text(formData, "splitType");
   const amount = dollars(formData, "amount");
   if (!label || amount === null) fail(`/trip/${tripId}/costs`, "Add a name and a dollar amount.");
@@ -366,14 +380,16 @@ export async function addSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = await me();
   const weight = Number(text(formData, "weight"));
-  if (!text(formData, "roomName") || !Number.isFinite(weight)) fail(`/trip/${tripId}/sleep`, "Name the room and its weight.");
+  if (!text(formData, "roomName") || !Number.isFinite(weight) || weight <= 0 || weight > 10) {
+    fail(`/trip/${tripId}/sleep`, "Name the room and give it a weight between 0 and 10.");
+  }
   done(
     tripId,
     await addSpot({
       tripId,
       userId,
-      roomName: text(formData, "roomName"),
-      bedType: text(formData, "bedType") || "Bed",
+      roomName: text(formData, "roomName", 60),
+      bedType: text(formData, "bedType", 30) || "Bed",
       privateBath: text(formData, "privateBath") === "yes",
       privateRoom: text(formData, "privateRoom") === "yes",
       weight,
@@ -392,7 +408,7 @@ export async function bookStayAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = await me();
   const amount = dollars(formData, "actual");
-  const confirmation = text(formData, "confirmation");
+  const confirmation = text(formData, "confirmation", 60);
   if (amount === null || !confirmation) fail(`/trip/${tripId}/book`, "Add a confirmation number and the actual lodging total.");
   done(tripId, await bookStay(tripId, userId, confirmation, amount), `/trip/${tripId}/book`);
 }
@@ -433,7 +449,7 @@ export async function saveBudgetAction(formData: FormData) {
       tripId,
       userId: await me(),
       maxAllInCents: amount,
-      flexNote: text(formData, "flexNote"),
+      flexNote: text(formData, "flexNote", 500),
       mustHaves: musts,
     }),
     `/trip/${tripId}/budget`,
@@ -443,7 +459,9 @@ export async function saveBudgetAction(formData: FormData) {
 
 export async function outOfPocketAction(formData: FormData) {
   const tripId = text(formData, "tripId");
-  await recordEvent(tripId, await me(), "out_of_pocket", `previous=${text(formData, "previous")};current=${text(formData, "current")}`);
+  const userId = await me();
+  if (!(await isMemberOf(tripId, userId))) fail(`/trip/${tripId}`, "Join the trip first.");
+  await recordEvent(tripId, userId, "out_of_pocket", `previous=${text(formData, "previous", 20)};current=${text(formData, "current", 20)}`);
   redirect(`/trip/${tripId}/metrics`);
 }
 
@@ -471,9 +489,9 @@ export async function savePartyAction(formData: FormData) {
     tripId,
     actorId: await me(),
     partyUserId: text(formData, "partyUserId"),
-    name: text(formData, "name"),
+    name: text(formData, "name", NAME_MAX),
     shareComfort: comfort === "no_share" || comfort === "note_only" ? comfort : "any",
-    shareComfortNote: text(formData, "shareComfortNote"),
+    shareComfortNote: text(formData, "shareComfortNote", 500),
   });
   done(tripId, result, `/trip/${tripId}/party`);
   if (text(formData, "next") === "budget") redirect(`/trip/${tripId}/budget?welcome=1`);
@@ -487,9 +505,9 @@ export async function addTravelerAction(formData: FormData) {
       tripId,
       actorId: await me(),
       partyUserId: text(formData, "partyUserId"),
-      name: text(formData, "name"),
+      name: text(formData, "name", NAME_MAX),
       ageBand: asAgeBand(text(formData, "ageBand")),
-      needsNotes: text(formData, "needsNotes"),
+      needsNotes: text(formData, "needsNotes", 500),
     }),
     `/trip/${tripId}/party`,
   );
@@ -503,9 +521,9 @@ export async function updateTravelerAction(formData: FormData) {
       tripId,
       actorId: await me(),
       travelerId: text(formData, "travelerId"),
-      name: text(formData, "name"),
+      name: text(formData, "name", NAME_MAX),
       ageBand: asAgeBand(text(formData, "ageBand")),
-      needsNotes: text(formData, "needsNotes"),
+      needsNotes: text(formData, "needsNotes", 500),
     }),
     `/trip/${tripId}/party`,
   );
@@ -557,4 +575,41 @@ export async function headcountsAction(formData: FormData) {
     await setHeadcounts(tripId, await me(), Number(text(formData, "minPayers")), Number(text(formData, "maxTravelers"))),
     `/trip/${tripId}/settings`,
   );
+}
+
+/** Sign this phone out. Other phones the person signed in on stay signed in. */
+export async function signOutAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  await endSession();
+  redirect(isDemoTrip(tripId) ? "/" : `/trip/${tripId}`);
+}
+
+/**
+ * Make a one-time link to sign in on another phone. Only the signed-in person can
+ * make one for themselves; nobody can make one for someone else.
+ */
+export async function signInLinkAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const userId = await me();
+  if (!(await isMemberOf(tripId, userId))) fail(`/trip/${tripId}`, "Join the trip first.");
+  const { token } = await createSignInLink(userId, tripId);
+  // Hand the link to the party page in a short-lived cookie, not the URL, so it
+  // never sits in browser history. It dies with the link, 15 minutes from now.
+  (await cookies()).set(SIGN_IN_LINK_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    path: `/trip/${tripId}/party`,
+    maxAge: 15 * 60,
+  });
+  redirect(`/trip/${tripId}/party#this-phone`);
+}
+
+/** The other phone confirms. Using the link signs it in and spends the link. */
+export async function redeemSignInLinkAction(formData: FormData) {
+  const token = text(formData, "token", 64);
+  const result = await redeemSignInLink(token);
+  if (!result) redirect(`/signin/${encodeURIComponent(token)}?expired=1`);
+  await startSession(result.userId);
+  redirect(`/trip/${result.tripId}`);
 }

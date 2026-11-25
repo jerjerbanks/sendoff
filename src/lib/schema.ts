@@ -4,6 +4,27 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   contact: text("contact").notNull(),
+  /** 1 once this person has signed in; their contact then no longer signs anyone in. */
+  claimed: integer("claimed").notNull().default(0),
+});
+
+/** A signed-in browser. The cookie holds a random token; only its SHA-256 hash is stored. */
+export const sessions = sqliteTable("sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: text("user_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  demo: integer("demo").notNull().default(0),
+});
+
+/** One-time link a signed-in person makes to sign in on another phone. */
+export const signInLinks = sqliteTable("sign_in_links", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: text("user_id").notNull(),
+  tripId: text("trip_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
 });
 
 export const trips = sqliteTable("trips", {

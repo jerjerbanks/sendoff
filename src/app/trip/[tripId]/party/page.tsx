@@ -1,6 +1,18 @@
 import Link from "next/link";
-import { addTravelerAction, removeTravelerAction, savePartyAction, updateTravelerAction } from "@/app/actions";
+import { cookies, headers } from "next/headers";
+import {
+  addTravelerAction,
+  removeTravelerAction,
+  savePartyAction,
+  signInLinkAction,
+  signOutAction,
+  updateTravelerAction,
+} from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { SendToSelfButton } from "@/components/share-button";
+import { SIGN_IN_LINK_COOKIE } from "@/lib/constants";
+import { isDemoTrip } from "@/lib/demo-tour";
+import { plausibleToken } from "@/lib/session";
 import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandHint, ageBandLabel, honoreeRoleLabel } from "@/lib/labels";
@@ -185,11 +197,56 @@ export default async function PartyPage({
         </details>
       ) : null}
 
+      {!editingOther && !isDemoTrip(view.id) ? <ThisPhone tripId={view.id} name={viewer.name} contact={viewer.contact} /> : null}
+
       {!editingOther ? (
         <Link href={nextHref} className="flex h-12 items-center justify-center rounded-2xl bg-accent font-semibold text-accent-ink">
           {welcome ? (solo ? "Just me — continue" : "Continue") : "Done"}
         </Link>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Who this phone is signed in as, a one-time link to sign in on another phone, and
+ * sign out. There is no password: a signed-in phone vouches for the next one.
+ */
+async function ThisPhone({ tripId, name, contact }: { tripId: string; name: string; contact: string }) {
+  const token = (await cookies()).get(SIGN_IN_LINK_COOKIE)?.value;
+  let url: string | null = null;
+  if (plausibleToken(token)) {
+    const list = await headers();
+    const proto = list.get("x-forwarded-proto") ?? "https";
+    const host = list.get("x-forwarded-host") ?? list.get("host");
+    url = `${proto}://${host}/signin/${token}`;
+  }
+  return (
+    <section id="this-phone" className="rounded-2xl border border-line bg-card p-4">
+      <h3 className="text-sm font-semibold">This phone</h3>
+      <p className="mt-1 text-sm text-muted">
+        Signed in as {name} ({contact}). Using another phone or a laptop? Make a link here and open it there.
+      </p>
+      {url ? (
+        <div className="mt-3 grid gap-2">
+          <p className="break-all rounded-xl bg-chip px-3 py-2 font-mono text-xs">{url}</p>
+          <p className="text-xs text-muted">Works once, for 15 minutes. It signs in as you, so send it only to yourself, never to the group.</p>
+          <SendToSelfButton url={url} />
+        </div>
+      ) : (
+        <form action={signInLinkAction} className="mt-3">
+          <input type="hidden" name="tripId" value={tripId} />
+          <SubmitButton variant="secondary" pendingLabel="Making a link…">
+            Sign in on another phone
+          </SubmitButton>
+        </form>
+      )}
+      <form action={signOutAction} className="mt-3">
+        <input type="hidden" name="tripId" value={tripId} />
+        <button type="submit" className="text-sm font-semibold text-muted underline underline-offset-4">
+          Sign out of this phone
+        </button>
+      </form>
+    </section>
   );
 }

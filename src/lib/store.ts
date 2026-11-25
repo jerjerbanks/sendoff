@@ -936,7 +936,7 @@ export async function createTrip(input: {
   organizerContact: string;
   tripType: TripType;
   preWeddingStyle: PreWeddingStyle | null;
-  honorees: { name: string; contact: string; role: HonoreeRole }[];
+  honorees: { name: string; contact: string; contactGiven?: boolean; role: HonoreeRole }[];
   dateWindow: string;
 }) {
   const db = getDb();
@@ -946,7 +946,8 @@ export async function createTrip(input: {
   const honorees = input.honorees.map((honoree) => ({ ...honoree, id: crypto.randomUUID() }));
   await db.insert(users).values({ id: organizerId, name: input.organizerName, contact: input.organizerContact });
   for (const honoree of honorees) {
-    await db.insert(users).values({ id: honoree.id, name: honoree.name, contact: honoree.contact });
+    // A made-up contact is marked claimed, so nobody can sign in as the honoree with it.
+    await db.insert(users).values({ id: honoree.id, name: honoree.name, contact: honoree.contact, claimed: honoree.contactGiven === false ? 1 : 0 });
   }
   await db.insert(trips).values({
     id: tripId,
@@ -1009,6 +1010,8 @@ export async function joinTrip(input: {
   token: string;
   name: string;
   contact: string;
+  /** Who this browser is already signed in as, if anyone. */
+  viewerId?: string | null;
 }) {
   const db = getDb();
   const found = (await db.select().from(trips).where(eq(trips.inviteToken, input.token)))[0];
@@ -1020,6 +1023,17 @@ export async function joinTrip(input: {
   const contact = input.contact.trim().toLowerCase();
   const existing = raw.members.find((member) => member.contact.trim().toLowerCase() === contact);
   if (existing) {
+    // Typing a phone or email proves nothing. It signs you in as that person only
+    // if this browser already is them, or nobody has ever signed in as them (an
+    // honoree the organizer added, or someone from before sessions existed).
+    const owner = (await db.select({ claimed: users.claimed }).from(users).where(eq(users.id, existing.userId)))[0];
+    if (existing.userId !== input.viewerId && owner?.claimed === 1) {
+      return {
+        ok: false,
+        error:
+          "Someone on this trip already joined with that phone or email. If it's you, open the trip on the phone you joined with, go to Your party, and tap “Sign in on another phone.”",
+      };
+    }
     if (existing.status === "off_trip") {
       if (raw.trip.status !== "buy_in_open" && raw.trip.status !== "voting" && raw.trip.status !== "planning") {
         return { ok: false, error: "The deadline has passed. You can't rejoin this trip." };
@@ -1132,6 +1146,7 @@ export async function lockPollOption(tripId: string, userId: string, optionId: s
 export async function clearPollLock(tripId: string, userId: string, pollId: string) {
   const raw = await requireOrganizer(tripId, userId);
   if ("ok" in raw) return raw;
+  if (!raw.polls.some((poll) => poll.id === pollId)) return { ok: false, error: "That poll isn't on this trip." };
   await getDb().update(polls).set({ lockedOptionId: null }).where(eq(polls.id, pollId));
   return { ok: true };
 }
@@ -1139,6 +1154,8 @@ export async function clearPollLock(tripId: string, userId: string, pollId: stri
 export async function setPollDeadline(tripId: string, userId: string, pollId: string, deadlineIso: string) {
   const raw = await requireOrganizer(tripId, userId);
   if ("ok" in raw) return raw;
+  if (!raw.polls.some((poll) => poll.id === pollId)) return { ok: false, error: "That poll isn't on this trip." };
+  if (Number.isNaN(new Date(deadlineIso).getTime())) return { ok: false, error: "Pick a real date and time." };
   await getDb().update(polls).set({ deadline: deadlineIso }).where(eq(polls.id, pollId));
   return { ok: true };
 }
@@ -1623,6 +1640,7 @@ export async function requestSpot(input: {
   if (!raw) return { ok: false, error: "Trip not found." };
   const actor = memberOf(raw, input.userId);
   if (!actor) return { ok: false, error: "Join the trip first." };
+  if (!raw.spots.some((spot) => spot.id === input.toSpotId)) return { ok: false, error: "That bed isn't on this trip." };
   if (actor.role !== "organizer" && raw.trip.bedChangePolicy === "locked" && raw.trip.status !== "booked") {
     return { ok: false, error: "Beds are locked. Only the organizer can move people." };
   }
@@ -1864,6 +1882,7 @@ export async function saveBudget(input: {
 export async function setOptionHidden(tripId: string, userId: string, optionId: string, hidden: boolean) {
   const raw = await requireOrganizer(tripId, userId);
   if ("ok" in raw) return raw;
+  if (!raw.options.some((option) => option.id === optionId)) return { ok: false, error: "That option isn't on this trip." };
   await getDb().update(pollOptions).set({ hiddenByOrganizer: hidden ? 1 : 0 }).where(eq(pollOptions.id, optionId));
   return { ok: true };
 }
@@ -1955,6 +1974,9 @@ export async function saveParty(input: {
   const raw = await readRaw(input.tripId);
   if (!raw) return { ok: false, error: "Trip not found." };
   if (!canEditParty(raw, input.actorId, input.partyUserId)) return { ok: false, error: "Only the party's payer or the organizer can edit this." };
+  if (!raw.members.some((member) => member.userId === input.partyUserId && isPayerMember(member))) {
+    return { ok: false, error: "That party isn't on this trip." };
+  }
   if (!input.name.trim()) return { ok: false, error: "Give the party a name." };
   await materializeParty(raw, input.partyUserId);
   await getDb().update(parties).set({
@@ -2140,6 +2162,7 @@ export async function setHeadcounts(tripId: string, userId: string, minPayers: n
   if ("ok" in raw) return raw;
   if (!Number.isInteger(minPayers) || minPayers < 1) return { ok: false, error: "The minimum has to be at least one paying party." };
   if (!Number.isInteger(maxTravelers) || maxTravelers < 1) return { ok: false, error: "Set a traveler cap." };
+  if (minPayers > 100 || maxTravelers > 200) return { ok: false, error: "Field Trip handles up to 200 travelers." };
   const onTrip = raw.travelers.filter((traveler) => {
     const member = memberOf(raw, traveler.partyId);
     return member && member.status !== "off_trip" && member.status !== "declined";
