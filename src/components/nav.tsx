@@ -14,9 +14,15 @@ export function TripNav({ tripId, payLabel = "Commit" }: { tripId: string; payLa
     { href: "/vote", label: "Vote" },
     { href: "/costs", label: "Costs" },
     { href: "/pay", label: payLabel },
+    // Beds: the only way to the floor plan from every screen, phones included.
+    { href: "/spots", label: "Beds", also: "/sleep" },
   ];
   const base = `/trip/${tripId}`;
-  const active = items.findIndex((item) => (item.href === "" ? pathname === base : pathname.startsWith(`${base}${item.href}`)));
+  const active = items.findIndex((item) =>
+    item.href === ""
+      ? pathname === base
+      : pathname.startsWith(`${base}${item.href}`) || ("also" in item && pathname.startsWith(`${base}${item.also}`)),
+  );
   return (
     <nav aria-label="Trip" className="ft-tabs ft-glass">
       <div className="ft-tabs-track" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>

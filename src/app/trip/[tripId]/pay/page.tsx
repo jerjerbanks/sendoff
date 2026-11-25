@@ -14,10 +14,10 @@ export default async function PayPage({
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; opened?: string }>;
 }) {
   const { tripId } = await params;
-  const { error } = await searchParams;
+  const { error, opened } = await searchParams;
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
@@ -39,6 +39,12 @@ export default async function PayPage({
   return (
     <div className="grid grid-cols-1 gap-8 [&>*]:min-w-0">
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
+      {opened && !error && view.buyInOpen ? (
+        <p role="status" className="ft-panel border-good/40 bg-good-soft px-4 py-3 text-[15px] text-good">
+          Buy-in is open: {money(view.buyInAmountCents).replace(/\.00$/, "")} per party
+          {view.buyInDeadline ? `, due ${formatDay(view.buyInDeadline)}` : ""}.
+        </p>
+      ) : null}
 
       {viewer?.role === "honoree" ? (
         <section>

@@ -6,6 +6,7 @@ import { LandingEnhance, LandingMenu } from "@/components/landing-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
 import { landingDestination } from "@/lib/landing";
+import { requestOrigin } from "@/lib/origin";
 import { HERO_ART, LOWER } from "./landing-content";
 import "./landing.css";
 import "./landing-extra.css";
@@ -26,17 +27,24 @@ const LOWER_HTML = fill(LOWER);
 const TITLE = `${APP_NAME} — Get the trip out of the group chat`;
 const DESCRIPTION = `One headcount, fair costs for every bed, and private budgets. ${APP_NAME} turns a group chat idea into a booked trip.`;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  // Absolute, per-request origin: a relative og:image resolves against localhost at build time.
+  const origin = await requestOrigin();
+  const image = `${origin}/landing/og.jpg`;
+  return {
+    metadataBase: new URL(origin),
     title: TITLE,
     description: DESCRIPTION,
-    type: "website",
-    images: [{ url: "/landing/og.jpg", width: 1200, height: 630, alt: `${APP_NAME}: Get the trip out of the group chat.` }],
-  },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/landing/og.jpg"] },
-};
+    openGraph: {
+      title: TITLE,
+      description: DESCRIPTION,
+      type: "website",
+      url: `${origin}/`,
+      images: [{ url: image, width: 1200, height: 630, alt: `${APP_NAME}: Get the trip out of the group chat.` }],
+    },
+    twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: [image] },
+  };
+}
 
 /**
  * "/" is the v5 landing page. Someone signed in (a real session, not a demo one) goes

@@ -271,6 +271,9 @@ export async function openBuyInAction(formData: FormData) {
     await saveBuyIn({ tripId, userId, amountCents: amount, minHeadcount, deadlineIso: zonedToUtc(when) }),
     `/trip/${tripId}/pay`,
   );
+  // Navigate instead of re-rendering in place: the form looks the same before and after,
+  // and on staging the in-place refresh left the button on "Saving…". The notice confirms it.
+  redirect(`/trip/${tripId}/pay?opened=1`);
 }
 
 export async function payAction(formData: FormData) {
