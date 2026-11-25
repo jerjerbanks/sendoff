@@ -11,7 +11,7 @@ INSERT OR IGNORE INTO users (id, name, contact) VALUES ('user_riley', 'Riley Che
 INSERT OR IGNORE INTO users (id, name, contact) VALUES ('user_morgan', 'Morgan Blake', 'morgan@example.com');
 INSERT OR IGNORE INTO users (id, name, contact) VALUES ('user_casey', 'Casey Brooks', 'casey@example.com');
 INSERT OR IGNORE INTO users (id, name, contact) VALUES ('user_pat', 'Pat Alvarez', 'pat@example.com');
-INSERT OR IGNORE INTO trips (id, name, trip_type, organizer_id, guest_of_honor_user_id, date_window, status, buy_in_amount, buy_in_deadline, min_headcount, max_headcount, bed_change_policy, honoree_excluded_from_split, invite_token, simulated_now) VALUES ('trip_demo', 'Alex''s bachelor party', 'bachelor', 'user_chris', 'user_alex', 'A long weekend in May 2027', 'buy_in_open', 15000, '2026-12-16T05:59:00.000Z', 5, 8, 'member_requests', 1, 'ALEX2027', NULL);
+INSERT OR IGNORE INTO trips (id, name, trip_type, organizer_id, guest_of_honor_user_id, date_window, status, buy_in_amount, buy_in_deadline, min_headcount, max_headcount, bed_change_policy, honoree_excluded_from_split, invite_token, simulated_now) VALUES ('trip_demo', 'Alex''s Bachelor Party', 'pre_wedding', 'user_chris', 'user_alex', 'A long weekend in May 2027', 'buy_in_open', 15000, '2026-12-16T05:59:00.000Z', 5, 9, 'member_requests', 1, 'ALEX2027', NULL);
 INSERT OR IGNORE INTO trip_members (trip_id, user_id, role, status, committed_at) VALUES ('trip_demo', 'user_chris', 'organizer', 'committed', '2026-11-18T18:00:00.000Z');
 INSERT OR IGNORE INTO trip_members (trip_id, user_id, role, status, committed_at) VALUES ('trip_demo', 'user_alex', 'honoree', 'committed', '2026-11-18T18:00:00.000Z');
 INSERT OR IGNORE INTO trip_members (trip_id, user_id, role, status, committed_at) VALUES ('trip_demo', 'user_sam', 'member', 'committed', '2026-11-19T15:00:00.000Z');
@@ -101,6 +101,15 @@ INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('us
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_casey', 'opt_scotts', 32000);
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_pat', 'opt_scotts', 32000);
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_alex', 'opt_scotts', 33000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_chris', 'opt_austin', 33000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_sam', 'opt_austin', 28000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_jordan', 'opt_austin', 30000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_drew', 'opt_austin', 35000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_taylor', 'opt_austin', 20000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_riley', 'opt_austin', 34000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_casey', 'opt_austin', 33000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_pat', 'opt_austin', 36000);
+INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_alex', 'opt_austin', 34000);
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_chris', 'opt_cabo', 70000);
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_sam', 'opt_cabo', 72000);
 INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES ('user_jordan', 'opt_cabo', 58000);

@@ -1,10 +1,11 @@
 import { addSpotAction, assignRoomAction, updateRoomAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { ListingImport } from "@/components/listing-import";
 import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandLabel, bedLabel, shareComfortLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import type { SpotRecord } from "@/lib/store";
+import { roomFloors, type SpotRecord } from "@/lib/store";
 import { partySleeps } from "@/lib/trip-math";
 import { loadTripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
@@ -26,12 +27,14 @@ export default async function SleepSetupPage({
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; imported?: string }>;
 }) {
   const { tripId } = await params;
-  const { error } = await searchParams;
+  const { error, imported } = await searchParams;
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
+  const floors = await roomFloors(view.id);
+  const importedSpots = Number(imported);
   const rooms = new Map<string, SpotRecord[]>();
   for (const spot of [...view.spots].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))) {
     const key = spot.roomName ?? spot.id;
@@ -59,6 +62,11 @@ export default async function SleepSetupPage({
         {capacity < needAtCap ? " Add a bed or allow sharing before the trip fills up." : " Infants in a crib don't need a bed."}
       </p>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+      {!error && importedSpots > 0 ? (
+        <p className="rounded-xl bg-good-soft px-3 py-2 text-sm text-good">
+          Added {importedSpots} sleeping {importedSpots === 1 ? "spot" : "spots"} from the import. Check private baths, holds and weights on each room.
+        </p>
+      ) : null}
 
       <ul className="grid gap-3">
         {[...rooms.entries()].map(([roomName, spots]) => {
@@ -67,7 +75,10 @@ export default async function SleepSetupPage({
           return (
             <li key={roomName} className="ft-panel p-4">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="ft-h2">{roomName}</h3>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h3 className="ft-h2">{roomName}</h3>
+                  {floors.get(roomName) ? <span className="ft-chip">{floors.get(roomName)}</span> : null}
+                </div>
                 {view.spotPrices ? (
                   <p className="text-sm font-semibold">{money(spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0))}</p>
                 ) : null}
@@ -192,6 +203,10 @@ export default async function SleepSetupPage({
             })}
           </ul>
         </section>
+      ) : null}
+
+      {view.isOrganizer && view.status !== "booked" && view.status !== "cancelled" ? (
+        <ListingImport tripId={view.id} existingRooms={[...rooms.keys()]} />
       ) : null}
 
       {view.isOrganizer && view.status !== "booked" ? (
