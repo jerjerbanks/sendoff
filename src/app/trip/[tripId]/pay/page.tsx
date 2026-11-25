@@ -7,7 +7,7 @@ import { Input, fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { paymentStatusLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadTripView, type TripView } from "@/lib/view";
 
 export default async function PayPage({
   params,
@@ -94,7 +94,7 @@ export default async function PayPage({
             cells={meterCells(view)}
             need={view.minPayerCount}
             unit="parties"
-            sub={`${view.minPayerCount} needed to book`}
+            sub={meterSub(view)}
           />
 
           <section className="ft-rule -mx-5 px-5 pt-5">
@@ -176,10 +176,12 @@ export default async function PayPage({
             <p className="ft-lead mt-4">
               {view.lockedIn
                 ? "Each party pays its own share, so nobody fronts the bill."
-                : `The rest of your share is scheduled once ${view.minPayerCount} parties commit.`}
+                : view.payerCount < view.minPayerCount
+                  ? `The rest of your share is scheduled once ${view.minPayerCount} parties commit.`
+                  : `The minimum is met. The rest of your share is scheduled when ${view.organizerName.split(" ")[0]} books the stay.`}
             </p>
           </section>
-          <HeadcountMeter framed cells={meterCells(view)} need={view.minPayerCount} unit="parties" sub={`${view.minPayerCount} needed to book`} />
+          <HeadcountMeter framed cells={meterCells(view)} need={view.minPayerCount} unit="parties" sub={meterSub(view)} />
         </>
       ) : null}
 
@@ -236,7 +238,11 @@ export default async function PayPage({
           </ul>
           {viewer.refundedCents ? <p className="mt-3 text-sm text-muted">{whole(viewer.refundedCents)} came back in the test because the stay was never booked.</p> : null}
           {view.status === "buy_in_open" && viewer.status === "committed" ? (
-            <p className="ft-meta mt-3">The rest of your share is scheduled once enough parties commit.</p>
+            <p className="ft-meta mt-3">
+              {view.payerCount < view.minPayerCount
+                ? "The rest of your share is scheduled once enough parties commit."
+                : "The rest of your share is scheduled when the stay is booked."}
+            </p>
           ) : null}
           </div>
         </section>
@@ -302,4 +308,11 @@ export default async function PayPage({
       ) : null}
     </div>
   );
+}
+
+/** Under the meter's label: how far to the line, or that it's been cleared. */
+function meterSub(view: TripView): string {
+  if (view.payerCount >= view.minPayerCount) return `Minimum of ${view.minPayerCount} met`;
+  const left = view.minPayerCount - view.payerCount;
+  return `${left} more to book · minimum ${view.minPayerCount}`;
 }

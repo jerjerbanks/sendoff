@@ -31,9 +31,12 @@ export default async function DashboardPage({
       <div className="grid gap-6">
         <Hero view={view} />
         {view.journey.some((step) => step.state === "current" || step.state === "todo") ? <Journey tripId={view.id} steps={view.journey} /> : null}
+      </div>
+      {/* The meter comes before the next step, as in 01-trip-home: count first, then the ask. */}
+      <div className="grid gap-6">
+        <WhoCard view={view} />
         <NextStepCard tripId={view.id} step={view.nextStep} />
       </div>
-      <WhoCard view={view} />
       <PlanCard view={view} />
       {view.isOrganizer ? <OrganizerCard view={view} /> : null}
       {!view.cancelled && !view.lockedIn ? (
@@ -210,7 +213,7 @@ function WhoCard({ view }: { view: TripView }) {
           unit="households"
           sub={
             committed >= need
-              ? `Enough to book · ${view.travelerCount} people`
+              ? `Minimum of ${need} met · ${view.travelerCount} people`
               : `${need} needed to book · ${view.travelerCount} people`
           }
         />

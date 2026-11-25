@@ -20,10 +20,11 @@ export default async function RoomsPage({
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string; committed?: string }>;
+  searchParams: Promise<{ error?: string; committed?: string; view?: string }>;
 }) {
   const { tripId } = await params;
-  const { error, committed } = await searchParams;
+  const { error, committed, view: layout } = await searchParams;
+  const listOnly = layout === "list";
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
@@ -102,7 +103,7 @@ export default async function RoomsPage({
             cells={meterCells(view, { youPending: true })}
             need={view.minPayerCount}
             unit="parties"
-            sub={view.payerCount >= view.minPayerCount ? "Enough to book" : `${view.minPayerCount} needed to book`}
+            sub={view.payerCount >= view.minPayerCount ? `Minimum of ${view.minPayerCount} met` : `${view.minPayerCount} needed to book`}
           />
         </>
       ) : null}
@@ -129,7 +130,7 @@ export default async function RoomsPage({
       </section>
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
 
-      {plan.length > 0 ? (
+      {plan.length > 0 && !listOnly ? (
         <section>
           <div className="mb-3 flex justify-end">
             <span className="ft-live">
@@ -137,7 +138,7 @@ export default async function RoomsPage({
               Live
             </span>
           </div>
-          <FloorPlan rooms={plan} />
+          <FloorPlan rooms={plan} water={onWater(view)} />
         </section>
       ) : null}
 
@@ -224,6 +225,11 @@ export default async function RoomsPage({
       </p>
     </div>
   );
+}
+
+/** No geodata, so the water strip keys off the place name: "Harper Lake", "Bay house", "Ocean Shores". */
+function onWater(view: TripView): boolean {
+  return /\b(lake|lakes|lakeside|lakefront|beach|ocean|bay|river|riverside|shore|shores|coast|sea|lagoon|pond|harbor|harbour|waterfront)\b/i.test(`${view.place} ${view.name}`);
 }
 
 function openShare(view: TripView, spot: SpotRecord, here: string[], myParty: string | null): boolean {

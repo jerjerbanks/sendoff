@@ -102,8 +102,10 @@ export function HeadcountMeter({
 
   const youCount = cells.filter((cell) => cell === "you").length;
   const countNow = cells.filter((cell) => cell === "in" || cell === "booked").length;
+  // Booked by the organizer (pine cells passed in) vs. only past the line.
+  const bookedNow = cells.includes("booked");
   const shown: CellState[] = cells.map((cell) => {
-    if (!commit) return cell;
+    if (!commit) return cell === "in" && countNow >= need ? "booked" : cell;
     if (phase === 0) return cell;
     if (cell === "you") return phase === 2 && countNow + youCount >= need ? "booked" : "in";
     if (phase === 2 && cell === "in" && countNow + youCount >= need) return "booked";
@@ -111,6 +113,9 @@ export function HeadcountMeter({
   });
   const count = commit && phase > 0 ? countNow + youCount : countNow;
   const booking = shown.some((cell) => cell === "booked");
+  const met = count >= need;
+  // Static meter past the line but not booked yet: "ready", not "booking".
+  const ready = booking && !bookedNow && !commit;
   const anyYou = shown.includes("you");
   const anyOpen = shown.includes("open");
   const anyIn = shown.includes("in");
@@ -119,29 +124,36 @@ export function HeadcountMeter({
   return (
     <div className={framed ? "ft-panel p-4" : ""}>
       <div className="flex items-end gap-4">
-        <p className="ft-h1 flex shrink-0 items-baseline leading-none" aria-label={`${count} of ${need} ${unit} committed`}>
+        <p
+          className={`ft-h1 flex shrink-0 items-baseline leading-none ${met ? "text-pine" : ""}`}
+          aria-label={met ? `${count} ${unit} committed, enough to book` : `${count} of ${need} ${unit} committed`}
+        >
           <span className="text-[64px]">
             {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : count}
           </span>
-          <span className="ml-0.5 text-[30px] text-ink-2">/{need}</span>
+          {met ? null : <span className="ml-0.5 text-[30px] text-ink-2">/{need}</span>}
         </p>
         <div className="min-w-0 pb-1.5">
-          <p className="ft-lbl ink">Committed</p>
+          <p className={`ft-lbl ${met ? "pine" : "ink"}`}>{met ? (bookedNow ? "Booked" : "Enough to book") : "Committed"}</p>
           <p className="ft-meta">{sub}</p>
         </div>
       </div>
-      <div className="mt-9" role="img" aria-label={`${count} of ${need} ${unit} in. The stay books at ${need}.`}>
+      <div
+        className="mt-9"
+        role="img"
+        aria-label={met ? `${count} ${unit} in, past the minimum of ${need}.` : `${count} of ${need} ${unit} in. The stay books at ${need}.`}
+      >
         <div className="relative flex items-end gap-1.5">
           {shown.map((cell, index) => {
             if (cell === "you" || cells[index] === "you") youIndex += 1;
             const delay = cells[index] === "you" ? (phase === 1 ? youIndex * 70 : 0) : phase === 2 ? index * 40 : 0;
             return (
-              <FragmentWithThreshold key={index} threshold={index === need} booking={booking} need={need}>
+              <FragmentWithThreshold key={index} threshold={index === need} booking={booking} ready={ready} need={need}>
                 <span className={`ft-cell ${cell === "open" ? "" : cell}`} style={{ ["--d" as string]: `${delay}ms` }} />
               </FragmentWithThreshold>
             );
           })}
-          {cells.length === need ? <Threshold booking={booking} need={need} /> : null}
+          {cells.length === need ? <Threshold booking={booking} ready={ready} need={need} /> : null}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-ink-2">
@@ -157,7 +169,7 @@ export function HeadcountMeter({
         ) : null}
         {booking ? (
           <span className="flex items-center gap-1.5">
-            <i className="ft-key bg-pine" aria-hidden /> Booking
+            <i className="ft-key bg-pine" aria-hidden /> {ready ? "In · enough to book" : "Booking"}
           </span>
         ) : null}
         {anyOpen ? (
@@ -176,21 +188,33 @@ export function HeadcountMeter({
   );
 }
 
-function Threshold({ booking, need }: { booking: boolean; need: number }) {
+function Threshold({ booking, ready = false, need }: { booking: boolean; ready?: boolean; need: number }) {
   return (
     <span className="relative flex flex-none self-stretch" aria-hidden>
       <span className="ft-threshold" />
       <span className="absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap bg-paper px-1 font-mono text-[14px] font-medium tracking-[0.06em] text-ink">
-        {booking ? "BOOKING" : `BOOK @ ${need}`}
+        {ready ? "READY" : booking ? "BOOKING" : `BOOK @ ${need}`}
       </span>
     </span>
   );
 }
 
-function FragmentWithThreshold({ threshold, booking, need, children }: { threshold: boolean; booking: boolean; need: number; children: ReactNode }) {
+function FragmentWithThreshold({
+  threshold,
+  booking,
+  ready,
+  need,
+  children,
+}: {
+  threshold: boolean;
+  booking: boolean;
+  ready: boolean;
+  need: number;
+  children: ReactNode;
+}) {
   return (
     <>
-      {threshold ? <Threshold booking={booking} need={need} /> : null}
+      {threshold ? <Threshold booking={booking} ready={ready} need={need} /> : null}
       {children}
     </>
   );

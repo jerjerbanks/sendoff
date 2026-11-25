@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
 
 const titles: Record<string, string> = {
@@ -40,6 +40,8 @@ export function TopBar({
   const base = `/trip/${tripId}`;
   const segment = pathname.startsWith(base) ? pathname.slice(base.length).split("/")[1] ?? "" : "";
   const title = segment === "pay" ? payLabel : (titles[segment] ?? tripName);
+  const search = useSearchParams();
+  const list = search?.get("view") === "list";
   return (
     <header className="ft-bar bg-paper">
       {segment ? (
@@ -54,10 +56,21 @@ export function TopBar({
           <Wordmark />
         </Link>
       )}
-      <span className="ft-live min-w-0">
-        <span className={`ft-dot ${tone === "pine" ? "" : tone}`} aria-hidden />
-        <span className="truncate">{status}</span>
-      </span>
+      {segment === "spots" ? (
+        <nav className="ft-seg ft-seg-sm" aria-label="Show beds as">
+          <Link href={`${base}/spots`} aria-current={list ? undefined : "page"} replace scroll={false}>
+            Plan
+          </Link>
+          <Link href={`${base}/spots?view=list`} aria-current={list ? "page" : undefined} replace scroll={false}>
+            List
+          </Link>
+        </nav>
+      ) : (
+        <span className="ft-live min-w-0">
+          <span className={`ft-dot ${tone === "pine" ? "" : tone}`} aria-hidden />
+          <span className="truncate">{status}</span>
+        </span>
+      )}
     </header>
   );
 }
