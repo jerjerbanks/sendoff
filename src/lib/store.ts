@@ -4,6 +4,7 @@ import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
 import { RULES } from "./rules";
 import { contactKey } from "./tokens";
 import { getDb } from "./db";
+import { importedRoomSpots, type ImportRoom } from "./listing-import";
 import {
   demoCosts,
   demoMembers,
@@ -49,6 +50,7 @@ import {
   travelerOptIns,
   travelers,
   polls,
+  sleepRooms,
   sleepSpots,
   splitModeAcks,
   spotClaims,
@@ -901,6 +903,11 @@ async function wipeTrip(tripId: string) {
   if (spotIds.length) await db.delete(spotClaims).where(inArray(spotClaims.spotId, spotIds));
   await db.delete(spotRequests).where(eq(spotRequests.tripId, tripId));
   await db.delete(sleepSpots).where(eq(sleepSpots.tripId, tripId));
+  try {
+    await db.delete(sleepRooms).where(eq(sleepRooms.tripId, tripId));
+  } catch {
+    // Migration 0009 not run yet; there are no floors to clear.
+  }
   await db.delete(privateBudgets).where(eq(privateBudgets.tripId, tripId));
   await db.delete(tripEvents).where(eq(tripEvents.tripId, tripId));
   await db.delete(travelers).where(eq(travelers.tripId, tripId));
@@ -1767,6 +1774,78 @@ export async function addSpot(input: {
     cribSpace: input.cribSpace ? 1 : 0,
   });
   return { ok: true };
+}
+
+/**
+ * Organizer: add rooms read from a listing (or pasted text) after the confirm
+ * screen. Rooms are added next to any existing ones; a name that's already
+ * taken is refused rather than merged, so beds never land in the wrong room.
+ */
+export async function importRooms(input: { tripId: string; userId: string; rooms: ImportRoom[]; source: "link" | "paste" }) {
+  const raw = await requireOrganizer(input.tripId, input.userId);
+  if ("ok" in raw) return raw;
+  if (raw.trip.status === "booked" || raw.trip.status === "cancelled") return { ok: false, error: "Rooms can't change once the stay is booked." };
+  const taken = new Set(raw.spots.map((spot) => (spot.roomName ?? "").toLowerCase()));
+  const clash = input.rooms.find((room) => taken.has(room.room.toLowerCase()));
+  if (clash) return { ok: false, error: `"${clash.room}" is already a room on this trip. Rename it or remove it from the import.` };
+
+  const db = getDb();
+  const start = raw.spots.reduce((max, spot) => Math.max(max, spot.sortOrder ?? 0), 0) + 1;
+  let order = start;
+  const rows: (typeof sleepSpots.$inferInsert)[] = [];
+  for (const room of input.rooms) {
+    const { spots, cribSpace, groundFloor } = importedRoomSpots(room);
+    for (const spot of spots) {
+      rows.push({
+        id: crypto.randomUUID(),
+        tripId: input.tripId,
+        roomName: room.room,
+        bedType: spot.bedType,
+        privateBath: 0,
+        privateRoom: spot.privateRoom ? 1 : 0,
+        weight: Math.round(spot.weight * 1000),
+        capacity: 1,
+        sharingEnabled: 0,
+        reservedForHonoree: 0,
+        sortOrder: order++,
+        groundFloor: groundFloor ? 1 : 0,
+        noStairs: 0,
+        accessibleBath: 0,
+        cribSpace: cribSpace ? 1 : 0,
+      });
+    }
+  }
+  if (rows.length === 0) return { ok: false, error: "There are no beds to add. A crib alone doesn't make a room." };
+  // D1 caps bound parameters per statement, so insert in small chunks, all in one batch (one transaction).
+  const statements = [];
+  for (let i = 0; i < rows.length; i += 5) statements.push(db.insert(sleepSpots).values(rows.slice(i, i + 5)));
+  const floors = input.rooms.filter((room) => room.floor);
+  for (const room of floors) {
+    statements.push(
+      db.insert(sleepRooms).values({ tripId: input.tripId, roomName: room.room, floor: room.floor })
+        .onConflictDoUpdate({ target: [sleepRooms.tripId, sleepRooms.roomName], set: { floor: room.floor } }),
+    );
+  }
+  await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
+  await recordEvent(input.tripId, input.userId, "rooms_imported", `${input.source}:${input.rooms.length} rooms, ${rows.length} spots`);
+  return { ok: true, rooms: input.rooms.length, spots: rows.length };
+}
+
+/** Floors by room name, for the Rooms and beds page. Empty if migration 0009 hasn't run. */
+export async function roomFloors(tripId: string): Promise<Map<string, string>> {
+  try {
+    const rows = await getDb().select().from(sleepRooms).where(eq(sleepRooms.tripId, tripId));
+    return new Map(rows.filter((row) => row.floor).map((row) => [row.roomName, row.floor as string]));
+  } catch {
+    return new Map();
+  }
+}
+
+/** Organizer or not, cheaply: one indexed lookup, no trip math. */
+export async function isOrganizerOf(tripId: string, userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const row = (await getDb().select({ role: tripMembers.role }).from(tripMembers).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId))))[0];
+  return row?.role === "organizer";
 }
 
 /** Organizer: accessibility flags, a hold for one party, and co-sleep limits on every spot in a room. */

@@ -1,15 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies, headers } from "next/headers";
-import { env } from "cloudflare:workers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
 import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { isDemoTrip } from "@/lib/demo-tour";
-import { hashToken, isContact } from "@/lib/tokens";
-import { countHit, RATE_LIMITS, type RateBucket } from "@/lib/rate-limit";
+import { isContact } from "@/lib/tokens";
+import { withinLimit } from "@/lib/limit-check";
 import {
   addCost,
   addPollOption,
@@ -57,73 +56,17 @@ import {
   setSplitMode,
   toggleTravelerOptIn,
   updateRoom,
+  importRooms,
   updateTraveler,
   type HonoreeRole,
   type PreWeddingStyle,
 } from "@/lib/store";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, SIGN_IN_LINK_COOKIE } from "@/lib/constants";
+import { cleanImportRooms } from "@/lib/listing-import";
 
 /** The person acting is whoever this browser is signed in as. Never trust an id sent in the form. */
 async function me(): Promise<string> {
   return (await getViewerId()) ?? "";
-}
-
-/**
- * Per-client-IP rate limit, checked before any other database work. Two
- * counters, and either one can refuse:
- * - Cloudflare's Workers Rate Limiting binding. On the live Worker it never
- *   refused anything (v1.17 logs), so it is kept only in case it starts working.
- * - A strict counter in D1 (rate_hits, migration 0008), in one-minute windows.
- * If either is missing or throws, that one lets the request through and logs a
- * warning: this guards against floods, and a broken limiter shouldn't lock
- * everyone out. Every check is logged for Workers Logs. The IP is never stored
- * or logged, only its SHA-256 hash (the first 8 characters in logs).
- */
-async function withinLimit(binding: "JOIN_RATE_LIMITER" | "CREATE_TRIP_RATE_LIMITER"): Promise<boolean> {
-  const bucket: RateBucket = binding === "JOIN_RATE_LIMITER" ? "join" : "create";
-  const limit = RATE_LIMITS[bucket];
-  const limiter = env[binding];
-  const ip = (await headers()).get("cf-connecting-ip");
-  const key = hashToken(ip ?? "unknown");
-  const base = {
-    event: "rate_limit",
-    binding,
-    bucket,
-    joinBound: Boolean(env.JOIN_RATE_LIMITER),
-    createBound: Boolean(env.CREATE_TRIP_RATE_LIMITER),
-    limitIsFunction: typeof limiter?.limit === "function",
-    hasIp: !!ip,
-    keyHash: key.slice(0, 8),
-  };
-
-  let cf: "allowed" | "limited" | "binding_missing" | "threw" = "binding_missing";
-  let cfResult: unknown;
-  if (limiter && typeof limiter.limit === "function") {
-    try {
-      cfResult = await limiter.limit({ key: ip ?? "unknown" });
-      cf = (cfResult as { success: boolean }).success ? "allowed" : "limited";
-    } catch (error) {
-      cf = "threw";
-      cfResult = String(error);
-    }
-  }
-
-  let d1: "allowed" | "limited" | "threw" = "allowed";
-  let d1Count: number | null = null;
-  try {
-    d1Count = await countHit(env.DB, key, bucket, Date.now());
-    d1 = d1Count > limit ? "limited" : "allowed";
-  } catch (error) {
-    d1 = "threw";
-    cfResult = { cf: cfResult, d1Error: String(error) };
-  }
-
-  const allowed = cf !== "limited" && d1 !== "limited";
-  const outcome = allowed ? "allowed" : "limited";
-  const entry = { ...base, outcome, cf, d1, d1Count, limit, result: cfResult };
-  if (cf === "binding_missing" || cf === "threw" || d1 === "threw") console.warn(entry);
-  else console.log(entry);
-  return allowed;
 }
 
 const TOO_MANY = "Too many tries. Wait a minute and try again.";
@@ -159,7 +102,7 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
-  if (!(await withinLimit("CREATE_TRIP_RATE_LIMITER"))) fail("/", TOO_MANY);
+  if (!(await withinLimit("create"))) fail("/", TOO_MANY);
   const name = text(formData, "name", 80);
   const organizerName = text(formData, "organizerName", NAME_MAX);
   const organizerContact = text(formData, "organizerContact", 120);
@@ -194,7 +137,7 @@ export async function createTripAction(formData: FormData) {
 
 export async function joinTripAction(formData: FormData) {
   const token = text(formData, "token", 40);
-  if (!(await withinLimit("JOIN_RATE_LIMITER"))) fail(`/join/${token}`, TOO_MANY);
+  if (!(await withinLimit("join"))) fail(`/join/${token}`, TOO_MANY);
   const name = text(formData, "name", NAME_MAX);
   const contact = text(formData, "contact", 120);
   if (!name || !contact) fail(`/join/${token}`, "Add your name and a phone or email.");
@@ -466,6 +409,25 @@ export async function addSpotAction(formData: FormData) {
     }),
     `/trip/${tripId}/sleep`,
   );
+}
+
+/** Save rooms from the import confirm screen. The rooms arrive as JSON and are checked again here. */
+export async function importRoomsAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const path = `/trip/${tripId}/sleep`;
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(String(formData.get("rooms") ?? "").slice(0, 50_000));
+  } catch {
+    fail(path, "That import didn't come through. Try again.");
+  }
+  const cleaned = cleanImportRooms(parsed);
+  if (!cleaned.ok) fail(path, cleaned.error);
+  const source = text(formData, "source") === "link" ? "link" : "paste";
+  const result = await importRooms({ tripId, userId: await me(), rooms: cleaned.rooms, source });
+  console.log({ event: "listing_import_saved", outcome: result.ok ? "success" : "failure", source, tripId, rooms: cleaned.rooms.length, reason: "error" in result ? result.error : null });
+  done(tripId, result, path);
+  redirect(`${path}?imported=${"spots" in result ? result.spots : 0}`);
 }
 
 export async function bookStayAction(formData: FormData) {

@@ -263,3 +263,14 @@ export const splitModeAcks = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.tripId, table.payerUserId] })],
 );
+
+/** Per-room details that aren't per-bed. Only the floor so far, set by the listing import or the organizer. Migration 0009. */
+export const sleepRooms = sqliteTable(
+  "sleep_rooms",
+  {
+    tripId: text("trip_id").notNull(),
+    roomName: text("room_name").notNull(),
+    floor: text("floor"),
+  },
+  (table) => [primaryKey({ columns: [table.tripId, table.roomName] })],
+);
