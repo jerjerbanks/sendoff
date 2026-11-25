@@ -8,7 +8,7 @@ import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
 import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { isDemoTrip } from "@/lib/demo-tour";
-import { isContact } from "@/lib/tokens";
+import { hashToken, isContact } from "@/lib/tokens";
 import {
   addCost,
   addPollOption,
@@ -69,14 +69,35 @@ async function me(): Promise<string> {
 
 /**
  * Workers Rate Limiting, per client IP. Runs before any database work. If the
- * binding is missing (a misconfigured deploy), let the request through: this
- * guards against floods, and a broken limiter shouldn't lock everyone out.
+ * binding is missing (a misconfigured deploy) or the call throws, let the request
+ * through and log a warning: this guards against floods, and a broken limiter
+ * shouldn't lock everyone out. Every check is logged for Workers Logs. The IP is
+ * never logged, only a short hash so repeated requests can be matched up.
  */
-async function withinLimit(limiter: RateLimit | undefined): Promise<boolean> {
-  if (!limiter) return true;
-  const ip = (await headers()).get("cf-connecting-ip") ?? "unknown";
-  const { success } = await limiter.limit({ key: ip });
-  return success;
+async function withinLimit(binding: "JOIN_RATE_LIMITER" | "CREATE_TRIP_RATE_LIMITER"): Promise<boolean> {
+  const limiter = env[binding];
+  const ip = (await headers()).get("cf-connecting-ip");
+  const base = {
+    event: "rate_limit",
+    binding,
+    joinBound: Boolean(env.JOIN_RATE_LIMITER),
+    createBound: Boolean(env.CREATE_TRIP_RATE_LIMITER),
+    limitIsFunction: typeof limiter?.limit === "function",
+    hasIp: !!ip,
+    keyHash: hashToken(ip ?? "unknown").slice(0, 8),
+  };
+  if (!limiter || typeof limiter.limit !== "function") {
+    console.warn({ ...base, outcome: "binding_missing_allowed" });
+    return true;
+  }
+  try {
+    const result = await limiter.limit({ key: ip ?? "unknown" });
+    console.log({ ...base, outcome: result.success ? "allowed" : "limited", result });
+    return result.success;
+  } catch (error) {
+    console.warn({ ...base, outcome: "limit_threw_allowed", error: String(error) });
+    return true;
+  }
 }
 
 const TOO_MANY = "Too many tries. Wait a minute and try again.";
@@ -112,7 +133,7 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
-  if (!(await withinLimit(env.CREATE_TRIP_RATE_LIMITER))) fail("/", TOO_MANY);
+  if (!(await withinLimit("CREATE_TRIP_RATE_LIMITER"))) fail("/", TOO_MANY);
   const name = text(formData, "name", 80);
   const organizerName = text(formData, "organizerName", NAME_MAX);
   const organizerContact = text(formData, "organizerContact", 120);
@@ -147,7 +168,7 @@ export async function createTripAction(formData: FormData) {
 
 export async function joinTripAction(formData: FormData) {
   const token = text(formData, "token", 40);
-  if (!(await withinLimit(env.JOIN_RATE_LIMITER))) fail(`/join/${token}`, TOO_MANY);
+  if (!(await withinLimit("JOIN_RATE_LIMITER"))) fail(`/join/${token}`, TOO_MANY);
   const name = text(formData, "name", NAME_MAX);
   const contact = text(formData, "contact", 120);
   if (!name || !contact) fail(`/join/${token}`, "Add your name and a phone or email.");
