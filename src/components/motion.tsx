@@ -132,7 +132,7 @@ export function HeadcountMeter({
           aria-label={met ? `Booking ready: ${count} ${unit} committed` : `${count} of ${need} ${unit} committed`}
         >
           <span className="text-[64px]">
-            {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : count}
+            {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : <Ticker value={count} from={0} delayMs={120} />}
           </span>
           {met ? null : <span className="ml-0.5 text-[30px] text-ink-2">/{need}</span>}
         </p>
@@ -142,7 +142,7 @@ export function HeadcountMeter({
         </div>
       </div>
       <div
-        className="mt-9"
+        className={commit ? "mt-9" : "ft-meter-in mt-9"}
         role="img"
         aria-label={met ? `${count} ${unit} in, past the minimum of ${need}.` : `${count} of ${need} ${unit} in. The stay books at ${need}.`}
       >
@@ -152,7 +152,7 @@ export function HeadcountMeter({
             const delay = cells[index] === "you" ? (phase === 1 ? youIndex * 70 : 0) : phase === 2 ? index * 40 : 0;
             return (
               <FragmentWithThreshold key={index} threshold={index === need} booking={booking} ready={ready} need={need}>
-                <span className={`ft-cell ${cell === "open" ? "" : cell}`} style={{ ["--d" as string]: `${delay}ms` }} />
+                <span className={`ft-cell ${cell === "open" ? "" : cell}`} style={{ ["--d" as string]: `${delay}ms`, ["--i" as string]: index }} />
               </FragmentWithThreshold>
             );
           })}

@@ -87,7 +87,7 @@ export default async function VotePage({
                         type="submit"
                         disabled={disabled}
                         aria-pressed={on}
-                        className={`relative grid w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 py-5 text-left transition-[transform,box-shadow] duration-[var(--dur-snappy)] ease-[var(--spring-snappy)] disabled:cursor-default ${
+                        className={`relative grid w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 py-5 text-left transition-[transform,box-shadow] duration-[var(--dur-snappy)] ease-[var(--spring-snappy)] active:scale-[0.99] disabled:cursor-default disabled:active:scale-100 ${
                           on || won
                             ? "z-10 -mx-3 w-[calc(100%+24px)] rounded-2xl border border-line bg-card px-3 shadow-[var(--shadow-2)] before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-sm before:bg-clay"
                             : "border-b border-line"
@@ -106,7 +106,7 @@ export default async function VotePage({
                           </span>
                           <span className={`ft-vbar mt-3 max-w-[280px] ${on ? "mine" : ""}`} aria-hidden>
                             {Array.from({ length: 10 }, (_, i) => (
-                              <i key={i} className={i < filled ? "on" : ""} />
+                              <i key={i} className={i < filled ? "on" : ""} style={{ ["--i" as string]: i }} />
                             ))}
                           </span>
                           <span className="mt-2.5 flex flex-wrap items-center gap-2">
