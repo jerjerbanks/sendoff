@@ -1,3 +1,4 @@
+import { Wordmark } from "@/components/wordmark";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -52,17 +53,21 @@ export default async function JoinPage({
   const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10">
+    <main className={`mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10 ${isDemoTrip(tripId) && tripId ? "pt-16 md:pt-64" : ""}`}>
       {isDemoTrip(tripId) && tripId ? (
-        <div className="fixed inset-x-0 top-0 z-30 mx-auto max-w-lg px-4">
+        <div className="fixed inset-x-0 top-0 z-30 mx-auto max-w-lg">
           <DemoBanner view={null} tripId={tripId} viewerName={onTour ? "Taylor" : null} />
         </div>
       ) : null}
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
+      <Wordmark />
       {view ? (
         <>
-          <p className="mt-6 text-sm text-muted">{view.organizerName.split(" ")[0]} invited you to</p>
-          <h1 className="mt-1 font-serif text-5xl leading-[0.95]">{view.name}</h1>
+          <p className="ft-lbl clay mt-8">Invitation · from {view.organizerName}</p>
+          <h1 className="ft-display mt-3">
+            You&apos;re invited to
+            <br />
+            <i>{view.name}.</i>
+          </h1>
           <p className="mt-3 text-base text-muted">
             {view.place !== view.name ? `${view.place.split(",")[0]} · ` : ""}
             {joinWhen(view)}
@@ -73,7 +78,7 @@ export default async function JoinPage({
                 .filter((party) => party.status === "committed")
                 .slice(0, 6)
                 .map((party) => (
-                  <span key={party.payerUserId} className="flex size-9 items-center justify-center rounded-full border-2 border-paper bg-accent font-serif text-accent-ink">
+                  <span key={party.payerUserId} className="flex size-9 items-center justify-center rounded-sm border-2 border-paper bg-accent font-mono text-[15px] font-medium text-accent-ink">
                     {party.name.charAt(0)}
                   </span>
                 ))}
@@ -95,7 +100,7 @@ export default async function JoinPage({
               The buy-in deadline has passed. You can&apos;t join or rejoin.
             </p>
           ) : (
-            <form action={joinTripAction} className="mt-6 grid gap-3 rounded-3xl border border-line bg-card p-4">
+            <form action={joinTripAction} className="mt-6 grid gap-3 ft-panel p-4">
               <input type="hidden" name="token" value={token} />
               {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
               <label className="text-sm font-medium">
@@ -116,11 +121,11 @@ export default async function JoinPage({
         </>
       ) : (
         <>
-          <h1 className="mt-2 font-serif text-4xl">That invite doesn&apos;t go anywhere.</h1>
+          <h1 className="mt-2 ft-h1">That invite doesn&apos;t go anywhere.</h1>
           <p className="mt-3 text-sm text-muted">Check the link, or start from the demo.</p>
         </>
       )}
-      <Link href="/" className="mt-6 text-sm font-semibold text-accent">
+      <Link href="/" className="mt-6 text-sm font-semibold text-clay-ink">
         Back to {APP_NAME}
       </Link>
     </main>

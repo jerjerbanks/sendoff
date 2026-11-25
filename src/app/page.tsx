@@ -1,8 +1,9 @@
 import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { Arrow } from "@/components/motion";
 import { Input, fieldClass } from "@/components/ui/input";
+import { Wordmark } from "@/components/wordmark";
 import { ensureDemoSeed } from "@/lib/store";
-import { APP_NAME } from "@/lib/constants";
 
 export default async function HomePage({
   searchParams,
@@ -12,28 +13,38 @@ export default async function HomePage({
   await ensureDemoSeed();
   const { error } = await searchParams;
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 py-8 md:max-w-3xl md:py-14">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
-      <h1 className="mt-2 max-w-xl font-serif text-4xl leading-tight md:text-6xl">
-        Plan the trip. Commit, or you&apos;re off.
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-12 md:max-w-3xl">
+      <header className="ft-bar -mx-5 mb-8">
+        <Wordmark />
+        <span className="ft-live">
+          <span className="ft-dot" aria-hidden />
+          Test mode
+        </span>
+      </header>
+      <p className="ft-lbl clay">Group trips, without fronting the bill</p>
+      <h1 className="ft-display mt-3 max-w-xl">
+        Plan the trip.
+        <br />
+        <i>Commit, or you&apos;re off.</i>
       </h1>
-      <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
+      <p className="ft-lead mt-4 max-w-xl">
         For whoever usually puts the rental on their card. Vote the place and the dates, see what each household owes before anyone pays,
         and collect a buy-in that is part of the share — not a fee on top. It stays refundable until the stay is booked.
       </p>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <a href="#start" className="flex min-h-14 items-center justify-center rounded-xl bg-accent px-5 font-semibold text-accent-ink">
-          Start a trip
+        <a href="#start" className="ft-btn">
+          <span>Start a trip</span>
+          <Arrow />
         </a>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-        <a href="/demo" className="flex min-h-14 flex-col justify-center rounded-xl border border-line bg-card px-5 py-3 font-semibold">
+        <a href="/demo" className="ft-panel flex min-h-14 flex-col justify-center px-4 py-3 font-semibold">
           Take the 2-minute tour
           <span className="text-xs font-normal text-muted">7 steps through a sample bachelor party</span>
         </a>
       </div>
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-      <a href="/demo/7" className="mt-3 text-sm font-semibold text-muted">
-        Or see a family trip: four households, kids, and grandparents →
+      <a href="/demo/7" className="ft-link mt-2">
+        Or see a family trip: four households, kids, and grandparents
       </a>
       <ol className="mt-8 grid gap-3 md:grid-cols-3">
         {[
@@ -41,17 +52,19 @@ export default async function HomePage({
           ["2", "See your number", "Rooms are priced by the bed, not split evenly. Kids pay less of the food and activities. Optional things split only among who's in."],
           ["3", "Commit", "One test buy-in per household holds your room. Refundable until the stay is booked; after that, a late drop forfeits it."],
         ].map(([step, title, body]) => (
-          <li key={step} className="rounded-2xl border border-line bg-card p-4">
-            <p className="text-xs font-semibold text-accent">Step {step}</p>
-            <h2 className="mt-1 font-serif text-2xl">{title}</h2>
+          <li key={step} className="ft-rule pt-3">
+            <p className="ft-mono text-[14px] text-clay-ink">§{step}</p>
+            <h2 className="mt-1 ft-h2">{title}</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
           </li>
         ))}
       </ol>
 
-      <form id="start" action={createTripAction} className="mt-10 grid gap-4 rounded-3xl border border-line bg-card p-5">
+      <form id="start" action={createTripAction} className="mt-10 grid gap-4 ft-panel p-5">
         <div>
-          <h2 className="font-serif text-3xl">Start a trip</h2>
+          <h2 className="ft-h1">
+            Start a <i>trip.</i>
+          </h2>
           <p className="mt-1 text-sm text-muted">Friends and golf templates are coming next.</p>
         </div>
         {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
@@ -96,7 +109,7 @@ export default async function HomePage({
               row
             ) : (
               <details key={index}>
-                <summary className="cursor-pointer text-sm font-semibold text-muted">Add a second guest of honor</summary>
+                <summary className="ft-summary text-[15px] font-medium text-ink-2">Add a second guest of honor</summary>
                 <div className="mt-2">{row}</div>
               </details>
             );

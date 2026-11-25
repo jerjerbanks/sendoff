@@ -39,7 +39,7 @@ export default async function SettingsPage({
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="font-serif text-3xl">Settings</h2>
+        <h2 className="ft-h1">Settings</h2>
         <p className="mt-1 text-sm text-muted">
           {view.subtitle}. Invite code {view.inviteToken}. Payments are simulated; no real money moves.
         </p>
@@ -47,8 +47,8 @@ export default async function SettingsPage({
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
       {!view.isOrganizer ? <p className="text-sm">Only the organizer changes these.</p> : null}
 
-      <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-        <h3 className="font-serif text-2xl">How lodging splits</h3>
+      <section className="grid gap-3 ft-panel p-4">
+        <h3 className="ft-h2">How lodging splits</h3>
         <p className="text-sm text-muted">Per-head costs follow age weights in every mode. This only changes the lodging bill.</p>
         {view.splitPreview[0] ? (
           <div className="overflow-x-auto">
@@ -58,7 +58,7 @@ export default async function SettingsPage({
                   <th className="py-1 pr-2 font-semibold">Your party</th>
                   <th className="py-1 pr-2 font-semibold">Now ({splitModeLabel(view.splitMode)})</th>
                   {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
-                    <th className="py-1 pr-2 font-semibold text-accent">If {splitModeLabel(view.pendingSplitMode)}</th>
+                    <th className="py-1 pr-2 font-semibold text-clay-ink">If {splitModeLabel(view.pendingSplitMode)}</th>
                   ) : (
                     modes
                       .filter((mode) => mode !== view.splitMode)
@@ -76,7 +76,7 @@ export default async function SettingsPage({
                     <td className="py-1.5 pr-2 font-medium">{row.name}</td>
                     <td className="py-1.5 pr-2 font-semibold">{money(row.byMode[view.splitMode])}</td>
                     {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
-                      <td className="py-1.5 pr-2 text-accent">{money(row.byMode[view.pendingSplitMode])}</td>
+                      <td className="py-1.5 pr-2 text-clay-ink">{money(row.byMode[view.pendingSplitMode])}</td>
                     ) : (
                       modes
                         .filter((mode) => mode !== view.splitMode)
@@ -153,8 +153,8 @@ export default async function SettingsPage({
         ) : null}
       </section>
 
-      <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-        <h3 className="font-serif text-2xl">Per-head weights</h3>
+      <section className="grid gap-3 ft-panel p-4">
+        <h3 className="ft-h2">Per-head weights</h3>
         <p className="text-sm text-muted">Food, groceries, activities, tickets. Never lodging. 1 is a full share.</p>
         <form action={ageWeightsAction} className="grid gap-3">
           {hidden}
@@ -170,8 +170,8 @@ export default async function SettingsPage({
         </form>
       </section>
 
-      <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-        <h3 className="font-serif text-2xl">Who has to commit</h3>
+      <section className="grid gap-3 ft-panel p-4">
+        <h3 className="ft-h2">Who has to commit</h3>
         <form action={headcountsAction} className="grid gap-3">
           {hidden}
           <div className="grid grid-cols-2 gap-2">
@@ -193,8 +193,8 @@ export default async function SettingsPage({
       </section>
 
       {view.honoreeNames.length > 0 ? (
-        <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-          <h3 className="font-serif text-2xl">Guests of honor</h3>
+        <section className="grid gap-3 ft-panel p-4">
+          <h3 className="ft-h2">Guests of honor</h3>
           <p className="text-sm">{view.honoreeNames.join(" and ")}</p>
           <form action={honoreeExclusionAction} className="grid gap-2">
             {hidden}
@@ -208,8 +208,8 @@ export default async function SettingsPage({
         </section>
       ) : null}
 
-      <section className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-        <h3 className="font-serif text-2xl">Who can move beds</h3>
+      <section className="grid gap-3 ft-panel p-4">
+        <h3 className="ft-h2">Who can move beds</h3>
         {view.isOrganizer ? (
           <form action={bedPolicyAction} className="grid gap-3">
             {hidden}
@@ -229,13 +229,13 @@ export default async function SettingsPage({
       </section>
 
       {view.isOrganizer && isDemoTrip(view.id) ? (
-        <form action={simulateDeadlineAction} className="rounded-3xl border border-line bg-card p-4">
+        <form action={simulateDeadlineAction} className="ft-panel p-4">
           <input type="hidden" name="tripId" value={view.id} />
           <p className="mb-3 text-sm text-muted">Prototype only. Runs the commit deadline now and drops every party that has not bought in.</p>
           <SubmitButton variant="secondary">Simulate deadline now</SubmitButton>
         </form>
       ) : null}
-      <a href={`/trip/${view.id}/approvals`} className="text-sm font-semibold text-accent">Open the approvals queue</a>
+      <a href={`/trip/${view.id}/approvals`} className="text-sm font-semibold text-clay-ink">Open the approvals queue</a>
     </div>
   );
 }

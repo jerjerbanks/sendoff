@@ -25,7 +25,7 @@ export default async function ApprovalsPage({
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="font-serif text-3xl">Approvals</h2>
+        <h2 className="ft-h1">Approvals</h2>
         <p className="mt-1 text-sm text-muted">
           {pending.length} open {pending.length === 1 ? "request" : "requests"}. After the stay is booked, approving a move rebases every price.
           Budgets never appear here.
@@ -38,7 +38,7 @@ export default async function ApprovalsPage({
       {pending.length === 0 ? <p className="text-sm text-muted">No pending share or switch requests.</p> : null}
       <ul className="grid gap-3">
         {pending.map((request) => (
-          <li key={request.id} className="rounded-3xl border border-line bg-card p-4">
+          <li key={request.id} className="ft-panel p-4">
             <p className="font-semibold">{name(request.requesterUserId)} wants to {request.type === "share" ? "share a bed" : "switch beds"}</p>
             <p className="text-sm text-muted">
               {request.fromSpotId ? `${room(request.fromSpotId)} → ` : ""}

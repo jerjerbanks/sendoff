@@ -40,8 +40,8 @@ export default async function OrganizePage({
   return (
     <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Organizer</p>
-        <h2 className="font-serif text-3xl">Run the trip</h2>
+        <p className="ft-lbl clay">Organizer</p>
+        <h2 className="ft-h1">Run the trip</h2>
         <p className="mt-1 text-sm text-muted">
           {view.payerCount} of {view.minPayerCount} parties committed. Members don&apos;t see this page.
         </p>
@@ -50,7 +50,7 @@ export default async function OrganizePage({
 
       {view.underMinimum ? (
         <section className="rounded-3xl border border-warn/40 bg-warn-soft p-5">
-          <h3 className="font-serif text-2xl">The group is short</h3>
+          <h3 className="ft-h2">The group is short</h3>
           <p className="mt-1 text-sm">
             Lower the minimum in Settings, extend the deadline, or cancel. Extending doesn&apos;t bring back parties who dropped.
           </p>
@@ -79,7 +79,7 @@ export default async function OrganizePage({
                 <span className="block font-semibold">{tool.title}</span>
                 <span className="block truncate text-sm text-muted">{tool.line}</span>
               </span>
-              <span className="text-accent" aria-hidden>
+              <span className="text-clay-ink" aria-hidden>
                 →
               </span>
             </Link>
@@ -88,7 +88,7 @@ export default async function OrganizePage({
       </ul>
 
       <section>
-        <h3 className="mb-2 font-serif text-xl">Who has paid</h3>
+        <h3 className="mb-2 ft-h2">Who has paid</h3>
         <PaymentGrid view={view} />
         {view.roundingCents > 0 ? (
           <p className="mt-2 text-xs text-muted">Rounding up leaves {money(view.roundingCents)} in the trip pot.</p>

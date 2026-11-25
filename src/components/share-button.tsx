@@ -39,7 +39,7 @@ export function ShareButton({
       >
         Send to group chat
       </button>
-      <a className="text-sm font-semibold text-accent" href={smsHref}>
+      <a className="text-sm font-semibold text-clay-ink" href={smsHref}>
         Text it
       </a>
       {note ? <p className="w-full text-xs text-muted">{note}</p> : null}

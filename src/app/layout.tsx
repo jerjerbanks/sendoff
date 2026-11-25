@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Outfit } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { APP_NAME } from "@/lib/constants";
 
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
+const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-geist" });
+const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-geist-mono" });
+const instrument = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument" });
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0c0b0a",
+  themeColor: "#FBF7F0",
   // Lets the tab bar pad for the iPhone home indicator via env(safe-area-inset-bottom).
   viewportFit: "cover",
 };
@@ -37,7 +38,7 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${outfit.variable} ${fraunces.variable} antialiased`}>{children}</body>
+      <body className={`${geist.variable} ${geistMono.variable} ${instrument.variable} antialiased`}>{children}</body>
     </html>
   );
 }

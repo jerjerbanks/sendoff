@@ -3,11 +3,11 @@ import { paymentStatusLabel } from "@/lib/labels";
 import type { MemberView, TripView } from "@/lib/view";
 
 const tone: Record<string, string> = {
-  paid: "bg-good-soft text-good",
-  due: "bg-chip text-ink",
-  late: "bg-warn-soft text-warn",
-  forfeited: "bg-bad-soft text-bad",
-  refunded: "bg-chip text-muted",
+  paid: "pine",
+  due: "",
+  late: "warn",
+  forfeited: "bad",
+  refunded: "text-muted",
 };
 
 export function PaymentGrid({ view }: { view: TripView }) {
@@ -17,7 +17,7 @@ export function PaymentGrid({ view }: { view: TripView }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-line">
       <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
-        <thead className="bg-chip text-xs uppercase tracking-wide text-muted">
+        <thead className="ft-lbl bg-chip">
           <tr>
             <th className="sticky left-0 bg-chip px-3 py-2 font-semibold">Party</th>
             {view.milestones.map((milestone) => (
@@ -61,8 +61,9 @@ function Cell({ member, milestoneId, honoree }: { member: MemberView; milestoneI
     return <span className="text-xs text-muted">—</span>;
   }
   return (
-    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${tone[line.status] ?? tone.due}`}>
-      {paymentStatusLabel(line.status)} {money(line.amountCents)}
+    <span className={`ft-chip flex-col !items-start !gap-0 py-1 !leading-tight ${tone[line.status] ?? tone.due}`}>
+      <span className="uppercase tracking-[0.06em]">{paymentStatusLabel(line.status)}</span>
+      <span className="tabular-nums">{money(line.amountCents)}</span>
     </span>
   );
 }

@@ -21,12 +21,12 @@ export default async function BudgetPage({
   if (!view.viewer.isPayer) {
     return (
       <div className="grid gap-3">
-        <h2 className="font-serif text-3xl">Private budget</h2>
+        <h2 className="ft-h1">Private budget</h2>
         <p className="text-sm leading-relaxed">
           Your party has one budget, and only its payer sees it: {view.viewerParty?.payerName ?? "your payer"}. Nobody else on the trip
           can see it either, the organizer included.
         </p>
-        <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent">Go to the polls</Link>
+        <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-clay-ink">Go to the polls</Link>
       </div>
     );
   }
@@ -36,8 +36,8 @@ export default async function BudgetPage({
   return (
     <div className="grid gap-4">
       <div>
-        {welcome ? <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Step 2 of 2</p> : null}
-        <h2 className="font-serif text-4xl leading-none">What can {size > 1 ? "your party" : "you"} spend?</h2>
+        {welcome ? <p className="ft-lbl clay">Step 2 of 2</p> : null}
+        <h2 className="ft-h1">What can {size > 1 ? "your party" : "you"} spend?</h2>
         <p className="mt-3 rounded-2xl bg-chip px-4 py-3 text-sm leading-relaxed">
           <span className="font-semibold">Private.</span> Only you see this number. The organizer and the group will never see your budget or
           whether a destination is over for your party.
@@ -50,10 +50,10 @@ export default async function BudgetPage({
         {welcome ? <input type="hidden" name="welcome" value="1" /> : null}
         <label className="block">
           <span className="text-sm text-muted">{size > 1 ? `All-in for all ${size} of you, travel included` : "All-in, flights included"}</span>
-          <span className="mt-2 flex items-center gap-2 rounded-3xl border border-line bg-card px-5">
-            <span className="font-serif text-4xl text-muted">$</span>
+          <span className="mt-2 flex items-center gap-2 ft-panel px-5">
+            <span className="ft-money text-[48px] text-muted">$</span>
             <input
-              className="h-20 w-full min-w-0 bg-transparent font-serif text-5xl text-ink outline-none placeholder:text-line"
+              className="ft-money h-20 w-full min-w-0 bg-transparent !text-[48px] text-ink outline-none placeholder:text-line-strong"
               name="maxAllIn"
               type="number"
               inputMode="numeric"
@@ -72,7 +72,7 @@ export default async function BudgetPage({
           anyone. Only you see whether you&apos;re over.
         </p>
         <details className="rounded-2xl border border-line">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-muted">Anything you need? (optional)</summary>
+          <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">Anything you need? (optional)</summary>
           <div className="grid gap-3 px-4 pb-4">
             <fieldset className="flex flex-wrap gap-2 text-sm" disabled={locked}>
               <legend className="sr-only">Must-haves</legend>
@@ -86,7 +86,7 @@ export default async function BudgetPage({
               ].map(([id, label]) => (
                 <label
                   key={id}
-                  className="flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-accent-ink"
+                  className="flex cursor-pointer items-center gap-2 rounded-sm border border-line px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-accent-ink"
                 >
                   <input className="sr-only" type="checkbox" name={id} value="yes" defaultChecked={(own?.mustHaves ?? "").split(",").includes(id)} />
                   {label}
@@ -105,7 +105,7 @@ export default async function BudgetPage({
           </>
         )}
       </form>
-      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
+      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-clay-ink">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
     </div>
   );
 }

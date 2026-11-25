@@ -3,21 +3,26 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * v4 buttons. Primary is clay with an inner highlight, a 1px ring and a warm
+ * shadow; everything presses to .97 on the micro spring. 52px tall, 8px radius.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-sans transition-[transform,background-color,color] duration-[var(--dur-micro)] ease-[var(--spring-micro)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60",
   {
     variants: {
       variant: {
-        default: "bg-accent text-accent-ink hover:bg-accent/90",
-        secondary: "bg-chip text-ink hover:bg-line",
-        outline: "border border-line bg-card hover:bg-chip",
-        ghost: "hover:bg-chip",
-        destructive: "bg-bad text-white hover:bg-bad/90",
+        default: "ft-btn justify-center",
+        secondary: "ft-btn2 w-full",
+        outline: "ft-btn2",
+        ghost: "min-h-12 px-3 text-[15px] font-medium text-ink-2 hover:bg-chip",
+        destructive:
+          "min-h-12 border border-bad/40 bg-card px-4 text-[15px] font-semibold text-bad shadow-[var(--shadow-1)] hover:bg-bad-soft",
       },
       size: {
-        default: "h-12 rounded-2xl px-4",
-        sm: "h-9 rounded-lg px-3 text-xs",
-        lg: "h-12 px-5 text-base",
+        default: "",
+        sm: "min-h-12 px-3 text-[14px]",
+        lg: "",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
