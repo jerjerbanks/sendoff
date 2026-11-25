@@ -51,7 +51,7 @@ export default async function SignInPage({
       <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent">
         Go to {APP_NAME}
       </Link>
-      <FeedbackButton className="mt-2" />
+      <FeedbackButton className="mt-2 self-start" />
     </main>
   );
 }

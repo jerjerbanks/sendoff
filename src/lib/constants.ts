@@ -11,4 +11,5 @@ export const LAKE_INVITE_TOKEN = "LAKE2027";
 /** Carries a just-made sign-in link to the party page once. Path-scoped and short-lived. */
 export const SIGN_IN_LINK_COOKIE = "ft_link";
 
-export const FEEDBACK_URL = ""; // TODO(feedback-url): Jeremy supplies the Google Form link
+// Public tester form: no sign-in, no email collection. FeedbackButton renders nothing if this is ever emptied.
+export const FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLScAUKA2izW9IWHKVeHKxgO_AXta-h4dvMA4SpGqC2J-pmOkVg/viewform";
