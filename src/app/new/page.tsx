@@ -3,6 +3,7 @@ import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Arrow } from "@/components/motion";
 import { Input } from "@/components/ui/input";
+import { FeedbackButton } from "@/components/feedback-button";
 import { TripKindFields } from "@/components/trip-kind-fields";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
@@ -89,6 +90,7 @@ export default async function NewTripPage({
         <Field label="Rough date window" name="dateWindow" placeholder="A long weekend in April or May 2027" />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>
       </form>
+      <FeedbackButton className="mt-6 self-center" />
     </main>
   );
 }

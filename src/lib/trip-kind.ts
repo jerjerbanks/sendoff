@@ -1,51 +1,55 @@
 import type { PreWeddingStyle, TripType } from "@/lib/store";
 
-/** The occasions offered under "Adult". "none" is a plain adults trip. */
-export const ADULT_OCCASIONS = [
-  { value: "none", label: "Just a trip" },
-  { value: "bachelor", label: "Bachelor party" },
-  { value: "bachelorette", label: "Bachelorette party" },
-  { value: "joint", label: "Joint bachelor + bachelorette" },
+/** Sub-types offered under both Adult and Family. "none" means no special occasion. */
+export const SUB_TYPES = [
+  { value: "none", label: "None / other" },
+  { value: "bachelor", label: "Bachelor" },
+  { value: "bachelorette", label: "Bachelorette" },
+  { value: "joint", label: "Joint" },
 ] as const;
 
 export type TripKind = "adult" | "family";
-export type Occasion = (typeof ADULT_OCCASIONS)[number]["value"];
+export type SubType = (typeof SUB_TYPES)[number]["value"];
 
-/** Guests of honor only make sense for wedding occasions. */
-export function isWeddingOccasion(kind: TripKind, occasion: string): boolean {
-  return kind === "adult" && (occasion === "bachelor" || occasion === "bachelorette" || occasion === "joint");
+function weddingStyle(value: string | undefined): PreWeddingStyle | null {
+  return value === "bachelor" || value === "bachelorette" || value === "joint" ? value : null;
+}
+
+/** Guests of honor only make sense for the wedding sub-types, under either kind. */
+export function isWeddingSubType(subType: string | undefined): boolean {
+  return weddingStyle(subType) !== null;
 }
 
 /**
- * Maps the form's Adult/Family + occasion to what is stored. Wedding occasions keep the
- * existing `pre_wedding` type and style, so trips made before this change read the same.
+ * Maps the form's Adult/Family + sub-type to what is stored.
+ * - Adult + wedding sub-type → `pre_wedding` + style (same as trips made before this change).
+ * - Adult + none → `adult`.
+ * - Family + anything → `family`, keeping the style for a wedding sub-type.
  * Also accepts the old form fields (tripType=pre_wedding|family + preWeddingStyle) so a
  * page loaded before a deploy still submits correctly.
  */
 export function parseTripKind(fields: {
   tripKind?: string;
-  occasion?: string;
+  subType?: string;
   tripType?: string;
   preWeddingStyle?: string;
 }): { tripType: TripType; preWeddingStyle: PreWeddingStyle | null; allowsHonorees: boolean } {
   let kind: TripKind;
-  let occasion: string;
+  let style: PreWeddingStyle | null;
   if (fields.tripKind) {
     kind = fields.tripKind === "family" ? "family" : "adult";
-    occasion = fields.occasion ?? "none";
+    style = weddingStyle(fields.subType);
   } else if (fields.tripType === "family") {
     kind = "family";
-    occasion = "none";
+    style = null;
   } else if (fields.tripType === "pre_wedding") {
     kind = "adult";
-    occasion = fields.preWeddingStyle === "bachelor" || fields.preWeddingStyle === "bachelorette" ? fields.preWeddingStyle : "joint";
+    style = weddingStyle(fields.preWeddingStyle) ?? "joint";
   } else {
     kind = "adult";
-    occasion = "none";
+    style = null;
   }
-  if (kind === "family") return { tripType: "family", preWeddingStyle: null, allowsHonorees: false };
-  if (isWeddingOccasion(kind, occasion)) {
-    return { tripType: "pre_wedding", preWeddingStyle: occasion as PreWeddingStyle, allowsHonorees: true };
-  }
+  if (kind === "family") return { tripType: "family", preWeddingStyle: style, allowsHonorees: style !== null };
+  if (style) return { tripType: "pre_wedding", preWeddingStyle: style, allowsHonorees: true };
   return { tripType: "adult", preWeddingStyle: null, allowsHonorees: false };
 }

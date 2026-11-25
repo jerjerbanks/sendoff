@@ -1,32 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { isWeddingOccasion, parseTripKind } from "@/lib/trip-kind";
+import { isWeddingSubType, parseTripKind } from "@/lib/trip-kind";
 
-describe("parseTripKind", () => {
-  it("stores wedding occasions as pre_wedding with the style", () => {
-    expect(parseTripKind({ tripKind: "adult", occasion: "bachelor" })).toEqual({ tripType: "pre_wedding", preWeddingStyle: "bachelor", allowsHonorees: true });
-    expect(parseTripKind({ tripKind: "adult", occasion: "bachelorette" })).toEqual({ tripType: "pre_wedding", preWeddingStyle: "bachelorette", allowsHonorees: true });
-    expect(parseTripKind({ tripKind: "adult", occasion: "joint" })).toEqual({ tripType: "pre_wedding", preWeddingStyle: "joint", allowsHonorees: true });
+describe("parseTripKind matrix", () => {
+  const cases: [string, string, ReturnType<typeof parseTripKind>][] = [
+    ["adult", "none", { tripType: "adult", preWeddingStyle: null, allowsHonorees: false }],
+    ["adult", "bachelor", { tripType: "pre_wedding", preWeddingStyle: "bachelor", allowsHonorees: true }],
+    ["adult", "bachelorette", { tripType: "pre_wedding", preWeddingStyle: "bachelorette", allowsHonorees: true }],
+    ["adult", "joint", { tripType: "pre_wedding", preWeddingStyle: "joint", allowsHonorees: true }],
+    ["family", "none", { tripType: "family", preWeddingStyle: null, allowsHonorees: false }],
+    ["family", "bachelor", { tripType: "family", preWeddingStyle: "bachelor", allowsHonorees: true }],
+    ["family", "bachelorette", { tripType: "family", preWeddingStyle: "bachelorette", allowsHonorees: true }],
+    ["family", "joint", { tripType: "family", preWeddingStyle: "joint", allowsHonorees: true }],
+  ];
+  it.each(cases)("%s / %s", (tripKind, subType, expected) => {
+    expect(parseTripKind({ tripKind, subType })).toEqual(expected);
   });
 
-  it("stores a plain adults trip as adult with no honorees", () => {
-    expect(parseTripKind({ tripKind: "adult", occasion: "none" })).toEqual({ tripType: "adult", preWeddingStyle: null, allowsHonorees: false });
-    expect(parseTripKind({ tripKind: "adult", occasion: "anything-else" })).toEqual({ tripType: "adult", preWeddingStyle: null, allowsHonorees: false });
+  it("treats an unknown or missing sub-type as none", () => {
+    expect(parseTripKind({ tripKind: "adult", subType: "anything" }).tripType).toBe("adult");
+    expect(parseTripKind({ tripKind: "family" })).toEqual({ tripType: "family", preWeddingStyle: null, allowsHonorees: false });
     expect(parseTripKind({})).toEqual({ tripType: "adult", preWeddingStyle: null, allowsHonorees: false });
-  });
-
-  it("ignores a wedding occasion on a family trip", () => {
-    expect(parseTripKind({ tripKind: "family", occasion: "bachelor" })).toEqual({ tripType: "family", preWeddingStyle: null, allowsHonorees: false });
   });
 
   it("still accepts the old form fields", () => {
     expect(parseTripKind({ tripType: "pre_wedding", preWeddingStyle: "bachelorette" }).preWeddingStyle).toBe("bachelorette");
     expect(parseTripKind({ tripType: "pre_wedding" }).preWeddingStyle).toBe("joint");
-    expect(parseTripKind({ tripType: "family" }).tripType).toBe("family");
+    expect(parseTripKind({ tripType: "family" })).toEqual({ tripType: "family", preWeddingStyle: null, allowsHonorees: false });
   });
 
-  it("only treats bachelor, bachelorette and joint as wedding occasions", () => {
-    expect(isWeddingOccasion("adult", "joint")).toBe(true);
-    expect(isWeddingOccasion("adult", "none")).toBe(false);
-    expect(isWeddingOccasion("family", "joint")).toBe(false);
+  it("only treats bachelor, bachelorette and joint as wedding sub-types", () => {
+    expect(isWeddingSubType("joint")).toBe(true);
+    expect(isWeddingSubType("none")).toBe(false);
+    expect(isWeddingSubType(undefined)).toBe(false);
   });
 });

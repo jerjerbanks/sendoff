@@ -116,6 +116,7 @@ export default async function CostsPage({
           </div>
           {view.buyInAmountCents > 0 ? <p className="ft-meta mt-3">The {whole(view.buyInAmountCents)} buy-in is your first payment toward this.</p> : null}
           {view.honoreeExcluded ? <p className="ft-meta mt-1">The group covers the guest of honor.</p> : null}
+          {view.roundingCents > 0 ? <PotLine cents={view.roundingCents} /> : null}
         </section>
       ) : null}
 
@@ -250,6 +251,8 @@ export default async function CostsPage({
             </li>
           ))}
         </ul>
+        {/* Visible, not only inside "How splitting works": with no line-by-line bill above, the pot shows here. */}
+        {!bill && view.roundingCents > 0 ? <PotLine cents={view.roundingCents} /> : null}
         <details className="mt-3">
           <summary className="ft-summary text-[15px] font-medium text-ink-2">How splitting works</summary>
           <div className="mt-2 grid gap-2 text-sm leading-relaxed text-muted">
@@ -260,7 +263,7 @@ export default async function CostsPage({
             <p>Extras split only among the people who opted in. Flights stay with their own party.</p>
             <p>
               Each party&apos;s shared total rounds up to the next dollar.
-              {view.roundingCents > 0 ? ` That leaves ${money(view.roundingCents)} in the trip pot.` : ""}
+              {view.roundingCents > 0 ? " The leftover goes to the trip pot." : ""}
               {view.forfeitedPotCents > 0 ? ` ${money(view.forfeitedPotCents)} forfeited by a late drop paid down lodging.` : ""}
             </p>
             <p>Prices are typed in by the organizer. Nothing checks live fares or rentals.</p>
@@ -336,4 +339,9 @@ export default async function CostsPage({
       ) : null}
     </div>
   );
+}
+
+/** The rounding leftover, shown as visible text next to the totals. */
+function PotLine({ cents: amount }: { cents: number }) {
+  return <p className="mt-2 text-[15px] text-ink-2">That leaves {money(amount)} in the trip pot.</p>;
 }

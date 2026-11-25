@@ -109,7 +109,7 @@ export async function createTripAction(formData: FormData) {
   const dateWindow = text(formData, "dateWindow", 120);
   const { tripType, preWeddingStyle, allowsHonorees } = parseTripKind({
     tripKind: text(formData, "tripKind"),
-    occasion: text(formData, "occasion"),
+    subType: text(formData, "subType"),
     tripType: text(formData, "tripType"),
     preWeddingStyle: text(formData, "preWeddingStyle"),
   });
@@ -119,7 +119,7 @@ export async function createTripAction(formData: FormData) {
   if (!isContact(organizerContact)) fail("/new", "Add a phone number or an email address you can be reached at.");
   // 0..n guests of honor. A row counts once it has a name.
   const honorees: { name: string; contact: string; contactGiven: boolean; role: HonoreeRole }[] = [];
-  // Guests of honor only on wedding occasions; anything posted otherwise is ignored.
+  // Guests of honor only on wedding sub-types; anything posted otherwise is ignored.
   for (const index of allowsHonorees ? [1, 2] : []) {
     const honoreeName = text(formData, `honoree${index}Name`, NAME_MAX);
     if (!honoreeName) continue;

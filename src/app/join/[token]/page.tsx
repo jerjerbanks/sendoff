@@ -4,6 +4,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { joinTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { FeedbackButton } from "@/components/feedback-button";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
 import { getViewerId } from "@/lib/session";
@@ -105,11 +106,34 @@ export default async function JoinPage({
               {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
               <label className="text-sm font-medium">
                 Your name
-                <Input className="mt-1.5" name="name" required placeholder="Your name" defaultValue={onTour ? "Taylor Nguyen" : undefined} />
+                <Input
+                  className="mt-1.5 scroll-mb-28"
+                  name="name"
+                  required
+                  placeholder="Your name"
+                  autoComplete="name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
+                  defaultValue={onTour ? "Taylor Nguyen" : undefined}
+                />
               </label>
               <label className="text-sm font-medium">
                 Phone or email
-                <Input className="mt-1.5" name="contact" required placeholder="you@example.com" defaultValue={onTour ? "taylor@example.com" : undefined} />
+                {/* Phone or email in one field: the email keyboard has both @ and digits; scroll margin keeps Join visible over the keyboard. */}
+                <Input
+                  className="mt-1.5 scroll-mb-28"
+                  name="contact"
+                  type="text"
+                  required
+                  placeholder="you@example.com or 555-123-4567"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="go"
+                  defaultValue={onTour ? "taylor@example.com" : undefined}
+                />
               </label>
               <SubmitButton>Join the trip</SubmitButton>
               <p className="text-center text-xs text-muted">
@@ -125,9 +149,10 @@ export default async function JoinPage({
           <p className="mt-3 text-sm text-muted">Check the link, or start from the demo.</p>
         </>
       )}
-      <Link href="/" className="mt-6 text-sm font-semibold text-clay-ink">
+      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-clay-ink">
         Back to {APP_NAME}
       </Link>
+      <FeedbackButton className="mt-2" />
     </main>
   );
 }

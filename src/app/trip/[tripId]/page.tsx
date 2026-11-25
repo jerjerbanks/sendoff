@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { requestOrigin } from "@/lib/origin";
 import { CopyLink } from "@/components/bits";
 import { ShareLauncher } from "@/components/share-launcher";
 import { Arrow, HeadcountMeter } from "@/components/motion";
@@ -22,8 +22,7 @@ export default async function DashboardPage({
   const { error } = await searchParams;
   const view = await loadTripView(tripId, await getViewerId());
   if (!view) return null;
-  const headerList = await headers();
-  const origin = `${headerList.get("x-forwarded-proto") ?? "http"}://${headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747"}`;
+  const origin = await requestOrigin();
 
   return (
     <div className="grid grid-cols-1 gap-10 [&>*]:min-w-0">

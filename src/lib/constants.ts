@@ -10,3 +10,5 @@ export const LAKE_TRIP_ID = "trip_lake";
 export const LAKE_INVITE_TOKEN = "LAKE2027";
 /** Carries a just-made sign-in link to the party page once. Path-scoped and short-lived. */
 export const SIGN_IN_LINK_COOKIE = "ft_link";
+
+export const FEEDBACK_URL = ""; // TODO(feedback-url): Jeremy supplies the Google Form link
