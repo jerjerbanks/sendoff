@@ -524,6 +524,27 @@ body {
 @keyframes fill-in {
   from { transform: scaleX(0); }
 }
+/* Ticker first paint: the final value by default (reduced motion, no JS); the
+   start value while motion is allowed and the count hasn't started yet. */
+.ft-tick-from { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .ft-tick.pending > .ft-tick-from { display: inline; }
+  .ft-tick.pending > .ft-tick-to { display: none; }
+}
+
+/* Headcount cells fill in on arrival, 40ms apart, as the old progress bar did. */
+@keyframes ft-cell-fill {
+  from { background: var(--bg-surface); box-shadow: inset 0 0 0 1px var(--border-ctl); transform: scale(0.82); }
+}
+.ft-meter-in .ft-cell:is(.in, .booked, .you) {
+  animation: ft-cell-fill var(--dur-snappy) var(--spring-snappy) both;
+  animation-delay: calc(var(--i, 0) * 40ms + 120ms);
+}
+/* Vote bars fill left to right on arrival. */
+@keyframes ft-vbar-in {
+  from { background: var(--bg-sunken); }
+}
+.ft-vbar > i.on { animation: ft-vbar-in var(--dur-snappy) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms + 100ms); }
 .rise-in { animation: ft-rise var(--dur-snappy) var(--spring-snappy) both; }
 .fill-in { transform-origin: left; animation: fill-in var(--dur-smooth) var(--spring-smooth) 150ms both; }
 .ft-ripple {
@@ -546,6 +567,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rise-in,
   .fill-in,
+  .ft-meter-in .ft-cell,
+  .ft-vbar > i,
   .ft-toast,
   .ft-drawn path {
     animation: none;

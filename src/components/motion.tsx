@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { SPRINGS, prefersReducedMotion, springStep } from "@/lib/spring";
 import { meterState } from "@/lib/meter";
 
+const defaultFormat = (n: number) => Math.round(n).toLocaleString("en-US");
+
 /**
  * Spring-driven number (snappy, k520 c36). Tabular figures and a width reserved
  * for the widest value, so the layout never moves while it counts.
+ *
+ * First paint needs no JavaScript: the server renders both `from` and `value`,
+ * and CSS shows `from` only when motion is allowed (see .ft-tick in globals.css).
+ * With reduced motion the final value is on screen from the first frame.
  */
 export function Ticker({
   value,
   from,
-  format = (n) => Math.round(n).toLocaleString("en-US"),
+  format = defaultFormat,
   delayMs = 0,
   className = "",
 }: {
@@ -23,19 +29,32 @@ export function Ticker({
   delayMs?: number;
   className?: string;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
+  const outer = useRef<HTMLSpanElement>(null);
+  const out = useRef<HTMLSpanElement>(null);
   const state = useRef({ x: from ?? value, v: 0 });
+  // Read the latest formatter without restarting the spring when a parent re-renders.
+  const formatRef = useRef(format);
+  formatRef.current = format;
+  const counts = from != null && from !== value;
   const widest = Math.max(format(value).length, format(from ?? value).length);
 
-  useEffect(() => {
-    const el = ref.current;
+  // Layout effect: runs before the browser paints, so a new `value` from React never
+  // shows for a frame before the spring takes over from the current number.
+  useLayoutEffect(() => {
+    const el = out.current;
     if (!el) return;
+    const fmt = formatRef.current;
     const s = state.current;
     if (prefersReducedMotion()) {
       s.x = value;
-      el.textContent = format(value);
+      s.v = 0;
+      el.textContent = fmt(value);
+      outer.current?.classList.remove("pending");
       return;
     }
+    // Hand over from the CSS-shown `from` to the live number in the same frame.
+    el.textContent = fmt(s.x);
+    outer.current?.classList.remove("pending");
     let raf = 0;
     let last = 0;
     const { k, c } = SPRINGS.snappy;
@@ -43,20 +62,27 @@ export function Ticker({
       const dt = Math.min(0.032, last ? (now - last) / 1000 : 1 / 60);
       last = now;
       [s.x, s.v] = springStep(s.x, s.v, value, k, dt, c);
-      el.textContent = format(s.x);
+      el.textContent = fmt(s.x);
       if (Math.abs(s.x - value) > 0.01 || Math.abs(s.v) > 0.01) raf = requestAnimationFrame(frame);
-      else el.textContent = format(value);
+      else el.textContent = fmt(value);
     };
     const timer = window.setTimeout(() => (raf = requestAnimationFrame(frame)), delayMs);
     return () => {
       window.clearTimeout(timer);
       cancelAnimationFrame(raf);
     };
-  }, [value, delayMs, format]);
+  }, [value, delayMs]);
 
   return (
-    <span ref={ref} className={`inline-block tabular-nums ${className}`} style={{ minWidth: `${widest}ch` }}>
-      {format(from ?? value)}
+    <span ref={outer} className={`ft-tick inline-block tabular-nums ${counts ? "pending" : ""} ${className}`} style={{ minWidth: `${widest}ch` }}>
+      {counts ? (
+        <span className="ft-tick-from" aria-hidden>
+          {format(from)}
+        </span>
+      ) : null}
+      <span ref={out} className="ft-tick-to">
+        {format(value)}
+      </span>
     </span>
   );
 }
@@ -132,7 +158,7 @@ export function HeadcountMeter({
           aria-label={met ? `Booking ready: ${count} ${unit} committed` : `${count} of ${need} ${unit} committed`}
         >
           <span className="text-[64px]">
-            {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : count}
+            {commit ? <Ticker value={count} from={countNow} delayMs={120 + 70 * youCount} /> : <Ticker value={count} from={0} delayMs={120} />}
           </span>
           {met ? null : <span className="ml-0.5 text-[30px] text-ink-2">/{need}</span>}
         </p>
@@ -142,7 +168,7 @@ export function HeadcountMeter({
         </div>
       </div>
       <div
-        className="mt-9"
+        className={commit ? "mt-9" : "ft-meter-in mt-9"}
         role="img"
         aria-label={met ? `${count} ${unit} in, past the minimum of ${need}.` : `${count} of ${need} ${unit} in. The stay books at ${need}.`}
       >
@@ -152,7 +178,7 @@ export function HeadcountMeter({
             const delay = cells[index] === "you" ? (phase === 1 ? youIndex * 70 : 0) : phase === 2 ? index * 40 : 0;
             return (
               <FragmentWithThreshold key={index} threshold={index === need} booking={booking} ready={ready} need={need}>
-                <span className={`ft-cell ${cell === "open" ? "" : cell}`} style={{ ["--d" as string]: `${delay}ms` }} />
+                <span className={`ft-cell ${cell === "open" ? "" : cell}`} style={{ ["--d" as string]: `${delay}ms`, ["--i" as string]: index }} />
               </FragmentWithThreshold>
             );
           })}
