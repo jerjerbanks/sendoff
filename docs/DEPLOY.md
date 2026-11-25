@@ -16,6 +16,21 @@ changes go to staging first.
 merges into `main` before it's deployed to live. Deploy a branch to staging
 before it merges if it changes the database or anything risky.
 
+## Automatic deploys (`.github/workflows/deploy.yml`)
+
+- **Open or update a PR** → typecheck, tests, `migrations apply` on the staging
+  D1, demo seed, build, deploy to `sendoff-staging`, re-apply cpu_ms 50 and
+  Workers Logs, smoke check.
+- **Merge to `main`** → the same against live: migrations on the live D1
+  first, then the `sendoff` Worker.
+- One deploy per environment at a time (`concurrency`, never cancelled
+  mid-run). PRs from forks never deploy and never see secrets.
+- Needs two repo secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit,
+  D1: Edit, Account Settings: Read, this account only) and
+  `CLOUDFLARE_ACCOUNT_ID`.
+
+The manual steps below are the fallback.
+
 ## Every deploy
 
 1. **CI is green** on the commit (typecheck, lint, tests, migrations from
@@ -43,14 +58,16 @@ New schema changes go in `migrations/NNNN_name.sql`, numbered in order, and are
 applied with `wrangler d1 migrations apply` (the `db:migrate*` scripts), which
 records each one in the `d1_migrations` table.
 
-**One-time fix before the first `npm run db:migrate` on live:** migrations
-0001–0008 were run on live as raw SQL, so live has no record of them. Run
-`scripts/resync-d1-migrations.sql` once on live (instructions are in the file).
-Never run it on staging.
+**Done 2026-11-24 10:46 PM CT:** migrations 0001–0009 were run on live as raw
+SQL, so `scripts/resync-d1-migrations.sql` was run once on live to record them
+in `d1_migrations` (9 rows). From 0010 on, never apply migrations as raw SQL.
+Never run the resync on staging.
 
 ## Setting up staging (first time only)
 
-The `sendoff-staging` database already exists (created 2026-11-25, empty).
+Done 2026-11-24 10:48 PM CT: `sendoff-staging` D1 has 0001–0009 applied via
+the migration table, the demo seed, and the Worker is live at
+sendoff-staging.jccmiel92.workers.dev. The commands below rebuild it.
 
 ```bash
 npm run db:migrate:staging   # all migrations, from empty
