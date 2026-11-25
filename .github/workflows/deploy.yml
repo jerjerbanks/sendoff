@@ -1,0 +1,109 @@
+name: Deploy
+
+# Pull request into this repo -> staging (sendoff-staging + its own D1).
+# Push to main (i.e. a merged PR)  -> live (sendoff + live D1).
+# Order on both: install, typecheck, test, migrations, build, deploy,
+# re-apply CPU limit + Workers Logs, smoke check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One deploy per environment at a time; a newer one waits, it never cancels
+# a deploy that is halfway through migrations.
+concurrency:
+  group: deploy-${{ github.event_name == 'push' && 'live' || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # `pull_request` never hands secrets to forks; this also skips the job for
+    # them so a fork PR can't even start a deploy.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET: ${{ github.event_name == 'push' && 'live' || 'staging' }}
+    steps:
+      - name: Check secrets are set
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Repo secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be set (Settings -> Secrets and variables -> Actions)."
+            exit 1
+          fi
+
+      - name: Pick target
+        run: |
+          if [ "$TARGET" = live ]; then
+            echo "WORKER=sendoff" >> "$GITHUB_ENV"
+            echo "D1=sendoff" >> "$GITHUB_ENV"
+            echo "ENV_FLAG=" >> "$GITHUB_ENV"
+            echo "BUILD=build" >> "$GITHUB_ENV"
+            echo "URL=https://sendoff.jccmiel92.workers.dev" >> "$GITHUB_ENV"
+          else
+            echo "WORKER=sendoff-staging" >> "$GITHUB_ENV"
+            echo "D1=sendoff-staging" >> "$GITHUB_ENV"
+            echo "ENV_FLAG=--env staging" >> "$GITHUB_ENV"
+            echo "BUILD=build:staging" >> "$GITHUB_ENV"
+            echo "URL=https://sendoff-staging.jccmiel92.workers.dev" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # Migrations go before the code: new code may read new tables.
+      # Explicit --config so wrangler reads the source config, not a build redirect.
+      - name: Apply D1 migrations (${{ env.TARGET }})
+        run: |
+          npx wrangler d1 migrations apply "$D1" --remote --config wrangler.jsonc $ENV_FLAG
+          npx wrangler d1 migrations list "$D1" --remote --config wrangler.jsonc $ENV_FLAG
+
+      # Staging only: the demo seed is idempotent (INSERT OR IGNORE).
+      - name: Seed demo data (staging)
+        if: env.TARGET == 'staging'
+        run: npx wrangler d1 execute sendoff-staging --remote --config wrangler.jsonc --env staging --file=./seed/demo.sql
+
+      - name: Build
+        run: npm run "$BUILD"
+
+      - name: Deploy Worker (${{ env.WORKER }})
+        run: npx wrangler deploy --config dist/server/wrangler.json
+
+      # wrangler.jsonc already carries limits/observability/placement; this
+      # re-applies them via the API in case a deploy ever clears them.
+      - name: Re-apply cpu_ms 50 and Workers Logs
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER"
+          AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          curl -fsS -X PATCH "$API/settings" -H "$AUTH" \
+            -F 'settings={"limits":{"cpu_ms":50}};type=application/json' > /dev/null
+          curl -fsS -X PATCH "$API/script-settings" -H "$AUTH" -H 'Content-Type: application/json' \
+            --data '{"observability":{"enabled":true,"head_sampling_rate":1,"logs":{"enabled":true,"head_sampling_rate":1,"invocation_logs":true,"persist":true}},"logpush":false}' > /dev/null
+          CPU=$(curl -fsS "$API/settings" -H "$AUTH" | jq -r '.result.limits.cpu_ms')
+          LOGS=$(curl -fsS "$API/script-settings" -H "$AUTH" | jq -r '.result.observability.logs.enabled')
+          echo "cpu_ms=$CPU logs=$LOGS"
+          [ "$CPU" = 50 ] && [ "$LOGS" = true ]
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/") && [ "$code" = 200 ] && break
+            sleep 5
+          done
+          [ "$code" = 200 ] || { echo "::error::$URL/ returned $code"; exit 1; }
+          curl -fsS -o /dev/null -w "demo %{http_code}\n" "$URL/trip/trip_demo"
+          echo "Deployed $GITHUB_SHA to $URL" >> "$GITHUB_STEP_SUMMARY"
