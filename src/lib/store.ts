@@ -928,7 +928,8 @@ export async function resetDemoTrip() {
   return { ok: true };
 }
 
-export type TripType = "pre_wedding" | "family";
+/** "adult" is a plain adults trip; wedding occasions stay "pre_wedding". */
+export type TripType = "pre_wedding" | "adult" | "family";
 export type PreWeddingStyle = "bachelor" | "bachelorette" | "joint";
 export type HonoreeRole = "bride" | "groom" | "birthday" | "other";
 
