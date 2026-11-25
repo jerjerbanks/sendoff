@@ -25,10 +25,10 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "127.0.0.1:4747";
   const image = `${proto}://${host}/og/invite/${token}`;
   return {
-    title: card.alt,
+    title: card.pageTitle,
     description: card.alt,
-    openGraph: { title: card.title, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
-    twitter: { card: "summary_large_image", title: card.title, description: card.alt, images: [image] },
+    openGraph: { title: card.shareTitle, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: card.shareTitle, description: card.alt, images: [image] },
   };
 }
 

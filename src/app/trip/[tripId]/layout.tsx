@@ -24,10 +24,10 @@ export async function generateMetadata({ params }: { params: Promise<{ tripId: s
   const base = await origin();
   const image = `${base}/og/trip/${tripId}`;
   return {
-    title: card.alt,
+    title: card.pageTitle,
     description: card.alt,
-    openGraph: { title: card.title, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
-    twitter: { card: "summary_large_image", title: card.title, description: card.alt, images: [image] },
+    openGraph: { title: card.shareTitle, description: card.alt, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: card.shareTitle, description: card.alt, images: [image] },
   };
 }
 

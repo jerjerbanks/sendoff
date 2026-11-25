@@ -12,7 +12,12 @@ export interface OgCard {
   title: string;
   line: string;
   foot: string;
+  /** Image alt text and description: the facts, no brand. */
   alt: string;
+  /** Browser tab: the facts first, then the app. */
+  pageTitle: string;
+  /** Link-preview headline (og:title, twitter:title): the app, then the trip. */
+  shareTitle: string;
 }
 
 /** Public card copy. No private budgets. */
@@ -67,5 +72,7 @@ export function ogCard(view: Pick<
     line,
     foot: when,
     alt: `${title} · ${line} · ${when}`,
+    pageTitle: `${title} · ${line} · ${when} · ${APP_NAME}`,
+    shareTitle: `${APP_NAME} · ${title}`,
   };
 }

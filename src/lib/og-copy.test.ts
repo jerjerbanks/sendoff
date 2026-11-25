@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { APP_NAME } from "./constants";
 import { ogCard } from "./og-copy";
 
 const bachelor = {
@@ -54,5 +55,14 @@ describe("og card copy", () => {
     expect(card.line).toContain("4 parties in");
     expect(card.line).not.toContain("of 3");
     expect(card.line).toContain("$639–$1,922 per party");
+  });
+
+  it("names the app in the tab title and the link-preview headline, not in the image alt", () => {
+    for (const trip of [bachelor, lake]) {
+      const card = ogCard(trip as never);
+      expect(card.pageTitle).toBe(`${card.alt} · ${APP_NAME}`);
+      expect(card.shareTitle).toBe(`${APP_NAME} · ${card.title}`);
+      expect(card.alt).not.toContain(APP_NAME);
+    }
   });
 });
