@@ -3,9 +3,10 @@ import Link from "next/link";
 import { redeemSignInLinkAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { signInLinkIsLive } from "@/lib/session";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Sign in · Field Trip",
+  title: `Sign in · ${APP_NAME}`,
   // A personal link: keep it out of search engines and previews' indexes.
   robots: { index: false, follow: false },
 };
@@ -26,7 +27,7 @@ export default async function SignInPage({
   const live = !expired && (await signInLinkIsLive(token));
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-10">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Field Trip</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
       {live ? (
         <>
           <h1 className="mt-2 font-serif text-4xl leading-tight">Sign in on this phone?</h1>
@@ -47,7 +48,7 @@ export default async function SignInPage({
         </>
       )}
       <Link href="/" className="mt-6 text-sm font-semibold text-accent">
-        Go to Field Trip
+        Go to {APP_NAME}
       </Link>
     </main>
   );

@@ -10,6 +10,7 @@ import { ensureDemoSeed, isMemberOf, tripIdForToken } from "@/lib/store";
 import { DemoBanner } from "@/components/demo-panel";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { loadTripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const tripId = await tripIdForToken(token);
   const shell = tripId ? await loadTripView(tripId, null) : null;
   const view = shell;
-  if (!view) return { title: "Sendoff invite" };
+  if (!view) return { title: `${APP_NAME} invite` };
   const card = ogCard(view);
   const headerList = await headers();
   const proto = headerList.get("x-forwarded-proto") ?? "http";
@@ -57,7 +58,7 @@ export default async function JoinPage({
           <DemoBanner view={null} tripId={tripId} viewerName={onTour ? "Taylor" : null} />
         </div>
       ) : null}
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
       {view ? (
         <>
           <p className="mt-6 text-sm text-muted">{view.organizerName.split(" ")[0]} invited you to</p>
@@ -120,7 +121,7 @@ export default async function JoinPage({
         </>
       )}
       <Link href="/" className="mt-6 text-sm font-semibold text-accent">
-        Back to Sendoff
+        Back to {APP_NAME}
       </Link>
     </main>
   );

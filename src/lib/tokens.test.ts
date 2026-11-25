@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashToken, isContact, newToken, plausibleToken } from "./tokens";
+import { contactKey, hashToken, isContact, newToken, plausibleToken } from "./tokens";
 
 describe("session tokens", () => {
   it("are 43 url-safe characters and never repeat", () => {
@@ -33,5 +33,18 @@ describe("contacts", () => {
     for (const bad of ["", "maya", "maya@", "@example.com", "555-01", "call me maybe", "1234567890123456", "312-555-0142 ext"]) {
       expect(isContact(bad)).toBe(false);
     }
+  });
+});
+
+describe("contact keys", () => {
+  it("treat formatting differences as the same contact", () => {
+    expect(contactKey("(312) 555-0142")).toBe(contactKey("312-555-0142"));
+    expect(contactKey("+1 312 555 0142")).toBe(contactKey("312.555.0142"));
+    expect(contactKey(" Maya@Example.com ")).toBe(contactKey("maya@example.com"));
+  });
+
+  it("keep different contacts apart", () => {
+    expect(contactKey("312-555-0142")).not.toBe(contactKey("312-555-0143"));
+    expect(contactKey("maya@example.com")).not.toBe(contactKey("maya@example.co"));
   });
 });

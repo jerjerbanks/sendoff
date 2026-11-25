@@ -5,6 +5,7 @@ function wholeDollars(cents: number): string {
   return `$${dollars.toLocaleString("en-US")}`;
 }
 import type { TripView } from "./view";
+import { APP_NAME } from "./constants";
 
 export interface OgCard {
   eyebrow: string;
@@ -61,7 +62,7 @@ export function ogCard(view: Pick<
   // Money first: if the card has to drop a segment to fit, it drops the least important one.
   const line = `${amount} · ${inLine} · ${view.travelerCount} going`;
   return {
-    eyebrow: "SENDOFF",
+    eyebrow: APP_NAME.toUpperCase(),
     title,
     line,
     foot: when,

@@ -6,6 +6,7 @@ import { Shell } from "@/components/shell";
 import { ogCard } from "@/lib/og-copy";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 async function origin() {
   const headerList = await headers();
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ tripId: s
   const { tripId } = await params;
   const shell = await loadTripView(tripId, null);
   const view = shell;
-  if (!view) return { title: "Sendoff" };
+  if (!view) return { title: APP_NAME };
   const card = ogCard(view);
   const base = await origin();
   const image = `${base}/og/trip/${tripId}`;

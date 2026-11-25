@@ -1,3 +1,6 @@
+/** The product name people see. Provisional: change it here and it changes everywhere.
+ * Infrastructure keeps the old name (Worker, D1 database, URL) so the live link holds. */
+export const APP_NAME = "Field Trip";
 export const ZONE = "America/Chicago";
 export const DEMO_TRIP_ID = "trip_demo";
 export const DEMO_INVITE_TOKEN = "ALEX2027";

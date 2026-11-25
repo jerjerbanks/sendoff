@@ -10,7 +10,7 @@ import {
 } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { SendToSelfButton } from "@/components/share-button";
-import { SIGN_IN_LINK_COOKIE } from "@/lib/constants";
+import { SIGN_IN_LINK_COOKIE, APP_NAME } from "@/lib/constants";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { plausibleToken } from "@/lib/session";
 import { Input, fieldClass } from "@/components/ui/input";
@@ -179,7 +179,7 @@ export default async function PartyPage({
             </label>
             <fieldset className="grid gap-2 text-sm">
               <legend className="font-medium">Sharing a room with another party</legend>
-              <p className="text-xs text-muted">Only the organizer sees this. Sendoff never assigns roommates, and never by gender.</p>
+              <p className="text-xs text-muted">Only the organizer sees this. {APP_NAME} never assigns roommates, and never by gender.</p>
               {[
                 ["any", "Open to it if we both say yes"],
                 ["no_share", "We'd rather not"],
@@ -217,15 +217,15 @@ async function ThisPhone({ tripId, name, contact }: { tripId: string; name: stri
   let url: string | null = null;
   if (plausibleToken(token)) {
     const list = await headers();
-    const proto = list.get("x-forwarded-proto") ?? "https";
-    const host = list.get("x-forwarded-host") ?? list.get("host");
+    const host = list.get("x-forwarded-host") ?? list.get("host") ?? "";
+    const proto = list.get("x-forwarded-proto") ?? (/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? "http" : "https");
     url = `${proto}://${host}/signin/${token}`;
   }
   return (
     <section id="this-phone" className="rounded-2xl border border-line bg-card p-4">
       <h3 className="text-sm font-semibold">This phone</h3>
       <p className="mt-1 text-sm text-muted">
-        Signed in as {name} ({contact}). Using another phone or a laptop? Make a link here and open it there.
+        Signed in as {name} · {contact}. Using another phone or a laptop? Make a link here and open it there.
       </p>
       {url ? (
         <div className="mt-3 grid gap-2">

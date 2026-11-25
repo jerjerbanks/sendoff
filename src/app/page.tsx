@@ -2,6 +2,7 @@ import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input, fieldClass } from "@/components/ui/input";
 import { ensureDemoSeed } from "@/lib/store";
+import { APP_NAME } from "@/lib/constants";
 
 export default async function HomePage({
   searchParams,
@@ -12,7 +13,7 @@ export default async function HomePage({
   const { error } = await searchParams;
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 py-8 md:max-w-3xl md:py-14">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sendoff</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{APP_NAME}</p>
       <h1 className="mt-2 max-w-xl font-serif text-4xl leading-tight md:text-6xl">
         Plan the trip. Commit, or you&apos;re off.
       </h1>

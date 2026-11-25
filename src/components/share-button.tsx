@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { APP_NAME } from "@/lib/constants";
 
 export function ShareButton({
   title,
@@ -53,7 +54,7 @@ export function SendToSelfButton({ url }: { url: string }) {
   async function send() {
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: "Sign in to Field Trip", url });
+        await navigator.share({ title: `Sign in to ${APP_NAME}`, url });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;

@@ -21,3 +21,15 @@ export function isContact(value: string): boolean {
   const digits = value.replace(/\D/g, "");
   return /^[+()\d\s.-]+$/.test(value) && digits.length >= 7 && digits.length <= 15;
 }
+
+/**
+ * One spelling per contact, so "(312) 555-0142", "312-555-0142" and "+1 312 555 0142"
+ * are the same person, and so are "Maya@Example.com" and "maya@example.com".
+ */
+export function contactKey(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed.includes("@")) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  // A leading US country code is the same number.
+  return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+}

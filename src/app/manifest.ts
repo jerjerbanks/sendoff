@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME } from "@/lib/constants";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sendoff",
-    short_name: "Sendoff",
+    name: APP_NAME,
+    short_name: APP_NAME,
     description: "Plan the bachelor party in the group chat. Vote, see your share, commit.",
     start_url: "/",
     display: "standalone",

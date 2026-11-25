@@ -8,6 +8,7 @@ import { bedLabel, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { listSpotRequests, type SpotRecord } from "@/lib/store";
 import { loadTripView, type TripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 type Room = { name: string; spots: SpotRecord[] };
 
@@ -162,7 +163,7 @@ export default async function RoomsPage({
 
       <p className="text-center text-xs text-muted">
         {view.bedChangePolicy === "locked" ? "Beds are locked: only the organizer moves people." : "Sharing a bed with another party needs both parties' yes and the organizer's."}{" "}
-        Sendoff never assigns roommates, and never by gender.
+        {APP_NAME} never assigns roommates, and never by gender.
       </p>
     </div>
   );

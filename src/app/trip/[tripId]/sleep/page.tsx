@@ -7,6 +7,7 @@ import { getViewerId } from "@/lib/session";
 import type { SpotRecord } from "@/lib/store";
 import { partySleeps } from "@/lib/trip-math";
 import { loadTripView } from "@/lib/view";
+import { APP_NAME } from "@/lib/constants";
 
 const bedTypes = [
   ["king", "King", "1.5"],
@@ -167,7 +168,7 @@ export default async function SleepSetupPage({
       {view.isOrganizer ? (
         <section className="rounded-3xl border border-line bg-card p-4">
           <h3 className="font-serif text-2xl">Needs and sharing notes</h3>
-          <p className="mt-1 text-xs text-muted">Only you see this. Use it to place holds; Sendoff never matches people automatically.</p>
+          <p className="mt-1 text-xs text-muted">Only you see this. Use it to place holds; {APP_NAME} never matches people automatically.</p>
           <ul className="mt-3 grid gap-2 text-sm">
             {view.parties.map((party) => {
               const notes = party.travelers.filter((traveler) => traveler.needsNotes);

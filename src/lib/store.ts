@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "./constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
 import { RULES } from "./rules";
+import { contactKey } from "./tokens";
 import { getDb } from "./db";
 import {
   demoCosts,
@@ -1020,8 +1021,8 @@ export async function joinTrip(input: {
   const raw = await readRaw(found.id);
   if (!raw) return { ok: false, error: "That invite link doesn't go anywhere." };
 
-  const contact = input.contact.trim().toLowerCase();
-  const existing = raw.members.find((member) => member.contact.trim().toLowerCase() === contact);
+  const contact = contactKey(input.contact);
+  const existing = raw.members.find((member) => contactKey(member.contact) === contact);
   if (existing) {
     // Typing a phone or email proves nothing. It signs you in as that person only
     // if this browser already is them, or nobody has ever signed in as them (an
@@ -2162,7 +2163,7 @@ export async function setHeadcounts(tripId: string, userId: string, minPayers: n
   if ("ok" in raw) return raw;
   if (!Number.isInteger(minPayers) || minPayers < 1) return { ok: false, error: "The minimum has to be at least one paying party." };
   if (!Number.isInteger(maxTravelers) || maxTravelers < 1) return { ok: false, error: "Set a traveler cap." };
-  if (minPayers > 100 || maxTravelers > 200) return { ok: false, error: "Field Trip handles up to 200 travelers." };
+  if (minPayers > 100 || maxTravelers > 200) return { ok: false, error: `${APP_NAME} handles up to 200 travelers.` };
   const onTrip = raw.travelers.filter((traveler) => {
     const member = memberOf(raw, traveler.partyId);
     return member && member.status !== "off_trip" && member.status !== "declined";
