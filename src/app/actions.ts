@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { env } from "cloudflare:workers";
 import { redirect } from "next/navigation";
 import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
@@ -66,6 +67,20 @@ async function me(): Promise<string> {
   return (await getViewerId()) ?? "";
 }
 
+/**
+ * Workers Rate Limiting, per client IP. Runs before any database work. If the
+ * binding is missing (a misconfigured deploy), let the request through: this
+ * guards against floods, and a broken limiter shouldn't lock everyone out.
+ */
+async function withinLimit(limiter: RateLimit | undefined): Promise<boolean> {
+  if (!limiter) return true;
+  const ip = (await headers()).get("cf-connecting-ip") ?? "unknown";
+  const { success } = await limiter.limit({ key: ip });
+  return success;
+}
+
+const TOO_MANY = "Too many tries. Wait a minute and try again.";
+
 function fail(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
 }
@@ -97,6 +112,7 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
+  if (!(await withinLimit(env.CREATE_TRIP_RATE_LIMITER))) fail("/", TOO_MANY);
   const name = text(formData, "name", 80);
   const organizerName = text(formData, "organizerName", NAME_MAX);
   const organizerContact = text(formData, "organizerContact", 120);
@@ -131,6 +147,7 @@ export async function createTripAction(formData: FormData) {
 
 export async function joinTripAction(formData: FormData) {
   const token = text(formData, "token", 40);
+  if (!(await withinLimit(env.JOIN_RATE_LIMITER))) fail(`/join/${token}`, TOO_MANY);
   const name = text(formData, "name", NAME_MAX);
   const contact = text(formData, "contact", 120);
   if (!name || !contact) fail(`/join/${token}`, "Add your name and a phone or email.");
