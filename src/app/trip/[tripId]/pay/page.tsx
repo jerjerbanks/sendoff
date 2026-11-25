@@ -1,6 +1,8 @@
 import { openBuyInAction, payAction, removeMemberAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { CommitButton, HeadcountMeter } from "@/components/motion";
 import { PaymentGrid } from "@/components/payment-grid";
+import { meterCells } from "@/lib/meter";
 import { Input, fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { paymentStatusLabel } from "@/lib/labels";
@@ -28,77 +30,170 @@ export default async function PayPage({
   const party = view.viewerParty;
   const history = viewer?.isPayer ? viewer.lines.filter((line) => !line.canPay && line.amountCents > 0) : [];
 
+  const words = ["Nobody", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+  const word = (n: number) => words[n] ?? String(n);
+  const share = view.currentShareCents ?? view.ifYouCommitCents ?? party?.bill?.totalCents ?? null;
+  const daysLeft = view.buyInDeadline ? Math.max(0, Math.ceil((Date.parse(view.buyInDeadline) - Date.parse(view.now)) / 86_400_000)) : null;
+  const after = view.payerCount + 1;
+
   return (
-    <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
-      <div>
-        <h2 className="font-serif text-4xl leading-none">Pay</h2>
-        <p className="mt-2 text-sm text-muted">Each party pays its own share, so nobody fronts the bill. Test payments only — no card is charged.</p>
-      </div>
-      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+    <div className="grid grid-cols-1 gap-8 [&>*]:min-w-0">
+      {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
 
       {viewer?.role === "honoree" ? (
-        <section className="rounded-3xl border border-line bg-card p-5">
-          <h3 className="font-serif text-2xl">You&apos;re covered</h3>
-          <p className="mt-2 text-sm text-muted">No buy-in for you. The group splits your share, flight included.</p>
+        <section>
+          <p className="ft-lbl clay">Guest of honor</p>
+          <h1 className="ft-display mt-3">
+            You&apos;re
+            <br />
+            <i>covered.</i>
+          </h1>
+          <p className="ft-lead mt-4">No buy-in for you. The group splits your share, flight included.</p>
         </section>
       ) : null}
 
       {viewer && !viewer.isPayer && viewer.role !== "honoree" ? (
-        <section className="rounded-3xl border border-line bg-card p-5">
-          <h3 className="font-serif text-2xl">{party?.payerName.split(" ")[0] ?? "Your payer"} pays for your party</h3>
-          <p className="mt-2 text-sm text-muted">
-            One buy-in covers the whole {party?.name ?? ""} party. {party?.status === "committed" ? "It's paid — you're in." : "Not committed yet."}
+        <section>
+          <p className="ft-lbl clay">{party?.name ?? "Your party"}</p>
+          <h1 className="ft-display mt-3">
+            {party?.payerName.split(" ")[0] ?? "Your payer"} pays
+            <br />
+            <i>for your party.</i>
+          </h1>
+          <p className="ft-lead mt-4">
+            One buy-in covers the whole {party?.name ?? ""} party. {party?.status === "committed" ? "It's paid, so you're in." : "Not committed yet."}
           </p>
         </section>
       ) : null}
 
       {canCommit && buyIn ? (
-        <section className="rounded-3xl border-2 border-accent bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-            Commit {party && party.travelers.length > 1 ? `the ${party.name} party` : ""}
-            {view.buyInDeadline ? ` by ${formatDay(view.buyInDeadline)}` : ""}
-          </p>
-          <p className="mt-1 font-serif text-6xl leading-none">{whole(view.buyInAmountCents)}</p>
-          <p className="mt-2 text-sm text-muted">
-            The first slice of your share, not a fee on top.
-            {party && party.travelers.length > 1 ? ` One buy-in for ${party.travelers.map((traveler) => traveler.name.split(" ")[0]).join(", ")}.` : ""}
-          </p>
-          <p className="mt-4 rounded-2xl bg-chip px-4 py-3 text-sm leading-relaxed">
-            Your buy-in is refundable until the organizer books the stay. After the stay is booked, the buy-in is forfeited if you drop and is not
-            returned.
-          </p>
-          <details className="mt-2">
-            <summary className="cursor-pointer text-sm font-semibold text-accent">How refunds work</summary>
-            <ul className="mt-2 grid gap-2 text-sm text-muted">
-              <li>You get it back if the group misses the minimum of {view.minPayerCount} paying parties, or the organizer cancels before booking.</li>
-              <li>A drop after booking pays down everyone else&apos;s lodging first.</li>
-              <li>Miss the deadline and your party is off the trip, with no way back.</li>
-            </ul>
-          </details>
-          <form action={payAction} className="mt-4 grid gap-3">
+        <>
+          <section>
+            <p className="ft-lbl">
+              {party && party.travelers.length > 1
+                ? party.travelers.map((traveler) => traveler.name.split(" ")[0]).join(" & ")
+                : (viewer?.name ?? "")}
+            </p>
+            <h1 className="ft-display mt-3">
+              {view.payerCount === 0 ? "Nobody's in yet." : `${word(view.payerCount)} ${view.payerCount === 1 ? "is" : "are"} in.`}
+              <br />
+              <i>{after <= view.minPayerCount ? `You make ${word(after).toLowerCase()}.` : "Join them."}</i>
+            </h1>
+            <p className="ft-lead mt-4">
+              {view.organizerName.split(" ")[0]} books the stay at {view.minPayerCount} {view.minPayerCount === 1 ? "party" : "parties"}.{" "}
+              {after === view.minPayerCount
+                ? `Your ${party && party.travelers.length > 1 ? `${party.travelers.length} places take` : "place takes"} it to the line.`
+                : after > view.minPayerCount
+                  ? "The line is already met, so your share goes down when you join."
+                  : `${view.minPayerCount - after} more after you.`}
+            </p>
+          </section>
+
+          <HeadcountMeter
+            framed
+            cells={meterCells(view)}
+            need={view.minPayerCount}
+            unit="parties"
+            sub={`${view.minPayerCount} needed to book`}
+          />
+
+          <section className="ft-rule -mx-5 px-5 pt-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="ft-glow -ml-5 min-w-0 flex-1 pl-5">
+                <p className="ft-lbl">Buy-in today</p>
+                <p className="ft-money mt-2 text-[76px]">{whole(view.buyInAmountCents)}</p>
+              </div>
+              <div className="pt-0.5 text-right">
+                <p className="ft-lbl">Refundable</p>
+                {share != null ? (
+                  <dl className="ft-mono mt-5 grid grid-cols-[auto_auto] gap-x-4 gap-y-1.5 text-[15px] text-ink-2">
+                    <dt className="uppercase tracking-[0.06em]">Rest</dt>
+                    <dd className="text-ink">{whole(Math.max(0, share - view.buyInAmountCents))}</dd>
+                    <dt className="uppercase tracking-[0.06em]">Total</dt>
+                    <dd className="text-ink">{whole(share)}</dd>
+                  </dl>
+                ) : null}
+              </div>
+            </div>
+            <dl className="mt-6 border-t border-line">
+              <div className="ft-kv">
+                <dt>Room</dt>
+                <dd className="v">{party?.rooms.length ? party.rooms.join(", ") : <span className="text-ink-2">You pick right after</span>}</dd>
+              </div>
+              {view.buyInDeadline ? (
+                <div className="ft-kv">
+                  <dt>Deadline</dt>
+                  <dd className="v">
+                    {formatDay(view.buyInDeadline)}
+                    {daysLeft != null ? <span className="ft-meta"> · {daysLeft} {daysLeft === 1 ? "day" : "days"}</span> : null}
+                  </dd>
+                </div>
+              ) : null}
+              <div className="ft-kv">
+                <dt>Refund</dt>
+                <dd className="text-[16px]">
+                  Full, if {view.minPayerCount} parties aren&apos;t in by the deadline or the stay isn&apos;t booked. After booking, a drop forfeits it.
+                </dd>
+              </div>
+            </dl>
+            <details className="mt-1">
+              <summary className="ft-summary text-[15px] font-medium text-ink-2">How refunds work</summary>
+              <ul className="ft-meta grid gap-2 pb-2">
+                <li>You get it back if the group misses the minimum of {view.minPayerCount} paying parties, or the organizer cancels before booking.</li>
+                <li>A drop after booking pays down everyone else&apos;s lodging first.</li>
+                <li>Miss the deadline and your party is off the trip, with no way back.</li>
+              </ul>
+            </details>
+          </section>
+
+          <form action={payAction} className="grid gap-4">
             <input type="hidden" name="tripId" value={view.id} />
             <input type="hidden" name="userId" value={viewer?.userId} />
             <input type="hidden" name="milestoneId" value={buyIn.id} />
             <input type="hidden" name="kind" value="buy_in" />
-            <label className="flex items-start gap-3 text-sm">
-              <input className="mt-0.5 size-5 shrink-0 accent-[var(--color-accent)]" type="checkbox" name="ack" value="yes" required />
+            <label className="flex min-h-12 items-start gap-3 text-[15px] text-ink-2">
+              <input className="mt-0.5 size-6 shrink-0 accent-[var(--clay)]" type="checkbox" name="ack" value="yes" required />
               I understand it&apos;s refundable only until the stay is booked.
             </label>
-            <SubmitButton pendingLabel="Marking paid…">Pay {whole(view.buyInAmountCents)} (test)</SubmitButton>
-            <p className="text-center text-xs text-muted">Test payment. No card is charged.</p>
+            <CommitButton label="Commit" amount={whole(view.buyInAmountCents)} doneLabel={`Committed · ${whole(view.buyInAmountCents)}`} />
+            <p className="flex items-center justify-between gap-3">
+              <span className="ft-meta">Test payment, no card charged</span>
+              <span className="ft-meta">Paid to the trip</span>
+            </p>
           </form>
-        </section>
+        </>
+      ) : null}
+
+      {viewer?.isPayer && viewer.role !== "honoree" && party?.status === "committed" ? (
+        <>
+          <section>
+            <p className="ft-lbl clay">{party.name} · committed</p>
+            <h1 className="ft-display mt-3">
+              You&apos;re in.
+              <br />
+              <i>{viewer.balanceCents ? "The rest comes later." : "All squared up."}</i>
+            </h1>
+            <p className="ft-lead mt-4">
+              {view.lockedIn
+                ? "Each party pays its own share, so nobody fronts the bill."
+                : `The rest of your share is scheduled once ${view.minPayerCount} parties commit.`}
+            </p>
+          </section>
+          <HeadcountMeter framed cells={meterCells(view)} need={view.minPayerCount} unit="parties" sub={`${view.minPayerCount} needed to book`} />
+        </>
       ) : null}
 
       {owed.filter((line) => line.kind !== "buy_in").map((line) => (
-        <section key={line.milestoneId} className="rounded-3xl border-2 border-accent bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-            {line.status === "late" ? "Late" : "Due"} {formatDay(line.dueDate)}
-          </p>
-          <div className="mt-1 flex items-baseline justify-between gap-3">
-            <h3 className="font-serif text-3xl">{line.name}</h3>
-            <p className="font-serif text-3xl">{whole(line.amountCents)}</p>
+        <section key={line.milestoneId} className="ft-panel">
+          <div className="ft-panel-h">
+            <span className="ft-lbl ink">{line.name}</span>
+            <span className={`ft-live ${line.status === "late" ? "text-bad" : ""}`}>
+              <span className={`ft-dot ${line.status === "late" ? "error" : "clay"}`} aria-hidden />
+              {line.status === "late" ? "LATE" : "DUE"} {formatDay(line.dueDate).toUpperCase()}
+            </span>
           </div>
+          <div className="p-4">
+          <p className="ft-money text-[56px]">{whole(line.amountCents)}</p>
           {line.status === "late" ? (
             <p className="mt-2 text-sm text-warn">You&apos;re late. The organizer can take your party off the trip and keep what you&apos;ve paid.</p>
           ) : null}
@@ -107,42 +202,49 @@ export default async function PayPage({
             <input type="hidden" name="userId" value={viewer?.userId} />
             <input type="hidden" name="milestoneId" value={line.milestoneId} />
             <input type="hidden" name="kind" value={line.kind} />
-            <SubmitButton>Pay {whole(line.amountCents)} (test)</SubmitButton>
+            <CommitButton label="Pay (test)" amount={whole(line.amountCents)} doneLabel={`Paid · ${whole(line.amountCents)}`} />
           </form>
+          </div>
         </section>
       ))}
 
       {viewer?.isPayer && (history.length > 0 || viewer.paidCents > 0) ? (
-        <section className="rounded-3xl border border-line bg-card p-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-serif text-xl">Your payments</h3>
-            <p className="text-sm text-muted">
+        <section className="ft-panel">
+          <div className="ft-panel-h">
+            <span className="ft-lbl ink">Your payments</span>
+            <span className="ft-mono text-[14px] text-ink-2">
               {whole(viewer.paidCents)} paid{viewer.balanceCents ? ` · ${whole(viewer.balanceCents)} to go` : ""}
-            </p>
+            </span>
           </div>
-          <ul className="mt-3 grid gap-2">
+          <div className="px-4 pb-4">
+          <ul className="mt-2 border-t border-line">
             {[...owed.filter((line) => line.kind !== "buy_in"), ...history].map((line) => (
-              <li key={line.milestoneId} className="flex items-center justify-between gap-3 text-sm">
-                <span>
+              <li key={line.milestoneId} className="ft-row last:border-b-0">
+                <span className="min-w-0">
                   {line.name}
-                  <span className="text-muted"> · {formatDay(line.dueDate)}</span>
+                  <span className="ft-meta block">
+                    <span className={`ft-mono uppercase tracking-[0.06em] ${line.status === "paid" ? "text-pine" : line.status === "forfeited" ? "text-bad" : line.status === "late" ? "text-warn" : ""}`}>
+                      {paymentStatusLabel(line.status)}
+                    </span>
+                    {" · "}
+                    {formatDay(line.dueDate)}
+                  </span>
                 </span>
-                <span className={line.status === "paid" ? "text-good" : line.status === "forfeited" ? "text-bad" : line.status === "late" ? "text-warn" : "text-muted"}>
-                  {paymentStatusLabel(line.status)} {whole(line.amountCents)}
-                </span>
+                <span className="ft-amt text-right">{money(line.amountCents)}</span>
               </li>
             ))}
           </ul>
           {viewer.refundedCents ? <p className="mt-3 text-sm text-muted">{whole(viewer.refundedCents)} came back in the test because the stay was never booked.</p> : null}
           {view.status === "buy_in_open" && viewer.status === "committed" ? (
-            <p className="mt-3 text-sm text-muted">The rest of your share is scheduled once enough parties commit.</p>
+            <p className="ft-meta mt-3">The rest of your share is scheduled once enough parties commit.</p>
           ) : null}
+          </div>
         </section>
       ) : null}
 
       {view.milestones.length > 0 ? (
-        <details className="rounded-3xl border border-line bg-card">
-          <summary className="cursor-pointer px-5 py-4 font-serif text-xl">Who has paid</summary>
+        <details className="ft-panel">
+          <summary className="ft-summary px-4 py-2 text-[17px] font-semibold">Who has paid</summary>
           <div className="px-3 pb-4">
             <PaymentGrid view={view} />
           </div>
@@ -150,8 +252,8 @@ export default async function PayPage({
       ) : null}
 
       {view.isOrganizer ? (
-        <details className="rounded-2xl border border-dashed border-line" open={!view.termsLocked && !view.cancelled && view.status !== "booked"}>
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-muted">Organizer: buy-in and late payers</summary>
+        <details className="rounded-2xl border border-dashed border-line-strong" open={!view.termsLocked && !view.cancelled && view.status !== "booked"}>
+          <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">Organizer: buy-in and late payers</summary>
           <div className="grid gap-4 px-4 pb-4">
             {!view.termsLocked && !view.cancelled && view.status !== "under_minimum" && view.status !== "booked" ? (
               <form action={openBuyInAction} className="grid gap-3">

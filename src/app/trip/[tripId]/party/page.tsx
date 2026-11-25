@@ -54,8 +54,8 @@ export default async function PartyPage({
   return (
     <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
       <div>
-        {welcome ? <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Step 1 of 2</p> : null}
-        <h2 className="font-serif text-4xl leading-none">{editingOther ? party.name : welcome ? "Who's coming with you?" : "Your party"}</h2>
+        {welcome ? <p className="ft-lbl clay">Step 1 of 2</p> : null}
+        <h2 className="ft-h1">{editingOther ? party.name : welcome ? "Who's coming with you?" : "Your party"}</h2>
         <p className="mt-2 text-sm text-muted">
           {editingOther
             ? `Paid by ${party.payerName.split(" ")[0]}.`
@@ -70,7 +70,7 @@ export default async function PartyPage({
             <Link
               key={item.payerUserId}
               href={`/trip/${view.id}/party?party=${item.payerUserId}`}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${item.payerUserId === party.payerUserId ? "bg-accent text-accent-ink" : "border border-line bg-card"}`}
+              className={`ft-chip min-h-10 !font-sans !text-[15px] ${item.payerUserId === party.payerUserId ? "on" : ""}`}
             >
               {item.name}
             </Link>
@@ -91,12 +91,12 @@ export default async function PartyPage({
               {editable ? (
                 <details>
                   <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-chip font-serif">{traveler.name.charAt(0)}</span>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-chip font-mono text-[15px] font-medium">{traveler.name.charAt(0)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{traveler.name}</span>
                       <span className="block text-xs text-muted">{meta}</span>
                     </span>
-                    <span className="text-xs font-semibold text-accent">Edit</span>
+                    <span className="text-xs font-semibold text-clay-ink">Edit</span>
                   </summary>
                   <form action={updateTravelerAction} className="grid gap-2 px-4 pb-4">
                     {hidden}
@@ -124,7 +124,7 @@ export default async function PartyPage({
                 </details>
               ) : (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-chip font-serif">{traveler.name.charAt(0)}</span>
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-chip font-mono text-[15px] font-medium">{traveler.name.charAt(0)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{traveler.name}</span>
                     <span className="block text-xs text-muted">{meta}</span>
@@ -138,7 +138,7 @@ export default async function PartyPage({
       </ul>
 
       {canEdit && !closed ? (
-        <form action={addTravelerAction} className="grid gap-2 rounded-2xl border border-dashed border-line p-4">
+        <form action={addTravelerAction} className="grid gap-2 rounded-2xl border border-dashed border-line-strong p-4">
           {hidden}
           <input type="hidden" name="partyUserId" value={party.payerUserId} />
           <p className="text-sm font-semibold">Add someone</p>
@@ -153,7 +153,7 @@ export default async function PartyPage({
             </select>
           </div>
           <details>
-            <summary className="cursor-pointer text-xs font-semibold text-muted">Any needs? (mobility, crib… only the organizer sees this)</summary>
+            <summary className="ft-summary text-[15px] font-medium text-ink-2">Any needs? (mobility, crib… only the organizer sees this)</summary>
             <Input className="mt-2" name="needsNotes" placeholder="e.g. needs a ground-floor room" aria-label="Needs" />
           </details>
           <SubmitButton variant="outline">Add to the party</SubmitButton>
@@ -169,7 +169,7 @@ export default async function PartyPage({
 
       {canEdit && !closed ? (
         <details className="rounded-2xl border border-line bg-card">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-muted">Party name and rooming preference (optional)</summary>
+          <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">Party name and rooming preference (optional)</summary>
           <form action={savePartyAction} className="grid gap-3 px-4 pb-4">
             {hidden}
             <input type="hidden" name="partyUserId" value={party.payerUserId} />

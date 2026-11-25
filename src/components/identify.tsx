@@ -24,8 +24,8 @@ export function Identify({
   return (
     <div className="fixed inset-0 z-30 flex items-end bg-black/70 p-3 md:items-center md:justify-center">
       <div className="w-full max-w-lg rounded-3xl bg-card p-4 shadow-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Who are you?</p>
-        <h2 className="mt-1 font-serif text-3xl">One tap, then you&apos;re in.</h2>
+        <p className="ft-lbl clay">Who are you?</p>
+        <h2 className="mt-1 ft-h1">One tap, then you&apos;re in.</h2>
         <p className="mt-1 text-sm text-muted">This is a mock login so the group chat link knows which share to show.</p>
         <div className="mt-4 grid gap-2">
           {members.map((member) => (

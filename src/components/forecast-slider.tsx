@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { prefersReducedMotion, springStep } from "@/lib/spring";
+import { useEffect, useRef, useState } from "react";
+import { SPRINGS, prefersReducedMotion, springStep } from "@/lib/spring";
 
 export interface ForecastRow {
   payers: number;
@@ -13,8 +13,9 @@ export interface ForecastRow {
 const dollars = (cents: number) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 
 /**
- * "What if more people commit?" Drag across party counts; the share springs to
- * each value. Snaps to whole parties on release. Arrow keys work too.
+ * "If the group changes": a money hero that springs (snappy) to the share at the
+ * chosen count, a segmented control of party counts, and a dot-grid chart with
+ * mono axes, an ink tooltip and, when the viewer saved one, a dashed BUDGET line.
  */
 export function ForecastSlider({
   rows,
@@ -22,6 +23,9 @@ export function ForecastSlider({
   nowPayers,
   bandLowDeltaCents,
   bandHighDeltaCents,
+  budgetCents = null,
+  label,
+  compact = false,
 }: {
   rows: ForecastRow[];
   startPayers: number;
@@ -29,204 +33,165 @@ export function ForecastSlider({
   nowPayers: number;
   bandLowDeltaCents: number | null;
   bandHighDeltaCents: number | null;
+  /** The viewer's own private budget, if they saved one. Never anyone else's. */
+  budgetCents?: number | null;
+  label?: string;
+  /** Leave out the money hero when the screen already has one. */
+  compact?: boolean;
 }) {
   const startIndex = Math.max(0, rows.findIndex((row) => row.payers === startPayers));
   const [index, setIndex] = useState(startIndex);
-  const [dragging, setDraggingState] = useState(false);
-  // The animation loop reads this live; React state would be stale inside it.
-  const draggingRef = useRef(false);
-  const setDragging = (value: boolean) => {
-    draggingRef.current = value;
-    setDraggingState(value);
-  };
-  const track = useRef<HTMLDivElement>(null);
-  const thumb = useRef<HTMLDivElement>(null);
   const amount = useRef<HTMLSpanElement>(null);
   const band = useRef<HTMLSpanElement>(null);
-  // Continuous position (in stops) and the displayed cents, both sprung.
-  const pos = useRef({ x: startIndex, v: 0, target: startIndex });
   const shown = useRef({ x: rows[startIndex]?.totalCents ?? 0, v: 0 });
-  const raf = useRef(0);
-  const last = useRef(0);
+  const row = rows[index] ?? rows[0];
+  const target = row?.totalCents ?? 0;
 
-  const lastIndex = rows.length - 1;
-  const valueAt = useCallback(
-    (x: number) => {
-      const lo = Math.max(0, Math.min(lastIndex, Math.floor(x)));
-      const hi = Math.min(lastIndex, lo + 1);
-      const t = Math.max(0, Math.min(1, x - lo));
-      return (rows[lo]?.totalCents ?? 0) * (1 - t) + (rows[hi]?.totalCents ?? 0) * t;
-    },
-    [rows, lastIndex],
-  );
-
-  const paint = useCallback(() => {
-    const p = lastIndex > 0 ? pos.current.x / lastIndex : 0;
-    if (thumb.current) thumb.current.style.left = `${p * 100}%`;
-    if (amount.current) amount.current.textContent = dollars(shown.current.x);
-    if (band.current && bandLowDeltaCents != null && bandHighDeltaCents != null) {
-      band.current.textContent = `${dollars(shown.current.x + bandLowDeltaCents)}–${dollars(shown.current.x + bandHighDeltaCents)} with your flight`;
-    }
-  }, [lastIndex, bandLowDeltaCents, bandHighDeltaCents]);
-
-  const run = useCallback(() => {
-    cancelAnimationFrame(raf.current);
-    last.current = performance.now();
-    const frame = (now: number) => {
-      const dt = Math.min(0.032, (now - last.current) / 1000);
-      last.current = now;
-      const p = pos.current;
-      if (!draggingRef.current) [p.x, p.v] = springStep(p.x, p.v, p.target, 220, dt);
-      const s = shown.current;
-      [s.x, s.v] = springStep(s.x, s.v, valueAt(p.x), 160, dt);
+  useEffect(() => {
+    const paint = () => {
+      if (amount.current) amount.current.textContent = dollars(shown.current.x);
+      if (band.current && bandLowDeltaCents != null && bandHighDeltaCents != null) {
+        band.current.textContent = `${dollars(shown.current.x + bandLowDeltaCents)}–${dollars(shown.current.x + bandHighDeltaCents)} with your flight`;
+      }
+    };
+    const s = shown.current;
+    if (prefersReducedMotion()) {
+      s.x = target;
       paint();
-      const settled = Math.abs(p.x - p.target) < 0.001 && Math.abs(p.v) < 0.01 && Math.abs(s.x - valueAt(p.x)) < 50 && Math.abs(s.v) < 50;
-      if (draggingRef.current || !settled) raf.current = requestAnimationFrame(frame);
+      return;
+    }
+    let raf = 0;
+    let last = 0;
+    const { k, c } = SPRINGS.snappy;
+    const frame = (now: number) => {
+      const dt = Math.min(0.032, last ? (now - last) / 1000 : 1 / 60);
+      last = now;
+      [s.x, s.v] = springStep(s.x, s.v, target, k, dt, c);
+      paint();
+      if (Math.abs(s.x - target) > 50 || Math.abs(s.v) > 50) raf = requestAnimationFrame(frame);
       else {
-        p.x = p.target;
-        s.x = valueAt(p.target);
+        s.x = target;
         paint();
       }
     };
-    raf.current = requestAnimationFrame(frame);
-  }, [paint, valueAt]);
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [target, bandLowDeltaCents, bandHighDeltaCents]);
 
-  const goTo = useCallback(
-    (i: number) => {
-      const next = Math.max(0, Math.min(lastIndex, i));
-      setIndex(next);
-      pos.current.target = next;
-      if (prefersReducedMotion()) {
-        pos.current.x = next;
-        shown.current.x = valueAt(next);
-        paint();
-      } else run();
-    },
-    [lastIndex, paint, run, valueAt],
-  );
+  if (rows.length < 2 || !row) return null;
+  const now = rows.find((item) => item.payers === nowPayers);
+  const diff = now ? row.totalCents - now.totalCents : null;
+  const widest = Math.max(...rows.map((item) => dollars(item.totalCents).length));
 
-  useEffect(() => {
-    paint();
-    return () => cancelAnimationFrame(raf.current);
-  }, [paint]);
-
-  const fromPointer = (clientX: number) => {
-    const rect = track.current?.getBoundingClientRect();
-    if (!rect || lastIndex <= 0) return 0;
-    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * lastIndex;
-  };
-
-  if (rows.length < 2) return null;
-  const row = rows[index] ?? rows[0];
-  const now = rows[rows.findIndex((item) => item.payers === nowPayers)];
-  const max = Math.max(...rows.map((item) => item.totalCents));
-  const min = Math.min(...rows.map((item) => item.totalCents));
-  const diff = now && row ? row.totalCents - now.totalCents : null;
+  // Chart geometry, in SVG user units that map 1:1 to CSS px at 350 wide.
+  const W = 350;
+  const H = 180;
+  const padX = 28;
+  const top = 36;
+  const bottom = 40;
+  const shareMax = Math.max(...rows.map((item) => item.totalCents));
+  const shareMin = Math.min(...rows.map((item) => item.totalCents));
+  // Draw the budget line only when it sits near the curve; far above, it would flatten the data.
+  const drawBudget = budgetCents != null && budgetCents <= shareMax + Math.max(shareMax - shareMin, shareMax * 0.08) * 1.5;
+  const values = rows.map((item) => item.totalCents).concat(drawBudget && budgetCents != null ? [budgetCents] : []);
+  const hi = Math.max(...values);
+  const lo = Math.min(...values);
+  const span = hi - lo || 1;
+  const x = (i: number) => padX + (i * (W - padX * 2)) / (rows.length - 1);
+  const y = (cents: number) => top + ((hi - cents) / span) * (H - top - bottom);
+  const line = rows.map((item, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(item.totalCents).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(rows.length - 1)},${H - bottom} L${x(0)},${H - bottom} Z`;
+  const overBudget = budgetCents != null ? row.totalCents - budgetCents : null;
 
   return (
-    <div className="mt-4 select-none">
-      <div className="flex items-baseline justify-between gap-3">
-        <span ref={amount} className="font-serif text-4xl tabular-nums leading-none">
-          {dollars(row?.totalCents ?? 0)}
-        </span>
-        <span className="text-right text-sm text-muted">
-          if <span className="font-semibold text-ink tabular-nums">{row?.payers}</span> parties commit
-        </span>
-      </div>
-      {bandLowDeltaCents != null && bandHighDeltaCents != null ? (
-        <span ref={band} className="mt-1 block text-sm text-accent tabular-nums" />
-      ) : null}
-
-      <div className="mt-4 flex h-14 items-end gap-1.5" aria-hidden>
-        {rows.map((item, i) => {
-          const h = max === min ? 60 : 30 + ((item.totalCents - min) / (max - min)) * 70;
-          return (
-            <button
-              key={item.payers}
-              type="button"
-              tabIndex={-1}
-              onClick={() => goTo(i)}
-              className={`flex-1 rounded-t-lg transition-colors duration-200 ${i === index ? "bg-accent" : item.expanded ? "bg-chip/60 outline-1 outline-dashed outline-line" : "bg-chip"}`}
-              style={{ height: `${h}%` }}
-            />
-          );
-        })}
-      </div>
-
-      <div
-        ref={track}
-        className="relative mt-2 h-10 touch-none"
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          setDragging(true);
-          pos.current.x = fromPointer(event.clientX);
-          pos.current.v = 0;
-          run();
-        }}
-        onPointerMove={(event) => {
-          if (!draggingRef.current) return;
-          pos.current.x = fromPointer(event.clientX);
-          const near = Math.round(pos.current.x);
-          if (near !== index) setIndex(near);
-        }}
-        onPointerUp={() => {
-          setDragging(false);
-          goTo(Math.round(pos.current.x));
-        }}
-        onPointerCancel={() => {
-          setDragging(false);
-          goTo(Math.round(pos.current.x));
-        }}
-      >
-        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-chip" />
-        {rows.map((item, i) => (
-          <span
-            key={item.payers}
-            className={`absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${item.payers === nowPayers ? "bg-good" : "bg-line"}`}
-            style={{ left: `${lastIndex > 0 ? (i / lastIndex) * 100 : 0}%` }}
-          />
-        ))}
-        <div
-          ref={thumb}
-          role="slider"
-          tabIndex={0}
-          aria-label="Parties committed"
-          aria-valuemin={rows[0]?.payers}
-          aria-valuemax={rows[lastIndex]?.payers}
-          aria-valuenow={row?.payers}
-          aria-valuetext={`${dollars(row?.totalCents ?? 0)} if ${row?.payers} parties commit`}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight" || event.key === "ArrowUp") {
-              event.preventDefault();
-              goTo(index + 1);
-            } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
-              event.preventDefault();
-              goTo(index - 1);
-            } else if (event.key === "Home") goTo(0);
-            else if (event.key === "End") goTo(lastIndex);
-          }}
-          className={`absolute top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-paper bg-accent shadow-lg transition-transform duration-150 ${dragging ? "scale-110" : ""}`}
-          style={{ left: `${lastIndex > 0 ? (startIndex / lastIndex) * 100 : 0}%` }}
-        />
-      </div>
-      <div className="mt-1 flex justify-between text-xs text-muted tabular-nums" aria-hidden>
-        {rows.map((item) => (
-          <span key={item.payers} className={item.payers === nowPayers ? "text-good" : ""}>
-            {item.payers}
-            {item.payers === nowPayers ? " · now" : ""}
+    <div className="select-none">
+      <div className={compact ? "sr-only" : "ft-glow -mx-5 px-5 py-2"} aria-live="polite">
+        {label ? <p className="ft-lbl">{label}</p> : null}
+        <p className="ft-money mt-1 text-[68px]">
+          <span ref={amount} className="inline-block" style={{ minWidth: `${widest - 0.6}ch` }}>
+            {dollars(row.totalCents)}
           </span>
+        </p>
+        {bandLowDeltaCents != null && bandHighDeltaCents != null ? (
+          <span ref={band} className="ft-mono mt-1 block text-[15px] text-clay-ink" />
+        ) : null}
+        <p className="ft-meta mt-1">
+          if <span className="ft-mono text-ink">{row.payers}</span> parties commit
+          {diff != null && diff !== 0 ? ` · ${diff < 0 ? `${dollars(-diff)} less` : `${dollars(diff)} more`} than now` : row.payers === nowPayers ? " · where things stand" : ""}
+        </p>
+      </div>
+
+      <div className={`ft-seg ${compact ? "" : "mt-5"}`} role="radiogroup" aria-label="Parties committed">
+        {rows.map((item, i) => (
+          <button
+            key={item.payers}
+            type="button"
+            role="radio"
+            aria-checked={i === index}
+            aria-label={`${item.payers} parties, ${dollars(item.totalCents)}`}
+            onClick={() => setIndex(i)}
+            className={`ft-mono !text-[16px] ${i === index ? "on" : ""} ${item.payers === nowPayers && i !== index ? "!text-clay-ink" : ""}`}
+          >
+            {item.payers}
+          </button>
         ))}
       </div>
 
-      <p className="mt-3 text-sm text-muted">
-        {row?.expanded
-          ? "Only if two parties agree to share a bed and the organizer approves."
-          : diff != null && diff !== 0
-            ? `${diff < 0 ? `${dollars(-diff)} less` : `${dollars(diff)} more`} than at ${now?.payers} parties.`
-            : now && row?.payers === now.payers
-              ? "Where things stand now."
-              : "Drag to see how your share moves as people commit."}
-      </p>
+      <div className="ft-panel ft-dotgrid relative mt-3 overflow-hidden">
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`Share by party count, from ${dollars(rows[0].totalCents)} to ${dollars(rows[rows.length - 1].totalCents)}`}>
+          <path d={area} fill="var(--lake)" opacity="0.06" />
+          {drawBudget && budgetCents != null ? (
+            <g>
+              <line x1={padX - 8} x2={W - padX + 8} y1={y(budgetCents)} y2={y(budgetCents)} stroke="var(--error)" strokeWidth="1" strokeDasharray="4 4" />
+              <text x={W - padX + 8} y={y(budgetCents) - 6} textAnchor="end" fontFamily="var(--font-mono)" fontSize="14" fill="var(--error)">
+                BUDGET
+              </text>
+            </g>
+          ) : null}
+          <path d={line} fill="none" stroke="var(--lake)" strokeWidth="1.5" strokeLinejoin="round" />
+          <line x1={x(index)} x2={x(index)} y1={y(row.totalCents)} y2={H - bottom} stroke="var(--clay)" strokeWidth="1" strokeDasharray="2 3" />
+          {rows.map((item, i) =>
+            i === index ? null : (
+              <rect key={item.payers} x={x(i) - 3.5} y={y(item.totalCents) - 3.5} width="7" height="7" fill="var(--lake)" stroke="var(--bg-surface)" strokeWidth="1" />
+            ),
+          )}
+          <circle cx={x(index)} cy={y(row.totalCents)} r="6.5" fill="var(--clay)" stroke="var(--bg-surface)" strokeWidth="2" />
+          {rows.map((item, i) => (
+            <text
+              key={item.payers}
+              x={x(i)}
+              y={H - 14}
+              textAnchor="middle"
+              fontFamily="var(--font-mono)"
+              fontSize="14"
+              fill={i === index ? "var(--ink-1)" : "var(--ink-3)"}
+            >
+              {item.payers}
+            </text>
+          ))}
+        </svg>
+        <span
+          className="ft-mono pointer-events-none absolute rounded-md bg-ink px-2.5 py-1 text-[15px] font-medium text-card shadow-[var(--shadow-2)] transition-[left,top] duration-[var(--dur-smooth)] ease-[var(--spring-smooth)]"
+          style={{
+            left: `clamp(8px, calc(${(x(index) / W) * 100}% - 40px), calc(100% - 92px))`,
+            top: `max(6px, calc(${(y(row.totalCents) / H) * 100}% - 40px))`,
+          }}
+          aria-hidden
+        >
+          {dollars(row.totalCents)}
+        </span>
+      </div>
+      {budgetCents != null && !drawBudget ? <p className="ft-meta mt-3">Under your private budget at every count.</p> : null}
+      {row.expanded ? <p className="ft-meta mt-3">Only if two parties agree to share a bed and the organizer approves.</p> : null}
+      {overBudget != null && overBudget > 0 ? (
+        <p className="mt-3 flex items-start gap-2.5 text-[15px] text-ink-2">
+          <span className="ft-dot error mt-2" aria-hidden />
+          <span>
+            At {row.payers} parties you&apos;re <span className="ft-mono font-semibold text-ink">{dollars(overBudget)}</span> over your budget. Nothing is
+            charged without asking.
+          </span>
+        </p>
+      ) : null}
     </div>
   );
 }

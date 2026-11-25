@@ -1,0 +1,74 @@
+/* Field Trip — v4 tokens: "Field Guide, instrumented"
+   v3 palette + modern grotesk/mono + precise geometry + spring motion.
+   Fonts (Google Fonts, OFL):
+   https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap */
+:root{
+  color-scheme: light;
+  /* ---------- surfaces ---------- */
+  --bg-canvas:  #FBF7F0;  /* cream */
+  --bg-surface: #FFFFFF;  /* white */
+  --bg-sunken:  #F3ECE0;  /* sand */
+  --tint-clay:  #F8E6DC; --tint-lake: #E3EDF2; --tint-pine: #E4ECE3; --tint-sun: #FBEFD3;
+  /* ---------- ink ---------- */
+  --ink-1: #1F1B16; --ink-2: #4F473D; --ink-3: #6E6558; --ink-disabled: #A69D90;
+  /* ---------- accents ---------- */
+  --clay: #B4532A;  --clay-ink: #9A4420;   /* action + "yours" */
+  --lake: #1F4E6B;  --lake-60: #79A3BC;    /* water, map, data, others */
+  --pine: #2F5D46;                         /* success, booked, fits */
+  --sun:  #E3A83A;  --sun-ink: #7A5310;    /* leader / highlight (fill only) */
+  --error:#B3261E;  --success: var(--pine); --warning: #8A5800;
+  /* ---------- lines (1px everywhere; precision) ---------- */
+  --line:        #E4DACB;  /* default 1px border / divider */
+  --line-strong: #CFC3B1;  /* card edge on cream */
+  --line-ink:    #1F1B16;  /* section rule */
+  --border-ctl:  #8C8273;  /* controls: 3.54:1 on cream */
+  --inner-glass: inset 0 0 0 1px rgba(255,255,255,.65), inset 0 1px 0 rgba(255,255,255,.9);
+  /* ---------- radii (small, precise) ---------- */
+  --r-xs: 4px;  /* chips, kbd, cells */
+  --r-sm: 8px;  /* inputs, buttons, segmented */
+  --r-md: 12px; /* cards, sheets, map frame */
+  --r-pill: 999px; /* status dots only */
+  /* ---------- 4/8 rhythm ---------- */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-12:48px; --s-16:64px;
+  --margin: 20px; /* 8-col grid, 8px gutters, 350px measure */
+  --tap: 48px; --btn-h: 52px;
+  /* ---------- elevation (warm, crisp) ---------- */
+  --shadow-1: 0 0 0 1px rgba(74,44,20,.06), 0 1px 2px rgba(74,44,20,.06);
+  --shadow-2: 0 0 0 1px rgba(120,58,24,.08), 0 4px 12px -2px rgba(120,58,24,.16), 0 1px 2px rgba(74,44,20,.08);
+  --shadow-3: 0 0 0 1px rgba(74,44,20,.08), 0 16px 36px -8px rgba(120,58,24,.26), 0 4px 10px -4px rgba(74,44,20,.12);
+  --ring-focus: 0 0 0 2px #FBF7F0, 0 0 0 4px #1F4E6B;
+  /* ---------- surface effects ---------- */
+  --glass: rgba(251,247,240,.72);
+  --glass-white: rgba(255,255,255,.74);
+  --glass-blur: saturate(1.5) blur(16px);
+  --glass-solid: #FBF7F0;
+  --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .2  0 0 0 0 .1  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --dot-grid: radial-gradient(rgba(31,27,22,.10) 1px, transparent 1.2px) 0 0/16px 16px;
+  --glow-clay: radial-gradient(60% 70% at 30% 55%, rgba(180,83,42,.16), rgba(180,83,42,0) 70%);
+  --glow-lake: radial-gradient(60% 70% at 50% 50%, rgba(31,78,107,.12), rgba(31,78,107,0) 70%);
+  --scrim: rgba(31,27,22,.32); --select-wash: rgba(180,83,42,.08);
+  /* ---------- type ---------- */
+  --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif; /* display moments only */
+  --font-ui:      "Geist", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --num: tabular-nums lining-nums;   /* all money */
+  --t-display: 56px; --lh-display: .96; --tr-display: -.025em;
+  --t-h1: 40px; --lh-h1: 1.0; --t-h2: 26px; --lh-h2: 1.1;
+  --t-money-xl: 88px; --t-num: 32px;
+  --t-lead: 18px; --lh-lead: 1.5; --t-body: 16px; --lh-body: 1.5; /* Geist runs large; 16 ≈ 17 Public Sans */
+  --t-ui: 15px; --t-meta: 14px; --t-mono: 14px; /* minimum for content */
+  --tr-mono: .02em; --tr-label: .06em;
+  /* ---------- motion: springs (k=stiffness, c=damping, m=1) as CSS linear() ---------- */
+  --spring-snappy: linear(0, 0.045, 0.144, 0.268, 0.382, 0.507, 0.621, 0.718, 0.789, 0.855, 0.906, 0.944, 0.969, 0.989, 1.001, 1.009, 1.013, 1.015, 1.015, 1.014, 1.012, 1.01, 1.008, 1.006, 1.005, 1.004, 1.003, 1.002, 1.001, 1.001, 1.0, 1.0, 1);  /* k520 c36 ≈ 413ms, 1.5% overshoot — lifts, selects, cells */
+  --spring-smooth: linear(0, 0.046, 0.135, 0.241, 0.36, 0.463, 0.555, 0.635, 0.709, 0.765, 0.812, 0.85, 0.883, 0.907, 0.927, 0.943, 0.956, 0.966, 0.973, 0.979, 0.984, 0.988, 0.99, 0.993, 0.994, 0.996, 0.997, 0.997, 0.998, 0.998, 0.999, 0.999, 1);  /* k260 c32 ≈ 600ms, no overshoot — layout, sheets, page */
+  --spring-micro:  linear(0, 0.058, 0.159, 0.278, 0.399, 0.512, 0.613, 0.7, 0.772, 0.83, 0.876, 0.912, 0.939, 0.959, 0.973, 0.984, 0.991, 0.997, 0.999, 1.001, 1.002, 1.002, 1.002, 1.002, 1.002, 1.002, 1.001, 1.001, 1.001, 1.001, 1.001, 1.0, 1);  /* k900 c52 ≈ 323ms — press/release, toggles */
+  --dur-snappy: 413ms; --dur-smooth: 600ms; --dur-micro: 323ms;
+  --ease-out: cubic-bezier(.22,1,.36,1);   /* color/opacity fades */
+  --dur-fade: 160ms; --dur-tick: 420ms; --dur-moment: 900ms;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: var(--glass-solid); --glass-white: #fff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-snappy: 0ms; --dur-smooth: 0ms; --dur-micro: 0ms; --dur-fade: 0ms; --dur-tick: 0ms; --dur-moment: 0ms; }
+}

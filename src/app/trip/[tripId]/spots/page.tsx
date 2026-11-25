@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { claimRoomAction, claimSpotAction, coSleepAction, optInShareAction, releaseSpotAction, requestSpotAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
-import { CommitCelebration } from "@/components/confetti";
+import { FloorPlan, type BedState, type PlanRoom } from "@/components/floor-plan";
+import { HeadcountMeter, Toast } from "@/components/motion";
+import { meterCells } from "@/lib/meter";
 import { fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { bedLabel, splitModeLabel } from "@/lib/labels";
@@ -10,7 +12,7 @@ import { listSpotRequests, type SpotRecord } from "@/lib/store";
 import { loadTripView, type TripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
 
-type Room = { name: string; spots: SpotRecord[] };
+type Room = { name: string; spots: SpotRecord[]; code: string };
 
 /** S14. Parties claim a whole room or a single bed, in buy-in order. Never assigned by gender. */
 export default async function RoomsPage({
@@ -39,7 +41,7 @@ export default async function RoomsPage({
     const key = spot.roomName ?? spot.id;
     const room = rooms.find((item) => item.name === key);
     if (room) room.spots.push(spot);
-    else rooms.push({ name: key, spots: [spot] });
+    else rooms.push({ name: key, spots: [spot], code: String(rooms.length + 1).padStart(2, "0") });
   }
   const occupants = (room: Room) => [...new Set(room.spots.flatMap((spot) => holders(spot.id)))];
   const price = (room: Room) => room.spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0);
@@ -53,46 +55,101 @@ export default async function RoomsPage({
   rooms.sort((a, b) => rank(a) - rank(b) || price(b) - price(a));
 
   const myBeds = view.spots.filter((spot) => holders(spot.id).includes(myParty ?? ""));
-  const requests = myParty ? (await listSpotRequests(tripId)).filter((request) => request.status === "pending" && request.counterpartUserId === myParty) : [];
+  const pending = myParty ? (await listSpotRequests(tripId)).filter((request) => request.status === "pending") : [];
+  const requests = pending.filter((request) => request.counterpartUserId === myParty);
+  const asked = new Set(pending.filter((request) => request.requesterUserId === myParty).map((request) => request.toSpotId));
+  const initials = (id: string) => {
+    const name = view.parties.find((item) => item.payerUserId === id)?.name ?? "";
+    return name.replace(/^The\s+/i, "").charAt(0).toUpperCase();
+  };
+  const plan: PlanRoom[] = [...rooms]
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((room) => ({
+      code: room.code,
+      name: room.name,
+      anchor: `room-${room.code}`,
+      groundFloor: room.spots.some((spot) => spot.groundFloor),
+      stepFree: room.spots.some((spot) => spot.noStairs),
+      beds: room.spots.map((spot) => {
+        const who = holders(spot.id);
+        const state: BedState = who.includes(myParty ?? "")
+          ? "mine"
+          : asked.has(spot.id)
+            ? "requested"
+            : who.length
+              ? "taken"
+              : spot.reservedForHonoree || (spot.reservedForUserId && spot.reservedForUserId !== myParty)
+                ? "held"
+                : "open";
+        return { id: spot.id, bedType: spot.bedType ?? "", state, label: who.map(initials).join("+") };
+      }),
+    }));
+
+  const whole = (cents: number) => money(cents).replace(/\.\d\d$/, "");
 
   return (
-    <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
-      <div>
-        <h2 className="font-serif text-4xl leading-none">Rooms</h2>
-        <p className="mt-2 text-sm text-muted">
+    <div className="grid grid-cols-1 gap-7 [&>*]:min-w-0">
+      {committed && isCommitted ? (
+        <>
+          <Toast
+            delayMs={120 + 70 + 560}
+            title="You're in."
+            body={`${whole(view.buyInAmountCents)} test buy-in recorded. ${myBeds.length === 0 ? "Now pick where you sleep." : "Your bed is saved."}`}
+          />
+          <HeadcountMeter
+            framed
+            commit
+            cells={meterCells(view, { youPending: true })}
+            need={view.minPayerCount}
+            unit="parties"
+            sub={view.payerCount >= view.minPayerCount ? "Enough to book" : `${view.minPayerCount} needed to book`}
+          />
+        </>
+      ) : null}
+
+      <section>
+        {party ? (
+          <p className="ft-lbl">
+            {party.name} · {party.travelers.length} {party.travelers.length === 1 ? "person" : "people"}
+          </p>
+        ) : null}
+        <h1 className="ft-display mt-3">
+          Choose your
+          <br />
+          <i>{many ? "beds." : "bed."}</i>
+        </h1>
+        <p className="ft-lead mt-4">
           {canPick
-            ? `Pick where ${many ? "your party sleeps" : "you sleep"}. Earlier commits pick first.`
+            ? `Earlier commits pick first.`
             : viewer?.role === "honoree"
               ? "Your room is reserved."
               : "Commit first, then pick. Parties choose in the order they bought in."}{" "}
-          {view.spotPrices ? "Nicer rooms cost more; prices update as people pick." : `Every room costs the same here (${splitModeLabel(view.splitMode).toLowerCase()}).`}
+          {view.spotPrices ? "Prices follow the bed: a private bath costs more, a couch less." : `Every room costs the same here (${splitModeLabel(view.splitMode).toLowerCase()}).`}
         </p>
-      </div>
-      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+      </section>
+      {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
 
-      {committed && isCommitted ? (
-        <CommitCelebration>
-        <section className="rounded-3xl border-2 border-good/50 bg-good-soft p-5 text-center">
-          <p className="font-serif text-4xl text-good">You&apos;re in.</p>
-          <p className="mt-2 text-sm text-good">
-            {view.payerCount >= view.minPayerCount
-              ? `${view.payerCount} parties committed — enough to book.`
-              : `Party ${view.payerCount} of the ${view.minPayerCount} needed to book.`}{" "}
-            Test payment only; no card charged.
-          </p>
-          <p className="mt-3 text-sm text-ink">{myBeds.length === 0 ? "Now pick where you sleep." : "Your bed is saved below."}</p>
+      {plan.length > 0 ? (
+        <section>
+          <div className="mb-3 flex justify-end">
+            <span className="ft-live">
+              <span className="ft-dot" aria-hidden />
+              Live
+            </span>
+          </div>
+          <FloorPlan rooms={plan} />
         </section>
-        </CommitCelebration>
       ) : null}
 
       {!canPick && viewer && viewer.role !== "honoree" && party?.status === "joined" && viewer.isPayer ? (
-        <Link href={`/trip/${view.id}/pay`} className="flex h-12 items-center justify-center rounded-2xl bg-accent font-semibold text-accent-ink">
-          Commit to pick a room
+        <Link href={`/trip/${view.id}/pay`} className="ft-btn">
+          <span>Commit to pick a room</span>
+          <span aria-hidden>→</span>
         </Link>
       ) : null}
 
       {requests.map((request) => (
-        <section key={request.id} className="rounded-3xl border-2 border-accent bg-card p-5">
+        <section key={request.id} className="ft-panel ring-1 ring-clay p-5">
           <p className="font-semibold">{partyName(request.requesterUserId)} asked to share a bed with you.</p>
           <p className="mt-1 text-sm text-muted">
             {request.counterpartOptedIn ? "You said yes. The organizer decides next." : "Nothing changes unless you say yes and the organizer approves."}
@@ -108,7 +165,7 @@ export default async function RoomsPage({
         </section>
       ))}
 
-      <ul className="grid gap-3">
+      <ul className="ft-rule">
         {rooms.map((room) => (
           <RoomCard
             key={room.name}
@@ -125,8 +182,8 @@ export default async function RoomsPage({
       </ul>
 
       {canPick && party && myBeds.length > 0 && many ? (
-        <details className="rounded-3xl border border-line bg-card">
-          <summary className="cursor-pointer px-5 py-4 font-serif text-xl">Kids sharing your bed?</summary>
+        <details className="ft-panel">
+          <summary className="ft-summary px-4 py-2 text-[17px] font-semibold">Kids sharing your bed?</summary>
           <div className="px-5 pb-5">
             <p className="text-sm text-muted">
               Someone in your party can share a bed you already have, at $0 extra. If that frees a bed, release it to lower your share. Infants in a crib
@@ -235,21 +292,25 @@ function RoomCard({
   const muted = honoree || heldForOther || (!vacant && !mine && !share);
 
   return (
-    <li className={`rounded-3xl border p-4 ${mine ? "border-2 border-accent bg-card" : "border-line bg-card"} ${muted ? "opacity-70" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
+    <li id={`room-${room.code}`} className={`scroll-mt-20 border-b border-line py-4 ${muted ? "text-ink-2" : ""}`}>
+      <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-baseline gap-x-3">
+        <span className={`ft-mono text-[15px] ${mine ? "text-clay-ink" : "text-muted"}`}>{room.code}</span>
         <div className="min-w-0">
-          <h3 className="font-serif text-2xl leading-tight">{room.name}</h3>
-          <p className="text-sm text-muted">{features.join(" · ")}</p>
+          <h3 className="flex items-center gap-2 text-[18px] font-semibold leading-snug">
+            <span className={`inline-block size-3 flex-none rounded-[3px] border ${mine ? "border-clay bg-clay-tint" : muted ? "border-line-strong bg-chip" : "border-ink-2 bg-card"}`} aria-hidden />
+            {room.name}
+          </h3>
+          <p className="ft-meta">{features.join(" · ")}</p>
+          <p className={`mt-1 font-mono text-[14px] uppercase tracking-[0.06em] ${mine ? "text-clay-ink" : vacant && !honoree && !heldForOther ? "text-pine" : "text-muted"}`}>{status}</p>
         </div>
         {shown != null && !honoree ? (
-          <p className="shrink-0 text-right">
-            <span className="block font-serif text-2xl">{money(shown).replace(/\.\d\d$/, "")}</span>
-            <span className="text-xs text-muted">{share ? "if shared" : room.spots.length > 1 ? "whole room" : "this bed"}</span>
+          <p className="text-right">
+            <span className={`ft-mono block text-[18px] font-semibold ${mine ? "text-clay-ink" : ""}`}>{money(shown).replace(/\.\d\d$/, "")}</span>
+            <span className="ft-meta">{share ? "if shared" : room.spots.length > 1 ? "room" : "bed"}</span>
           </p>
         ) : null}
       </div>
-      <p className={`mt-2 text-sm font-semibold ${mine ? "text-accent" : vacant && !honoree && !heldForOther ? "text-good" : "text-muted"}`}>{status}</p>
-
+      <div className="pl-[52px]">
       {canPick && !honoree && !heldForOther ? (
         <div className="mt-3 grid gap-2">
           {vacant && room.spots.length > 1 ? (
@@ -261,7 +322,7 @@ function RoomCard({
               </form>
               {!many ? (
                 <details>
-                  <summary className="cursor-pointer text-sm font-semibold text-muted">Or just one bed</summary>
+                  <summary className="ft-summary text-[15px] font-medium text-ink-2">Or just one bed</summary>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {room.spots.map((spot) => (
                       <form key={spot.id} action={claimSpotAction}>
@@ -317,7 +378,7 @@ function RoomCard({
           ) : null}
           {mine && view.status !== "booked" ? (
             <details>
-              <summary className="cursor-pointer text-sm font-semibold text-muted">Change</summary>
+              <summary className="ft-summary text-[15px] font-medium text-ink-2">Change</summary>
               <ul className="mt-2 grid gap-2">
                 {room.spots
                   .filter((spot) => holders(spot.id).includes(myParty ?? ""))
@@ -339,6 +400,7 @@ function RoomCard({
           ) : null}
         </div>
       ) : null}
+      </div>
     </li>
   );
 }

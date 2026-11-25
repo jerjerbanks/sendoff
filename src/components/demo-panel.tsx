@@ -28,9 +28,9 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
     (view.status === "buy_in_open" || view.status === "booking_ready") &&
     view.parties.some((party) => party.status === "joined" || party.status === "invited");
   return (
-    <div className="sticky top-0 z-30 -mx-4 border-b border-accent/40 bg-[#1b1611]/95 px-4 py-3 backdrop-blur">
+    <div className="sticky top-0 z-30 border-b border-line-strong bg-chip px-5 py-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+        <p className="ft-lbl clay">
           Demo{step ? ` · Step ${step.n} of ${total}` : ""}
         </p>
         <Link href="/" className="text-xs font-semibold text-muted">
@@ -39,20 +39,20 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
       </div>
       {step ? (
         <>
-          <p className="mt-1 font-serif text-xl leading-tight">
+          <p className="mt-1 ft-h2 leading-tight">
             You&apos;re {who}. <span className="text-ink/90">{step.goal}</span>
           </p>
           <p className="mt-1 text-sm text-muted">{step.why}</p>
           <div className="mt-3 flex items-center gap-2">
             {step.n > 1 ? (
-              <a href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold">
+              <a href={`/demo/${step.n - 1}`} className="inline-flex h-10 items-center rounded-sm border border-line px-4 text-sm font-semibold">
                 Back
               </a>
             ) : null}
             {step.n === 5 && deadlinePending ? (
               <form action={simulateDeadlineAction}>
                 <input type="hidden" name="tripId" value={tripId} />
-                <button type="submit" className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+                <button type="submit" className="inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
                   Run the deadline
                 </button>
               </form>
@@ -60,12 +60,12 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
             {step.n < total ? (
               <a
                 href={`/demo/${step.n + 1}`}
-                className={`ml-auto inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold ${step.n === 5 && deadlinePending ? "border border-line" : "bg-accent text-accent-ink"}`}
+                className={`ml-auto inline-flex h-10 items-center rounded-sm px-4 text-sm font-semibold ${step.n === 5 && deadlinePending ? "border border-line" : "bg-accent text-accent-ink"}`}
               >
                 Next step →
               </a>
             ) : (
-              <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+              <Link href="/#start" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
                 Start your own trip →
               </Link>
             )}
@@ -75,7 +75,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-          <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink">
+          <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
             Start the tour
           </a>
         </div>
@@ -89,7 +89,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
 function DemoControls({ view }: { view: TripView }) {
   return (
     <details className="mt-2">
-      <summary className="cursor-pointer text-xs font-semibold text-muted">Demo controls · viewing as {view.viewer?.name.split(" ")[0] ?? "nobody"}</summary>
+      <summary className="ft-summary text-[15px] font-medium text-ink-2">Demo controls · viewing as {view.viewer?.name.split(" ")[0] ?? "nobody"}</summary>
       <div className="mt-2 grid gap-3 rounded-2xl border border-line bg-card p-3">
         <div className="grid gap-1">
           {view.parties.map((party) =>
@@ -104,35 +104,35 @@ function DemoControls({ view }: { view: TripView }) {
                       {member.name}
                       <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
                     </span>
-                    {member.userId === view.viewer?.userId ? <span className="text-xs text-accent">You</span> : null}
+                    {member.userId === view.viewer?.userId ? <span className="text-xs text-clay-ink">You</span> : null}
                   </button>
                 </form>
               )),
           )}
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Clock · {view.simulated ? formatWhen(view.now) : "real time"}</p>
+          <p className="ft-lbl">Clock · {view.simulated ? formatWhen(view.now) : "real time"}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <form action={simulateDeadlineAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full bg-ink px-3 text-xs font-semibold text-card" type="submit">
+              <button className="min-h-9 rounded-sm bg-ink px-3 text-xs font-semibold text-card" type="submit">
                 Run the deadline
               </button>
             </form>
             <form action={jumpSecondAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">
+              <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
                 Skip past a payment
               </button>
             </form>
             <form action={resetClockAction}>
               <input type="hidden" name="tripId" value={view.id} />
-              <button className="min-h-9 rounded-full border border-line px-3 text-xs font-semibold" type="submit">
+              <button className="min-h-9 rounded-sm border border-line px-3 text-xs font-semibold" type="submit">
                 Real time
               </button>
             </form>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-            <a href="/demo/1" className="inline-flex min-h-9 items-center rounded-full border border-line px-3 text-xs font-semibold">
+            <a href="/demo/1" className="inline-flex min-h-9 items-center rounded-sm border border-line px-3 text-xs font-semibold">
               Restart the tour
             </a>
           </div>

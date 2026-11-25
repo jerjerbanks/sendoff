@@ -1,0 +1,186 @@
+/**
+ * A schematic floor plan drawn from the trip's rooms and beds, in the v4 blueprint
+ * style: 8px lake grid, 2px exterior walls, 1px interior walls, dashed door arcs,
+ * numbered mono room tags, beds with pillows and a 14px initial label.
+ *
+ * It is a diagram of what's in each room, not the house's real layout: rooms are
+ * packed two to a row in the order the organizer listed them.
+ */
+
+export type BedState = "open" | "mine" | "taken" | "requested" | "held";
+
+export interface PlanBed {
+  id: string;
+  bedType: string;
+  state: BedState;
+  /** Short label inside the bed: initials of who holds it, or blank. */
+  label: string;
+}
+
+export interface PlanRoom {
+  code: string;
+  name: string;
+  anchor: string;
+  beds: PlanBed[];
+  groundFloor: boolean;
+  stepFree: boolean;
+}
+
+const W = 350;
+const ROW = 132;
+const PAD = 1;
+
+const bedSize: Record<string, [number, number, number]> = {
+  // width, height, pillows
+  king: [70, 54, 2],
+  queen: [60, 50, 2],
+  full: [52, 48, 2],
+  twin: [32, 50, 1],
+  bunk: [32, 50, 1],
+  sofa_bed: [60, 30, 0],
+  couch: [64, 26, 0],
+  air_mattress: [46, 34, 1],
+};
+
+/** "Family bedroom" → FAMILY, "Ground-floor suite" → SUITE, "Bedroom 2" → BEDROOM 2. */
+function tag(name: string): string {
+  const words = name.split(/\s+/).filter((word) => !/^(bed)?room$/i.test(word));
+  const pick = words.length && !/^\d+$/.test(words[words.length - 1] ?? "") ? words[words.length - 1] : name;
+  return (pick ?? name).toUpperCase();
+}
+
+function Bed({ bed, x, y }: { bed: PlanBed; x: number; y: number }) {
+  const [w, h, pillows] = bedSize[bed.bedType] ?? [40, 44, 1];
+  const fill =
+    bed.state === "mine" ? "var(--tint-clay)" : bed.state === "taken" || bed.state === "held" ? "var(--bg-sunken)" : "var(--bg-surface)";
+  const stroke =
+    bed.state === "mine" || bed.state === "requested" ? "var(--clay)" : bed.state === "taken" || bed.state === "held" ? "var(--line-strong)" : "var(--ink-2)";
+  const text = bed.state === "mine" ? "var(--clay-ink)" : bed.state === "taken" || bed.state === "held" ? "var(--ink-3)" : "var(--ink-2)";
+  const lift = bed.state === "mine" ? -2 : 0;
+  const pw = pillows === 2 ? (w - 14) / 2 : w - 10;
+  return (
+    <g transform={`translate(${x}, ${y + lift})`} filter={bed.state === "mine" ? "url(#ft-lift)" : undefined}>
+      <rect width={w} height={h} rx="3" fill={fill} stroke={stroke} strokeWidth="1.25" strokeDasharray={bed.state === "requested" ? "4 3" : undefined} />
+      {Array.from({ length: pillows }, (_, i) => (
+        <rect key={i} x={5 + i * (pw + 4)} y="5" width={pw} height="8" rx="2" fill="var(--bg-surface)" stroke={stroke} strokeWidth="1" />
+      ))}
+      {bed.label ? (
+        <text x={w / 2} y={pillows ? h / 2 + 10 : h / 2 + 5} textAnchor="middle" fontFamily="var(--font-ui)" fontSize="14" fontWeight="600" fill={text}>
+          {bed.label}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function Level({ title, rooms }: { title: string; rooms: PlanRoom[] }) {
+  const rows = Math.ceil(rooms.length / 2);
+  const H = rows * ROW;
+  const id = title.replace(/\W/g, "");
+  return (
+    <figure>
+      <figcaption className="ft-lbl ink mb-2">{title}</figcaption>
+      <svg viewBox={`0 0 ${W} ${H + 2}`} className="block w-full" role="img" aria-label={`${title}: ${rooms.map((room) => `${room.code} ${room.name}`).join(", ")}`}>
+        <defs>
+          <pattern id={`ft-grid-${id}`} width="8" height="8" patternUnits="userSpaceOnUse">
+            <path d="M8 0H0V8" fill="none" stroke="var(--lake)" strokeOpacity="0.07" strokeWidth="1" />
+          </pattern>
+          <filter id="ft-lift" x="-20%" y="-20%" width="140%" height="160%">
+            <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="rgb(120,58,24)" floodOpacity="0.22" />
+          </filter>
+        </defs>
+        <rect x={PAD} y={PAD} width={W - PAD * 2} height={H} fill="var(--bg-surface)" />
+        <rect x={PAD} y={PAD} width={W - PAD * 2} height={H} fill={`url(#ft-grid-${id})`} />
+        {rooms.map((room, i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const alone = i === rooms.length - 1 && rooms.length % 2 === 1;
+          const rw = alone ? W - PAD * 2 : (W - PAD * 2) / 2;
+          const rx = PAD + col * rw;
+          const ry = PAD + row * ROW;
+          // Beds sit on a baseline, centred as a group.
+          const sizes = room.beds.map((bed) => bedSize[bed.bedType] ?? [40, 44, 1]);
+          const gap = 10;
+          const total = sizes.reduce((sum, [w]) => sum + w, 0) + gap * Math.max(0, sizes.length - 1);
+          const scale = total > rw - 24 ? (rw - 24) / total : 1;
+          let cursor = rx + (rw - total * scale) / 2;
+          return (
+            <a key={room.code} href={`#${room.anchor}`} aria-label={`${room.code} ${room.name}`}>
+              {/* interior walls: 1px */}
+              {col === 1 ? <line x1={rx} x2={rx} y1={ry} y2={ry + ROW} stroke="var(--ink-1)" strokeWidth="1" /> : null}
+              {row > 0 ? <line x1={rx} x2={rx + rw} y1={ry} y2={ry} stroke="var(--ink-1)" strokeWidth="1" /> : null}
+              {/* door: a gap in the wall with a dashed swing arc */}
+              {row > 0 ? (
+                <g>
+                  <line x1={rx + 18} x2={rx + 46} y1={ry} y2={ry} stroke="var(--bg-surface)" strokeWidth="3" />
+                  <path d={`M${rx + 18},${ry} A28,28 0 0 1 ${rx + 46},${ry + 28}`} fill="none" stroke="var(--ink-3)" strokeWidth="1" strokeDasharray="2 3" />
+                </g>
+              ) : null}
+              <text x={rx + 12} y={ry + 24} fontFamily="var(--font-mono)" fontSize="14" fontWeight="500" letterSpacing="0.84">
+                <tspan fill="var(--clay-ink)">{room.code}</tspan>
+                <tspan fill="var(--ink-1)" dx="7">
+                  {tag(room.name).slice(0, alone ? 18 : 10)}
+                </tspan>
+              </text>
+              <g transform={`translate(0, ${ry + 44}) scale(1)`}>
+                {room.beds.map((bed, b) => {
+                  const [w] = sizes[b] ?? [40];
+                  const x = cursor;
+                  cursor += (w + gap) * scale;
+                  return (
+                    <g key={bed.id} transform={`translate(${x}, 0) scale(${scale})`}>
+                      <Bed bed={bed} x={0} y={0} />
+                    </g>
+                  );
+                })}
+              </g>
+            </a>
+          );
+        })}
+        {/* exterior walls: 2px */}
+        <rect x={PAD} y={PAD} width={W - PAD * 2} height={H} fill="none" stroke="var(--ink-1)" strokeWidth="2" />
+      </svg>
+    </figure>
+  );
+}
+
+export function FloorPlan({ rooms }: { rooms: PlanRoom[] }) {
+  const ground = rooms.filter((room) => room.groundFloor);
+  const up = rooms.filter((room) => !room.groundFloor);
+  const split = ground.length > 0 && up.length > 0;
+  const stepFree = rooms.some((room) => room.stepFree);
+  return (
+    <div className="grid gap-6">
+      {split ? (
+        <>
+          <Level title="Level 2 · Upstairs" rooms={up} />
+          <Level title="Level 1 · Ground" rooms={ground} />
+        </>
+      ) : (
+        <Level title="The house" rooms={rooms} />
+      )}
+      {stepFree ? (
+        <p className="ft-lbl ink -mt-3 flex items-center gap-2">
+          <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden>
+            <path d="M7 15V2M2 7l5-5 5 5" fill="none" stroke="var(--clay)" strokeWidth="1.5" />
+          </svg>
+          Step-free entry
+        </p>
+      ) : null}
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-ink-2" aria-label="Key">
+        <li className="flex items-center gap-1.5">
+          <i className="ft-key border border-ink-2 bg-card" aria-hidden /> Open
+        </li>
+        <li className="flex items-center gap-1.5">
+          <i className="ft-key border border-clay bg-clay-tint" aria-hidden /> Yours
+        </li>
+        <li className="flex items-center gap-1.5">
+          <i className="ft-key border border-line-strong bg-chip" aria-hidden /> Taken
+        </li>
+        <li className="flex items-center gap-1.5">
+          <i className="ft-key border border-dashed border-clay bg-card" aria-hidden /> Requested
+        </li>
+      </ul>
+    </div>
+  );
+}

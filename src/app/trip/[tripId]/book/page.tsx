@@ -22,7 +22,7 @@ export default async function BookPage({
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="font-serif text-3xl">Book the stay</h2>
+        <h2 className="ft-h1">Book the stay</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
           This is a stub. It records a confirmation number and the actual lodging total. Shares rebase immediately. Buy-ins are refundable until you book, and forfeited after.
         </p>
@@ -51,7 +51,7 @@ export default async function BookPage({
       ) : null}
       <p className="text-sm text-muted">Booking closes buy-in and drops anyone who has not committed.</p>
       {view.isOrganizer && view.status === "booking_ready" ? (
-        <form action={bookStayAction} className="grid gap-3 rounded-3xl border border-line bg-card p-4">
+        <form action={bookStayAction} className="grid gap-3 ft-panel p-4">
           <input type="hidden" name="tripId" value={view.id} />
           <input type="hidden" name="userId" value={view.viewer?.userId} />
           <label className="text-sm font-medium">

@@ -1,5 +1,8 @@
 import { addCostAction, deleteCostAction, travelerOptAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { ForecastSlider } from "@/components/forecast-slider";
+import { forecastFor } from "@/lib/forecast";
+import { ownBudget } from "@/lib/store";
 import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandLabel, categoryLabel, splitModeLabel } from "@/lib/labels";
@@ -37,44 +40,133 @@ export default async function CostsPage({
           ? `${cost.memberName?.split(" ")[0] ?? "one party"} only`
           : `${cost.optInTravelerIds.length} going`;
 
+  const budget = viewer?.isPayer ? await ownBudget(tripId, viewer.userId) : null;
+  const forecast = forecastFor(view);
+  const fits = budget && bill ? bill.totalCents <= budget.maxAllIn : null;
+  const cents = (value: number) => (value / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const preview = view.currentShareCents == null && view.ifYouCommitCents != null;
+
   return (
-    <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
-      <div>
-        <h2 className="font-serif text-4xl leading-none">Costs</h2>
-        <p className="mt-2 text-sm text-muted">What the trip costs, and {many ? "your party's" : "your"} share of it.</p>
-      </div>
-      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+    <div className="grid grid-cols-1 gap-9 [&>*]:min-w-0">
+      {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
 
       {bill ? (
-        <section className="rounded-3xl border border-line bg-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{many ? `The ${party?.name} party's share` : "Your share"}</p>
-          <p className="mt-1 font-serif text-5xl leading-none">{whole(bill.totalCents)}</p>
-          <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 text-sm">
-            <dt className="text-muted">Lodging{party?.rooms.length ? ` · ${party.rooms.join(", ")}` : ""}</dt>
-            <dd>{money(bill.lodgingCents)}</dd>
-            <dt className="text-muted">Food and shared activities{many ? ` · ${party?.ageWeight} shares` : ""}</dt>
-            <dd>{money(bill.evenCents)}</dd>
-            {bill.optionalCents + bill.ticketCents > 0 ? (
-              <>
-                <dt className="text-muted">Extras you&apos;re in for</dt>
-                <dd>{money(bill.optionalCents + bill.ticketCents)}</dd>
-              </>
-            ) : null}
-            {bill.individualCents > 0 ? (
-              <>
-                <dt className="text-muted">Just {many ? "your party" : "you"} (flights)</dt>
-                <dd>{money(bill.individualCents)}</dd>
-              </>
-            ) : null}
-          </dl>
-          {view.buyInAmountCents > 0 ? <p className="mt-4 text-sm text-muted">The {whole(view.buyInAmountCents)} buy-in is your first payment toward this.</p> : null}
-          {view.honoreeExcluded ? <p className="mt-1 text-sm text-muted">The group covers the guest of honor.</p> : null}
+        <section>
+          <p className="ft-lbl">
+            {party?.name} · {party?.travelers.length} {party?.travelers.length === 1 ? "person" : "people"} · if {view.payerCount} {view.payerCount === 1 ? "party goes" : "parties go"}
+          </p>
+          <div className="ft-glow -mx-5 mt-1 px-5 py-1">
+            <p className="ft-money text-[76px]">{whole(bill.totalCents)}</p>
+          </div>
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            {fits != null ? (
+              <span className={`ft-chip ${fits ? "pine" : "bad"}`}>
+                <span className={`ft-dot ${fits ? "" : "error"}`} aria-hidden />
+                {fits ? "Fits budget" : "Over budget"}
+              </span>
+            ) : (
+              <span className={`ft-chip ${view.payerCount >= view.minPayerCount ? "pine" : "warn"}`}>
+                <span className={`ft-dot ${view.payerCount >= view.minPayerCount ? "" : "clay"}`} aria-hidden />
+                {view.lockedIn ? "Final" : view.payerCount >= view.minPayerCount ? "Official" : "Estimate"}
+              </span>
+            )}
+            <span className="ft-meta">{fits != null ? "Only you see your budget" : preview ? "If you commit now" : `What ${many ? "your party pays" : "you pay"} in all`}</span>
+          </p>
+
+          <div className="ft-panel mt-6">
+            <div className="ft-panel-h">
+              <span className="ft-lbl ink">Breakdown</span>
+              <span className="ft-lbl">USD</span>
+            </div>
+            <dl className="px-4">
+              <div className="ft-row">
+                <dt className="min-w-0">
+                  Lodging{party?.rooms.length ? <span className="ft-meta"> · {party.rooms.join(", ").toLowerCase()}</span> : null}
+                </dt>
+                <dd className="ft-amt text-right">{cents(bill.lodgingCents)}</dd>
+              </div>
+              <div className="ft-row">
+                <dt className="min-w-0">
+                  Food + activities{many ? <span className="ft-meta"> · {party?.ageWeight} shares</span> : null}
+                </dt>
+                <dd className="ft-amt text-right">{cents(bill.evenCents)}</dd>
+              </div>
+              {bill.optionalCents + bill.ticketCents > 0 ? (
+                <div className="ft-row">
+                  <dt>
+                    Extras<span className="ft-meta"> · you opted in</span>
+                  </dt>
+                  <dd className="ft-amt text-right">{cents(bill.optionalCents + bill.ticketCents)}</dd>
+                </div>
+              ) : null}
+              {bill.individualCents > 0 ? (
+                <div className="ft-row">
+                  <dt>
+                    Just {many ? "your party" : "you"}
+                    <span className="ft-meta"> · flights</span>
+                  </dt>
+                  <dd className="ft-amt text-right">{cents(bill.individualCents)}</dd>
+                </div>
+              ) : null}
+              <div className="ft-row border-b-0">
+                <dt className="font-semibold">Total</dt>
+                <dd className="ft-amt text-right font-semibold">${cents(bill.totalCents)}</dd>
+              </div>
+            </dl>
+          </div>
+          {view.buyInAmountCents > 0 ? <p className="ft-meta mt-3">The {whole(view.buyInAmountCents)} buy-in is your first payment toward this.</p> : null}
+          {view.honoreeExcluded ? <p className="ft-meta mt-1">The group covers the guest of honor.</p> : null}
+        </section>
+      ) : null}
+
+      {!bill && (view.currentShareCents ?? view.ifYouCommitCents) != null && viewer?.role !== "honoree" ? (
+        <section>
+          <p className="ft-lbl">
+            {party ? `${party.name} · ${party.travelers.length} ${party.travelers.length === 1 ? "person" : "people"} · ` : ""}
+            {preview ? "if you commit now" : "your share"}
+          </p>
+          <div className="ft-glow -mx-5 mt-1 px-5 py-1">
+            <p className="ft-money text-[76px]">{whole((view.currentShareCents ?? view.ifYouCommitCents)!)}</p>
+          </div>
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="ft-chip warn">
+              <span className="ft-dot clay" aria-hidden />
+              Estimate
+            </span>
+            <span className="ft-meta">The line-by-line breakdown shows once you commit.</span>
+          </p>
+        </section>
+      ) : null}
+
+      {forecast ? (
+        <section>
+          <h2 className="ft-sec">
+            <span className="ix">§1</span>
+            <span className="ft-h2">If the group changes</span>
+          </h2>
+          <p className="ft-meta mt-2">
+            The stay books at {view.minPayerCount} parties. Tap a count to see {many ? "your party's" : "your"} share.
+          </p>
+          <div className="mt-4">
+            <ForecastSlider
+              compact
+              rows={forecast.rows}
+              startPayers={forecast.start}
+              nowPayers={view.payerCount}
+              bandLowDeltaCents={forecast.bandLow}
+              bandHighDeltaCents={forecast.bandHigh}
+              budgetCents={budget?.maxAllIn ?? null}
+            />
+          </div>
         </section>
       ) : null}
 
       {optional.length > 0 ? (
         <section>
-          <h3 className="font-serif text-2xl">Extras</h3>
+          <h2 className="ft-sec">
+            <span className="ix">§2</span>
+            <span className="ft-h2">Extras</span>
+          </h2>
           <p className="mt-1 text-sm text-muted">
             {canOpt ? `Only the people you add pay. ${many ? "Tap each person who's in." : ""}` : "Only the people who opted in pay."}
           </p>
@@ -88,7 +180,7 @@ export default async function CostsPage({
                     .join(" · ")
                 : `${whole(cost.amountCents)} split among who's in`;
               return (
-                <li key={cost.id} className="rounded-3xl border border-line bg-card p-4">
+                <li key={cost.id} className="ft-panel p-4">
                   <div className="flex items-baseline justify-between gap-3">
                     <h4 className="text-lg font-semibold">{cost.label}</h4>
                     <span className="text-sm text-muted">{cost.optInTravelerIds.length} going</span>
@@ -109,7 +201,7 @@ export default async function CostsPage({
                               <button
                                 type="submit"
                                 aria-pressed={inIt}
-                                className={`min-h-11 rounded-full px-4 text-sm font-semibold ${inIt ? "bg-accent text-accent-ink" : "border border-line"}`}
+                                className={`ft-chip min-h-12 px-4 !text-[15px] ${inIt ? "on" : ""}`}
                               >
                                 {inIt ? "✓ " : "+ "}
                                 {many ? traveler.name.split(" ")[0] : inIt ? "I'm in" : "Count me in"}
@@ -131,8 +223,11 @@ export default async function CostsPage({
       ) : null}
 
       <section>
-        <h3 className="font-serif text-2xl">The whole trip</h3>
-        <ul className="mt-3 divide-y divide-line rounded-3xl border border-line bg-card">
+        <h2 className="ft-sec">
+          <span className="ix">§3</span>
+          <span className="ft-h2">The whole trip</span>
+        </h2>
+        <ul className="mt-3 divide-y divide-line ft-panel">
           {fixed.map((cost) => (
             <li key={cost.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <span className="min-w-0">
@@ -140,7 +235,7 @@ export default async function CostsPage({
                 <span className="block text-sm text-muted">{splitWords(cost)}</span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="block">{whole(cost.amountCents)}</span>
+                <span className="ft-amt block">{cents(cost.amountCents)}</span>
                 {(view.isOrganizer || (cost.splitType === "individual" && cost.memberId === viewer?.partyUserId)) && !view.cancelled ? (
                   <form action={deleteCostAction}>
                     <input type="hidden" name="tripId" value={view.id} />
@@ -156,7 +251,7 @@ export default async function CostsPage({
           ))}
         </ul>
         <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-semibold text-accent">How splitting works</summary>
+          <summary className="ft-summary text-[15px] font-medium text-ink-2">How splitting works</summary>
           <div className="mt-2 grid gap-2 text-sm leading-relaxed text-muted">
             <p>Lodging splits {splitModeLabel(view.splitMode).toLowerCase()}: a nicer bed costs more, a couch costs less, and an empty bed costs nobody anything.</p>
             <p>
@@ -175,7 +270,7 @@ export default async function CostsPage({
 
       {viewer && viewer.isPayer && viewer.status !== "off_trip" && !view.cancelled ? (
         <details className={`rounded-2xl ${view.isOrganizer ? "border border-dashed" : "border"} border-line`}>
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-muted">
+          <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">
             {view.isOrganizer ? "Organizer: add a cost" : "Add a cost only your party pays"}
           </summary>
           <form action={addCostAction} className="grid gap-3 px-4 pb-4">

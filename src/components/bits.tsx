@@ -33,7 +33,7 @@ export function CopyLink({ path }: { path: string }) {
       <input readOnly value={url} className={fieldClass} aria-label="Invite link" />
       <button
         type="button"
-        className="h-11 shrink-0 rounded-xl border border-line bg-card px-3 text-sm font-semibold"
+        className="ft-btn2 h-[52px] shrink-0"
         onClick={async () => {
           await navigator.clipboard.writeText(url);
           setCopied(true);

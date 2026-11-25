@@ -28,7 +28,7 @@ function Phone({ direction, screen }: { direction: Direction; screen: Screen }) 
   const muted = playful ? "#5c4636" : "#b3a89c";
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[390px] px-4 py-6" style={{ color: ink, background: paper, fontFamily: playful ? "ui-rounded, system-ui, sans-serif" : "Georgia, ui-serif, serif" }}>
-      <p className="text-[11px] font-bold tracking-[0.22em]" style={{ color: accent }}>{APP_NAME.toUpperCase()}</p>
+      <p className="text-xs font-bold tracking-[0.22em]" style={{ color: accent }}>{APP_NAME.toUpperCase()}</p>
       {screen === "join" ? <Join playful={playful} card={card} accent={accent} muted={muted} /> : null}
       {screen === "vote" ? <Vote playful={playful} card={card} accent={accent} muted={muted} ink={ink} /> : null}
       {screen === "share" ? <Share playful={playful} card={card} accent={accent} muted={muted} ink={ink} /> : null}
@@ -114,7 +114,7 @@ function Dash({ playful, card, accent, muted, ink }: Face) {
     <>
       <div className="mt-4 flex items-end justify-between">
         <h1 className="text-4xl leading-none" style={{ fontWeight: playful ? 800 : 500 }}>Nashville</h1>
-        <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: accent, color: "#1a120c" }}>4 of 8</span>
+        <span className="rounded-sm px-3 py-1 text-xs font-bold" style={{ background: accent, color: "#1a120c" }}>4 of 8</span>
       </div>
       <p className="mt-2 text-sm" style={{ color: muted }}>Bachelor party for Alex · commit by Dec 15</p>
       <div className="mt-5 rounded-3xl p-4" style={{ background: card, border: playful ? "3px solid #1a120c" : "1px solid #3a322c" }}>

@@ -2,39 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, Receipt, ThumbsUp, Wallet } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-const items = [
-  { href: "", label: "Plan", icon: Map },
-  { href: "/vote", label: "Vote", icon: ThumbsUp },
-  { href: "/costs", label: "Costs", icon: Receipt },
-  { href: "/pay", label: "Pay", icon: Wallet },
-];
-
-export function TripNav({ tripId }: { tripId: string }) {
+/**
+ * Floating glass tab bar. The active tab is a white thumb that glides between
+ * tabs on the smooth spring (k260 c32). Reduced motion: it jumps.
+ */
+export function TripNav({ tripId, payLabel = "Commit" }: { tripId: string; payLabel?: string }) {
   const pathname = usePathname();
+  const items = [
+    { href: "", label: "Plan" },
+    { href: "/vote", label: "Vote" },
+    { href: "/costs", label: "Costs" },
+    { href: "/pay", label: payLabel },
+  ];
+  const base = `/trip/${tripId}`;
+  const active = items.findIndex((item) => (item.href === "" ? pathname === base : pathname.startsWith(`${base}${item.href}`)));
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:static md:border-t-0 md:bg-transparent md:pb-0">
-      <div className="mx-auto flex max-w-lg md:max-w-3xl">
-        {items.map((item) => {
-          const href = `/trip/${tripId}${item.href}`;
-          const active = item.href === "" ? pathname === href : pathname.startsWith(href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.label}
-              href={href}
-              className={cn(
-                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-semibold md:min-h-11 md:flex-none md:flex-row md:rounded-full md:px-4",
-                active ? "text-accent" : "text-muted",
-              )}
-            >
-              <Icon className="size-5" aria-hidden />
-              {item.label}
-            </Link>
-          );
-        })}
+    <nav aria-label="Trip" className="ft-tabs ft-glass">
+      <div className="ft-tabs-track" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
+        {active >= 0 ? (
+          <span
+            className="ft-tabs-thumb"
+            aria-hidden
+            style={{ width: `${100 / items.length}%`, transform: `translateX(${active * 100}%)` }}
+          />
+        ) : null}
+        {items.map((item, index) => (
+          <Link key={item.label} href={`${base}${item.href}`} aria-current={index === active ? "page" : undefined} className="ft-tab">
+            {item.label}
+          </Link>
+        ))}
       </div>
     </nav>
   );

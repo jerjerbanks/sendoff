@@ -21,7 +21,7 @@ export default async function MetricsPage({
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="font-serif text-3xl">Validation</h2>
+        <h2 className="ft-h1">Validation</h2>
         <p className="mt-1 text-sm text-muted">
           Friends who already planned to go will make these rates look high. Treat an early number as a ceiling, not a forecast.
         </p>
@@ -32,8 +32,8 @@ export default async function MetricsPage({
         <li>Events logged: {events.length}.</li>
       </ul>
       {view.isOrganizer ? (
-        <form action={outOfPocketAction} className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-          <h3 className="font-serif text-2xl">What did you front?</h3>
+        <form action={outOfPocketAction} className="grid gap-3 ft-panel p-4">
+          <h3 className="ft-h2">What did you front?</h3>
           <input type="hidden" name="tripId" value={view.id} />
           <input type="hidden" name="userId" value={view.viewer?.userId} />
           <label className="text-sm">Last similar trip

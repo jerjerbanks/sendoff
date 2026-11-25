@@ -47,7 +47,7 @@ export default async function SleepSetupPage({
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="font-serif text-3xl">Rooms and beds</h2>
+        <h2 className="ft-h1">Rooms and beds</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
           One lodging bill, split by the beds each party claims. Defaults: king or queen with a private bath 1.5, private room 1.25, full or a
           bed in a shared room 1.0, twin or bunk 0.8, sofa bed 0.6, couch or air mattress 0.5. An empty bed costs nothing.
@@ -65,9 +65,9 @@ export default async function SleepSetupPage({
           const first = spots[0];
           const occupantIds = [...new Set(view.claims.filter((claim) => claim.status === "approved" && spots.some((spot) => spot.id === claim.spotId)).map((claim) => claim.userId))];
           return (
-            <li key={roomName} className="rounded-3xl border border-line bg-card p-4">
+            <li key={roomName} className="ft-panel p-4">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="font-serif text-2xl">{roomName}</h3>
+                <h3 className="ft-h2">{roomName}</h3>
                 {view.spotPrices ? (
                   <p className="text-sm font-semibold">{money(spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0))}</p>
                 ) : null}
@@ -101,7 +101,7 @@ export default async function SleepSetupPage({
               )}
               {view.isOrganizer ? (
                 <details className="mt-3 rounded-2xl bg-chip/60">
-                  <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Access, holds, co-sleep</summary>
+                  <summary className="ft-summary px-3 text-[15px] font-medium">Access, holds, co-sleep</summary>
                   <form action={updateRoomAction} className="grid gap-2 px-3 pb-3 text-sm">
                     <input type="hidden" name="tripId" value={view.id} />
                     <input type="hidden" name="userId" value={view.viewer?.userId} />
@@ -166,8 +166,8 @@ export default async function SleepSetupPage({
       </ul>
 
       {view.isOrganizer ? (
-        <section className="rounded-3xl border border-line bg-card p-4">
-          <h3 className="font-serif text-2xl">Needs and sharing notes</h3>
+        <section className="ft-panel p-4">
+          <h3 className="ft-h2">Needs and sharing notes</h3>
           <p className="mt-1 text-xs text-muted">Only you see this. Use it to place holds; {APP_NAME} never matches people automatically.</p>
           <ul className="mt-3 grid gap-2 text-sm">
             {view.parties.map((party) => {
@@ -195,8 +195,8 @@ export default async function SleepSetupPage({
       ) : null}
 
       {view.isOrganizer && view.status !== "booked" ? (
-        <form action={addSpotAction} className="grid gap-3 rounded-3xl border border-line bg-card p-4">
-          <h3 className="font-serif text-2xl">Add a bed</h3>
+        <form action={addSpotAction} className="grid gap-3 ft-panel p-4">
+          <h3 className="ft-h2">Add a bed</h3>
           <p className="text-xs text-muted">Beds with the same room name form a room a party can claim as a unit.</p>
           <input type="hidden" name="tripId" value={view.id} />
           <input type="hidden" name="userId" value={view.viewer?.userId} />
