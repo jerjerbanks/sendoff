@@ -1,10 +1,12 @@
--- One-time fix: tell wrangler that migrations 0001–0008 are already on live D1.
+-- One-time fix: tell wrangler that migrations 0001–0009 are already on live D1.
 --
 -- Every migration so far was run on live as raw SQL (`wrangler d1 execute`),
 -- which never records anything, so live D1 has no d1_migrations table at all
 -- (checked 2026-11-25). `wrangler d1 migrations apply` would therefore try to
 -- re-run 0001 and fail on "table users already exists". This file creates the
--- tracking table exactly as wrangler does and marks 0001–0008 as applied.
+-- tracking table exactly as wrangler does and marks 0001–0009 as applied.
+-- (0009 was applied to live as raw SQL with the v1.22 deploy, 2026-11-24 10:26 PM CT.)
+-- APPLIED to live on 2026-11-24 10:46 PM CT (9 rows); kept for the record.
 -- (On 2026-11-25 every table, column and index from 0001–0008 was confirmed
 -- present on live.)
 --
@@ -12,7 +14,7 @@
 --   wrangler d1 execute sendoff --remote --file=scripts/resync-d1-migrations.sql
 -- Safe to re-run: INSERT OR IGNORE skips names already recorded.
 -- Afterwards `npm run db:migrate:list` should say there are no migrations to apply,
--- and from 0009 on, use `npm run db:migrate` instead of raw SQL.
+-- and from 0010 on, migrations are applied by the deploy workflow (or `npm run db:migrate`), never as raw SQL.
 --
 -- Do NOT run this on staging; staging gets real `migrations apply` from empty.
 
@@ -30,4 +32,5 @@ INSERT OR IGNORE INTO "d1_migrations" (name) VALUES
   ('0005_split_acks.sql'),
   ('0006_indexes.sql'),
   ('0007_sessions.sql'),
-  ('0008_rate_hits.sql');
+  ('0008_rate_hits.sql'),
+  ('0009_sleep_rooms.sql');
