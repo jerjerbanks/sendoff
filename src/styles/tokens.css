@@ -1,4 +1,5 @@
-/* Field Trip — v4 tokens: "Field Guide, instrumented"
+/* Field Trip — v5 tokens (v4 system + landing aliases + dark theme)
+   Light is the default (:root / [data-theme=light]). Dark lives under [data-theme=dark].
    v3 palette + modern grotesk/mono + precise geometry + spring motion.
    Fonts (Google Fonts, OFL):
    https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap */
@@ -13,6 +14,7 @@
   --ink-1: #1F1B16; --ink-2: #4F473D; --ink-3: #6E6558; --ink-disabled: #A69D90;
   /* ---------- accents ---------- */
   --clay: #B4532A;  --clay-ink: #9A4420;   /* action + "yours" */
+  --on-clay: #FFFFFF;                      /* text on a clay fill, both themes (4.99:1) */
   --lake: #1F4E6B;  --lake-60: #79A3BC;    /* water, map, data, others */
   --pine: #2F5D46;                         /* success, booked, fits */
   --sun:  #E3A83A;  --sun-ink: #7A5310;    /* leader / highlight (fill only) */
@@ -71,4 +73,64 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-snappy: 0ms; --dur-smooth: 0ms; --dur-micro: 0ms; --dur-fade: 0ms; --dur-tick: 0ms; --dur-moment: 0ms; }
+}
+
+/* ---------- v5 landing aliases (light) ---------- */
+:root, [data-theme="light"]{
+  --bg: var(--bg-canvas); --bg2: var(--bg-sunken); --fg: var(--ink-1); --fg2: var(--ink-2); --fg3: var(--ink-3);
+  --soft: #8A7F72;                 /* 3.67:1 on cream: large display text (>=40px) only */
+  --card: #FFFFFF; --card-solid: #FFFFFF; --card-line: var(--line); --pv-bg: var(--bg-canvas); --pv-line: var(--line);
+  --cmp-bg: #F6F0E6;
+  --lake-a: var(--lake); --clay-a: var(--clay); --clay-t: var(--clay-ink); --clay-wash: var(--tint-clay);
+  --pine-a: var(--pine); --err-a: var(--error);
+  --taken: var(--bg-sunken); --taken-line: var(--ink-disabled); --open-line: var(--border-ctl);
+  --tip-bg: #1F1B16; --tip-fg: #FFFFFF; --dotc: rgba(31,27,22,.10);
+  --inv-bg: #1F1B16; --inv-fg: #FBF7F0; --inv-fg2: rgba(251,247,240,.84); --inv-line: rgba(251,247,240,.14); --inv-eb: #E8946B;
+  --hero-ink: #1F1B16; --hero-ink2: #3C352D; --hero-scrim: linear-gradient(180deg,rgba(251,236,214,.42) 0%,rgba(244,200,150,.16) 34%,rgba(244,200,150,0) 52%);
+  --nav-glass: rgba(255,255,255,.55);
+  --elev-card: 0 0 0 1px var(--card-line), 0 1px 2px rgba(74,44,20,.05), 0 18px 40px -28px rgba(120,58,24,.35);
+  --elev-app: 0 0 0 1px rgba(31,27,22,.10), inset 0 1px 0 #fff, 0 40px 80px -30px rgba(40,30,20,.55), 0 12px 30px -12px rgba(74,44,20,.3);
+}
+
+/* ---------- dark theme ----------
+   Contrast on canvas #17130F / surface #221C17:
+   ink-1 16.2 / 14.7 · ink-2 11.7 / 10.6 · ink-3 7.0 / 6.4 · clay-ink(dark) #E8946B 7.8 / 7.1
+   lake(dark) #8DB4CB 8.4 / 7.6 · pine(dark) #7DB394 7.7 / 7.0 · error(dark) #F08A80 7.6 / 6.9 · sun 8.7 / 8.0
+   Clay #B4532A stays the FILL colour (white text on it 4.99:1). Clay as TEXT on dark is only 3.71:1, so
+   text uses --clay-ink (#E8946B) in dark. Never set small clay text with --clay. */
+[data-theme="dark"]{
+  color-scheme: dark;
+  --bg-canvas:#17130F; --bg-surface:#221C17; --bg-sunken:#1C1713;
+  --tint-clay: rgba(200,101,58,.20); --tint-lake: rgba(121,163,188,.16); --tint-pine: rgba(125,179,148,.16); --tint-sun: rgba(227,168,58,.14); /* .14, not .18: ink-3 on it needs 4.5:1 */
+  --ink-1:#F5EFE6; --ink-2:#D6CCBF; --ink-3:#A99E90; --ink-disabled:#6F665B;
+  --clay:#B4532A; --clay-ink:#E8946B;
+  --lake:#8DB4CB; --lake-60:#4F7A94;
+  --pine:#7DB394; --sun:#E3A83A; --sun-ink:#E3A83A;
+  --error:#F08A80; --warning:#E3A83A;
+  --line: rgba(255,248,238,.11); --line-strong: rgba(255,248,238,.18); --line-ink:#F5EFE6; --border-ctl:#857A6C;
+  --inner-glass: inset 0 0 0 1px rgba(255,248,238,.08), inset 0 1px 0 rgba(255,248,238,.10);
+  --shadow-1: 0 0 0 1px rgba(255,248,238,.08), 0 1px 2px rgba(0,0,0,.4);
+  --shadow-2: 0 0 0 1px rgba(255,248,238,.10), 0 6px 16px -4px rgba(0,0,0,.55);
+  --shadow-3: 0 0 0 1px rgba(255,248,238,.10), 0 20px 40px -10px rgba(0,0,0,.7);
+  --ring-focus: 0 0 0 2px #17130F, 0 0 0 4px #8DB4CB;
+  --glass: rgba(23,19,15,.70); --glass-white: rgba(34,28,23,.78); --glass-solid:#17130F;
+  --dot-grid: radial-gradient(rgba(255,248,238,.10) 1px, transparent 1.2px) 0 0/16px 16px;
+  --glow-clay: radial-gradient(60% 70% at 30% 55%, rgba(200,101,58,.22), rgba(200,101,58,0) 70%);
+  --glow-lake: radial-gradient(60% 70% at 50% 50%, rgba(141,180,203,.16), rgba(141,180,203,0) 70%);
+  --scrim: rgba(0,0,0,.55); --select-wash: rgba(200,101,58,.14);
+
+  --bg: var(--bg-canvas); --bg2: #211B16; --fg: var(--ink-1); --fg2: var(--ink-2); --fg3: var(--ink-3);
+  --soft: #857A6C;
+  --card: rgba(255,248,238,.045); --card-solid: var(--bg-surface); --card-line: rgba(255,248,238,.11);
+  --pv-bg: rgba(255,248,238,.04); --pv-line: rgba(255,248,238,.10); --cmp-bg: #1E1813;
+  --lake-a:#8DB4CB; --clay-a:#C8653A; --clay-t:#E8946B; --clay-wash: rgba(200,101,58,.22);
+  --pine-a:#7DB394; --err-a:#F08A80;
+  --taken: rgba(255,248,238,.06); --taken-line:#857A6C; --open-line:#857A6C;
+  --tip-bg:#F5EFE6; --tip-fg:#1F1B16; --dotc: rgba(255,248,238,.10);
+  --inv-bg:#FBF7F0; --inv-fg:#1F1B16; --inv-fg2:#4F473D; --inv-line:#E4DACB; --inv-eb:#9A4420;
+  --hero-ink:#FBF7F0; --hero-ink2: rgba(251,247,240,.88);
+  --hero-scrim: linear-gradient(180deg,rgba(23,19,15,.62) 0%,rgba(23,19,15,.40) 40%,rgba(23,19,15,.15) 60%,rgba(23,19,15,0) 75%);
+  --nav-glass: rgba(23,19,15,.45);
+  --elev-card: 0 0 0 1px var(--card-line), inset 0 1px 0 rgba(255,248,238,.06), 0 30px 60px -30px rgba(0,0,0,.6);
+  --elev-app: 0 0 0 1px rgba(255,248,238,.12), inset 0 1px 0 rgba(255,248,238,.06), 0 40px 80px -30px rgba(0,0,0,.75);
 }

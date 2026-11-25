@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 
 const titles: Record<string, string> = {
@@ -21,7 +22,8 @@ const titles: Record<string, string> = {
 
 /**
  * 52px top bar with a 1px line. Home shows the wordmark; every other screen gets a
- * back arrow and its title. The right side is a live dot with mono status text.
+ * back arrow and its title. The right side is a live dot with mono status text, then the
+ * Light / Dark / Auto toggle.
  */
 export function TopBar({
   tripId,
@@ -53,24 +55,28 @@ export function TopBar({
         </Link>
       ) : (
         <Link href={base} className="flex min-h-12 items-center" aria-label={`${tripName}, home`}>
-          <Wordmark />
+          <Wordmark className="whitespace-nowrap" />
         </Link>
       )}
-      {segment === "spots" ? (
-        <nav className="ft-seg ft-seg-sm" aria-label="Show beds as">
-          <Link href={`${base}/spots`} aria-current={list ? undefined : "page"} replace scroll={false}>
-            Plan
-          </Link>
-          <Link href={`${base}/spots?view=list`} aria-current={list ? "page" : undefined} replace scroll={false}>
-            List
-          </Link>
-        </nav>
-      ) : (
-        <span className="ft-live min-w-0">
-          <span className={`ft-dot ${tone === "pine" ? "" : tone}`} aria-hidden />
-          <span className="truncate">{status}</span>
-        </span>
-      )}
+      <div className="flex min-w-0 items-center gap-2">
+        {segment === "spots" ? (
+          <nav className="ft-seg ft-seg-sm" aria-label="Show beds as">
+            <Link href={`${base}/spots`} aria-current={list ? undefined : "page"} replace scroll={false}>
+              Plan
+            </Link>
+            <Link href={`${base}/spots?view=list`} aria-current={list ? "page" : undefined} replace scroll={false}>
+              List
+            </Link>
+          </nav>
+        ) : (
+          // Below 480px the status yields its room to the theme toggle; the page itself says the same thing.
+          <span className="ft-live min-w-0 max-[479px]:hidden">
+            <span className={`ft-dot ${tone === "pine" ? "" : tone}`} aria-hidden />
+            <span className="truncate">{status}</span>
+          </span>
+        )}
+        <ThemeToggle variant="bar" />
+      </div>
     </header>
   );
 }

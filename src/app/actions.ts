@@ -102,7 +102,7 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
-  if (!(await withinLimit("create"))) fail("/", TOO_MANY);
+  if (!(await withinLimit("create"))) fail("/new", TOO_MANY);
   const name = text(formData, "name", 80);
   const organizerName = text(formData, "organizerName", NAME_MAX);
   const organizerContact = text(formData, "organizerContact", 120);
@@ -112,16 +112,16 @@ export async function createTripAction(formData: FormData) {
   const preWeddingStyle: PreWeddingStyle | null =
     tripType === "pre_wedding" ? (styleRaw === "bachelor" || styleRaw === "bachelorette" ? styleRaw : "joint") : null;
   if (!name || !organizerName || !organizerContact || !dateWindow) {
-    fail("/", "Fill in the trip name, your name and contact, and a rough date window.");
+    fail("/new", "Fill in the trip name, your name and contact, and a rough date window.");
   }
-  if (!isContact(organizerContact)) fail("/", "Add a phone number or an email address you can be reached at.");
+  if (!isContact(organizerContact)) fail("/new", "Add a phone number or an email address you can be reached at.");
   // 0..n guests of honor. A row counts once it has a name.
   const honorees: { name: string; contact: string; contactGiven: boolean; role: HonoreeRole }[] = [];
   for (const index of [1, 2]) {
     const honoreeName = text(formData, `honoree${index}Name`, NAME_MAX);
     if (!honoreeName) continue;
     const given = text(formData, `honoree${index}Contact`, 120);
-    if (given && !isContact(given)) fail("/", `${honoreeName}'s contact needs to be a phone number or an email address.`);
+    if (given && !isContact(given)) fail("/new", `${honoreeName}'s contact needs to be a phone number or an email address.`);
     honorees.push({
       name: honoreeName,
       // A made-up placeholder can never be used to sign in as the honoree.
