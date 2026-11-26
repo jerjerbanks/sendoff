@@ -3,11 +3,12 @@ import { headers } from "next/headers";
 import { countHit, RATE_LIMITS, type RateBucket } from "./rate-limit";
 import { hashToken } from "./tokens";
 
-/** Buckets that also have a Workers Rate Limiting binding. "import" is D1-only. */
+/** Buckets that also have a Workers Rate Limiting binding. "import" and "admin" are D1-only. */
 const BINDINGS: Record<RateBucket, "JOIN_RATE_LIMITER" | "CREATE_TRIP_RATE_LIMITER" | null> = {
   join: "JOIN_RATE_LIMITER",
   create: "CREATE_TRIP_RATE_LIMITER",
   import: null,
+  admin: null,
 };
 
 /**

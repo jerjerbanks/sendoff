@@ -8,7 +8,7 @@
 export const RATE_WINDOW_MS = 60_000;
 
 /** Attempts allowed per key per window. */
-export const RATE_LIMITS = { join: 10, create: 5, import: 5 } as const;
+export const RATE_LIMITS = { join: 10, create: 5, import: 5, admin: 5 } as const;
 export type RateBucket = keyof typeof RATE_LIMITS;
 
 export function rateWindow(nowMs: number): number {
