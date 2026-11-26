@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Shell } from "@/components/shell";
-import { ogCard } from "@/lib/og-copy";
+import { ogCard, privateTripCard } from "@/lib/og-copy";
+import { isDemoTrip } from "@/lib/demo-tour";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
@@ -17,10 +18,10 @@ async function origin() {
 
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
-  const shell = await loadTripView(tripId, null);
-  const view = shell;
+  const view = await loadTripView(tripId, await getViewerId());
   if (!view) return { title: APP_NAME };
-  const card = ogCard(view);
+  // Only members (and the public demo trips) get the trip's own title and preview.
+  const card = view.viewer || isDemoTrip(view.id) ? ogCard(view) : privateTripCard();
   const base = await origin();
   const image = `${base}/og/trip/${tripId}`;
   return {

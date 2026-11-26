@@ -7,7 +7,7 @@ import { Input, fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { paymentStatusLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 export default async function PayPage({
   params,
@@ -18,7 +18,7 @@ export default async function PayPage({
 }) {
   const { tripId } = await params;
   const { error, opened } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
   const buyIn = view.milestones.find((milestone) => milestone.kind === "buy_in");

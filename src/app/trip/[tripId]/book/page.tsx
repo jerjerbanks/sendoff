@@ -3,7 +3,7 @@ import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 export default async function BookPage({
   params,
@@ -14,7 +14,7 @@ export default async function BookPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const lodging = view.costs.find((cost) => cost.splitType === "shared" && cost.category === "lodging");
   // A committed party with no bed carries no lodging; booking now would quietly shift it onto everyone else.

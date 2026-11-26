@@ -4,7 +4,7 @@ import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { getViewerId } from "@/lib/session";
 import { ownBudget } from "@/lib/store";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 export default async function BudgetPage({
   params,
@@ -16,7 +16,7 @@ export default async function BudgetPage({
   const { tripId } = await params;
   const { error, welcome } = await searchParams;
   const viewerId = await getViewerId();
-  const view = await loadTripView(tripId, viewerId);
+  const view = await loadMemberView(tripId, viewerId);
   if (!view || !view.viewer) return null;
   if (!view.viewer.isPayer) {
     return (

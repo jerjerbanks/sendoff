@@ -7,7 +7,7 @@ import { ageBandLabel, bedLabel, shareComfortLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { roomFloors, type SpotRecord } from "@/lib/store";
 import { partySleeps } from "@/lib/trip-math";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
 
 const bedTypes = [
@@ -31,7 +31,7 @@ export default async function SleepSetupPage({
 }) {
   const { tripId } = await params;
   const { error, imported } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const floors = await roomFloors(view.id);
   const importedSpots = Number(imported);
