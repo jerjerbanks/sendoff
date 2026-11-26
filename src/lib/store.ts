@@ -818,12 +818,12 @@ export async function ensureDemoSeed() {
 async function seedPreWedding() {
   const db = getDb();
   for (const user of demoUsers) await db.insert(users).values({ ...user }).onConflictDoNothing();
-  await db.insert(trips).values({ ...demoTrip });
-  for (const member of demoMembers) await db.insert(tripMembers).values({ tripId: DEMO_TRIP_ID, ...member });
-  for (const poll of demoPolls) await db.insert(polls).values({ tripId: DEMO_TRIP_ID, ...poll });
-  for (const option of demoOptions) await db.insert(pollOptions).values({ ...option });
+  await db.insert(trips).values({ ...demoTrip }).onConflictDoNothing();
+  for (const member of demoMembers) await db.insert(tripMembers).values({ tripId: DEMO_TRIP_ID, ...member }).onConflictDoNothing();
+  for (const poll of demoPolls) await db.insert(polls).values({ tripId: DEMO_TRIP_ID, ...poll }).onConflictDoNothing();
+  for (const option of demoOptions) await db.insert(pollOptions).values({ ...option }).onConflictDoNothing();
   for (const vote of demoVotes) {
-    await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId });
+    await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId }).onConflictDoNothing();
   }
   for (const cost of demoCosts) {
     const airport = demoAirports[cost.memberId ?? ""];
@@ -833,15 +833,15 @@ async function seedPreWedding() {
       homeAirport: airport?.airport || null,
       lowEstimate: airport && cost.splitType === "individual" ? airport.low : null,
       highEstimate: airport && cost.splitType === "individual" ? airport.high : null,
-    });
+    }).onConflictDoNothing();
   }
   for (const userId of demoTeeParticipants) {
-    await db.insert(costItemParticipants).values({ costItemId: "cost_tee", userId });
+    await db.insert(costItemParticipants).values({ costItemId: "cost_tee", userId }).onConflictDoNothing();
   }
-  for (const milestone of demoMilestones) await db.insert(milestones).values({ tripId: DEMO_TRIP_ID, ...milestone });
-  for (const payment of demoPayments) await db.insert(payments).values({ ...payment });
-  for (const spot of demoSpots) await db.insert(sleepSpots).values({ tripId: DEMO_TRIP_ID, ...spot });
-  for (const claim of demoClaims) await db.insert(spotClaims).values(claim);
+  for (const milestone of demoMilestones) await db.insert(milestones).values({ tripId: DEMO_TRIP_ID, ...milestone }).onConflictDoNothing();
+  for (const payment of demoPayments) await db.insert(payments).values({ ...payment }).onConflictDoNothing();
+  for (const spot of demoSpots) await db.insert(sleepSpots).values({ tripId: DEMO_TRIP_ID, ...spot }).onConflictDoNothing();
+  for (const claim of demoClaims) await db.insert(spotClaims).values(claim).onConflictDoNothing();
   for (const budget of demoBudgets) {
     await db.insert(privateBudgets).values({
       tripId: DEMO_TRIP_ID,
@@ -850,7 +850,7 @@ async function seedPreWedding() {
       flexNote: budget.flexNote,
       mustHaves: budget.mustHaves,
       updatedAt: "2026-11-20T16:00:00.000Z",
-    });
+    }).onConflictDoNothing();
   }
   for (const [userId, optionId, highCents] of demoQuotes) {
     await db.insert(flightQuotes).values({ userId, optionId, highCents }).onConflictDoNothing();
@@ -861,25 +861,25 @@ async function seedLake() {
   const db = getDb();
   const tripId = LAKE_TRIP_ID;
   for (const user of lakeUsers) await db.insert(users).values({ ...user }).onConflictDoNothing();
-  await db.insert(trips).values({ ...lakeTrip });
-  for (const member of lakeMembers) await db.insert(tripMembers).values({ tripId, ...member });
-  for (const party of lakeParties) await db.insert(parties).values({ tripId, ...party });
+  await db.insert(trips).values({ ...lakeTrip }).onConflictDoNothing();
+  for (const member of lakeMembers) await db.insert(tripMembers).values({ tripId, ...member }).onConflictDoNothing();
+  for (const party of lakeParties) await db.insert(parties).values({ tripId, ...party }).onConflictDoNothing();
   for (const traveler of lakeTravelers) {
-    await db.insert(travelers).values({ tripId, ...traveler, isHonoree: 0, honoreeRole: null, coSleepSpotId: null });
+    await db.insert(travelers).values({ tripId, ...traveler, isHonoree: 0, honoreeRole: null, coSleepSpotId: null }).onConflictDoNothing();
   }
-  for (const poll of lakePolls) await db.insert(polls).values({ tripId, ...poll });
-  for (const option of lakeOptions) await db.insert(pollOptions).values({ ...option });
-  for (const vote of lakeVotes) await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId });
-  for (const cost of lakeCosts) await db.insert(costItems).values({ tripId, ...cost });
+  for (const poll of lakePolls) await db.insert(polls).values({ tripId, ...poll }).onConflictDoNothing();
+  for (const option of lakeOptions) await db.insert(pollOptions).values({ ...option }).onConflictDoNothing();
+  for (const vote of lakeVotes) await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId }).onConflictDoNothing();
+  for (const cost of lakeCosts) await db.insert(costItems).values({ tripId, ...cost }).onConflictDoNothing();
   for (const travelerId of lakeBoatRiders) {
-    await db.insert(travelerOptIns).values({ costItemId: "lake_cost_boat", travelerId });
+    await db.insert(travelerOptIns).values({ costItemId: "lake_cost_boat", travelerId }).onConflictDoNothing();
   }
-  for (const milestone of lakeMilestones) await db.insert(milestones).values({ tripId, ...milestone });
-  for (const payment of lakePayments) await db.insert(payments).values({ ...payment });
-  for (const spot of lakeSpots) await db.insert(sleepSpots).values({ tripId, ...spot });
-  for (const claim of lakeClaims) await db.insert(spotClaims).values(claim);
+  for (const milestone of lakeMilestones) await db.insert(milestones).values({ tripId, ...milestone }).onConflictDoNothing();
+  for (const payment of lakePayments) await db.insert(payments).values({ ...payment }).onConflictDoNothing();
+  for (const spot of lakeSpots) await db.insert(sleepSpots).values({ tripId, ...spot }).onConflictDoNothing();
+  for (const claim of lakeClaims) await db.insert(spotClaims).values(claim).onConflictDoNothing();
   for (const budget of lakeBudgets) {
-    await db.insert(privateBudgets).values({ tripId, ...budget, updatedAt: "2026-11-15T18:00:00.000Z" });
+    await db.insert(privateBudgets).values({ tripId, ...budget, updatedAt: "2026-11-15T18:00:00.000Z" }).onConflictDoNothing();
   }
 }
 

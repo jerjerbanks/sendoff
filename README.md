@@ -57,6 +57,12 @@ redesign that keeps the words and numbers keeps them green. Tests tagged
 pages, as any visitor taking the tour does. Real-trip tests (one new trip, two
 join attempts per run) are staging and local only.
 
+After a merge deploys live, the `live smoke (rollback on failure)` job runs the
+`@smoke` subset against sendoff.jccmiel92.workers.dev. If it fails, the Worker
+is rolled back to the version that was live before the deploy (recorded by the
+deploy job) and the run fails with a "Live rolled back" summary. D1 migrations
+are not rolled back; they are additive, so the previous code still runs.
+
 ## How it's put together
 
 - **Sign-in.** The cookie holds a random session token; D1 stores only its
