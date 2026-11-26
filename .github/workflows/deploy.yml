@@ -26,6 +26,8 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      previous_version: ${{ steps.previous.outputs.version }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -62,6 +64,21 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+      # Live only: remember which version is serving now, so live-smoke can roll
+      # back to exactly it (not just "one back", which a settings change can shift).
+      - name: Record the live version before deploying
+        id: previous
+        if: env.TARGET == 'live'
+        run: |
+          set -euo pipefail
+          npx wrangler deployments status --name "$WORKER" --json > previous.json
+          VERSION=$(jq -r '[(.versions // .result.versions // [])[] | select((.percentage // 100) == 100)][0] | (.version_id // .versionId // .id // empty)' previous.json)
+          if [ -z "$VERSION" ]; then
+            echo "::warning::Could not read the current live version; an automatic rollback will not be possible for this deploy."
+          fi
+          echo "Live version before this deploy: ${VERSION:-unknown}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # Migrations go before the code: new code may read new tables.
       # Explicit --config so wrangler reads the source config, not a build redirect.
@@ -139,6 +156,63 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  # After a merge to main deploys live: the read-only @smoke subset against live.
+  # These tests never create trips, join, pay or reset; they open the demo pages,
+  # as any visitor taking the tour does. If they fail, the Worker rolls back to the
+  # version that was live before this deploy. D1 migrations are NOT rolled back
+  # (they are additive, so the previous code keeps working on the newer schema).
+  live-smoke:
+    name: live smoke (rollback on failure)
+    needs: deploy
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_BASE_URL: https://sendoff.jccmiel92.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PREVIOUS_VERSION: ${{ needs.deploy.outputs.previous_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run @smoke against live
+        id: smoke
+        run: npm run e2e:smoke
+      - name: Summary
+        if: always()
+        run: node scripts/e2e-summary.mjs playwright-report/results.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Roll back live
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          if [ -z "$PREVIOUS_VERSION" ]; then
+            echo "::error::Live smoke failed and the previous version is unknown. Roll back by hand: Cloudflare dashboard -> Workers -> sendoff -> Deployments."
+            exit 1
+          fi
+          npx wrangler rollback "$PREVIOUS_VERSION" --name sendoff -y -m "live smoke failed on ${GITHUB_SHA::7}"
+          {
+            echo "### ⏪ Live rolled back"
+            echo
+            echo "Smoke tests failed on \`${GITHUB_SHA::7}\`, so sendoff was rolled back to version \`$PREVIOUS_VERSION\`."
+            echo "D1 migrations from this deploy stay applied. Fix forward with a new PR."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Live smoke failed; rolled back to $PREVIOUS_VERSION."
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-live-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
