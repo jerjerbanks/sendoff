@@ -85,7 +85,7 @@ export function ShareButton({
         Send to group chat
       </button>
       <CopyLinkButton url={url} />
-      <a className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-action-ink" href={smsHref}>
+      <a className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-accent-ink" href={smsHref}>
         Text it
       </a>
       {note ? <p className="w-full text-sm text-muted">{note}</p> : null}

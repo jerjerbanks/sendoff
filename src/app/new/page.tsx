@@ -37,7 +37,7 @@ export default async function NewTripPage({
           <ThemeToggle variant="bar" />
         </div>
       </header>
-      <p className="ft-lbl action">Group trips, without fronting the bill</p>
+      <p className="ft-lbl accent">Group trips, without fronting the bill</p>
       <h1 className="ft-display mt-3 max-w-xl">
         Plan the trip.
         <br />
@@ -69,7 +69,7 @@ export default async function NewTripPage({
           ["3", "Commit", "One test buy-in per household holds your room. Refundable until the stay is booked; after that, a late drop forfeits it."],
         ].map(([step, title, body]) => (
           <li key={step} className="ft-rule pt-3">
-            <p className="ft-mono text-[14px] text-action-ink">§{step}</p>
+            <p className="ft-mono text-[14px] text-accent-ink">§{step}</p>
             <h2 className="mt-1 ft-h2">{title}</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
           </li>

@@ -40,7 +40,7 @@ export default async function OrganizePage({
   return (
     <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
       <div>
-        <p className="ft-lbl action">Organizer</p>
+        <p className="ft-lbl accent">Organizer</p>
         <h2 className="ft-h1">Run the trip</h2>
         <p className="mt-1 text-sm text-muted">
           {view.payerCount} of {view.minPayerCount} parties committed. Members don&apos;t see this page.
@@ -79,7 +79,7 @@ export default async function OrganizePage({
                 <span className="block font-semibold">{tool.title}</span>
                 <span className="block truncate text-sm text-muted">{tool.line}</span>
               </span>
-              <span className="text-action-ink" aria-hidden>
+              <span className="text-accent-ink" aria-hidden>
                 →
               </span>
             </Link>

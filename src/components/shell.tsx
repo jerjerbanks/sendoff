@@ -20,7 +20,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
   // A real trip shows nothing to someone who isn't on it: no roster, no plan, no numbers.
   if (!demo && !view.viewer) return <PrivateTrip />;
   const payLabel = view.lockedIn || view.status === "booked" ? "Pay" : "Commit";
-  const live = view.cancelled || view.underMinimum ? "error" : view.lockedIn ? "pine" : view.buyInOpen ? "action" : "lake";
+  const live = view.cancelled || view.underMinimum ? "error" : view.lockedIn ? "pine" : view.buyInOpen ? "accent" : "lake";
   const status = view.cancelled
     ? "Cancelled"
     : view.buyInOpen || view.lockedIn

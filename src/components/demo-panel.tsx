@@ -33,7 +33,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
       <PhoneDemoBar view={view} step={step} total={total} who={who} runDeadline={runDeadline} tripId={tripId} />
       <div className="sticky top-0 z-30 hidden border-b border-line-strong bg-chip px-5 py-3 md:block">
         <div className="flex items-center justify-between gap-3">
-          <p className="ft-lbl action">
+          <p className="ft-lbl accent">
             Demo{step ? ` · Step ${step.n} of ${total}` : ""}
           </p>
           <Link href="/" className="text-xs font-semibold text-muted">
@@ -56,12 +56,12 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
               {step.n < total ? (
                 <a
                   href={`/demo/${step.n + 1}`}
-                  className={`ml-auto inline-flex h-10 items-center rounded-sm px-4 text-sm font-semibold ${runDeadline ? "border border-line" : "bg-accent text-accent-ink"}`}
+                  className={`ml-auto inline-flex h-10 items-center rounded-sm px-4 text-sm font-semibold ${runDeadline ? "border border-line" : "bg-accent text-accent-fg"}`}
                 >
                   Next step →
                 </a>
               ) : (
-                <Link href="/new" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
+                <Link href="/new" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg">
                   Start your own trip →
                 </Link>
               )}
@@ -71,7 +71,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-            <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink">
+            <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg">
               Start the tour
             </a>
           </div>
@@ -113,7 +113,7 @@ function PhoneDemoBar({
   return (
     <div className="relative z-30 md:hidden">
       <div className="flex h-10 items-stretch border-b border-line-strong bg-chip pl-5">
-        <p className="ft-lbl action flex min-w-0 flex-1 items-center truncate">
+        <p className="ft-lbl accent flex min-w-0 flex-1 items-center truncate">
           Demo · {step ? `${step.n}/${total} · ${who}` : "sample trip"}
         </p>
         {step && step.n > 1 ? (
@@ -124,24 +124,24 @@ function PhoneDemoBar({
         {runDeadline ? (
           <form action={simulateDeadlineAction} className="contents">
             <input type="hidden" name="tripId" value={tripId} />
-            <button type="submit" className={`${cell} bg-accent text-accent-ink`}>
+            <button type="submit" className={`${cell} bg-accent text-accent-fg`}>
               Run deadline
             </button>
           </form>
         ) : null}
         {step ? (
           step.n < total ? (
-            <a href={`/demo/${step.n + 1}`} className={`${cell} ${runDeadline ? "" : "bg-accent text-accent-ink"}`}>
+            <a href={`/demo/${step.n + 1}`} className={`${cell} ${runDeadline ? "" : "bg-accent text-accent-fg"}`}>
               Next →
             </a>
           ) : (
-            <Link href="/new" className={`${cell} bg-accent text-accent-ink`}>
+            <Link href="/new" className={`${cell} bg-accent text-accent-fg`}>
               Start yours →
             </Link>
           )
         ) : (
           // eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation
-          <a href="/demo/1" className={`${cell} bg-accent text-accent-ink`}>
+          <a href="/demo/1" className={`${cell} bg-accent text-accent-fg`}>
             Start the tour
           </a>
         )}
@@ -182,7 +182,7 @@ function DeadlineButton({ tripId }: { tripId: string }) {
       <input type="hidden" name="tripId" value={tripId} />
       <button
         type="submit"
-        className="inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-ink"
+        className="inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg"
       >
         Run the deadline
       </button>
@@ -207,7 +207,7 @@ function DemoControls({ view }: { view: TripView }) {
                     {member.name}
                     <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
                   </span>
-                  {member.userId === view.viewer?.userId ? <span className="text-xs text-action-ink">You</span> : null}
+                  {member.userId === view.viewer?.userId ? <span className="text-xs text-accent-ink">You</span> : null}
                 </button>
               </form>
             )),

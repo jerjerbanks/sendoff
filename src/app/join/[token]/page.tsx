@@ -70,7 +70,7 @@ export default async function JoinPage({
           <div className="-mx-5 mt-4">
             <SceneHeader scene="campfire" size="sm" />
           </div>
-          <p className="ft-lbl action mt-2">Invitation · from {view.organizerName}</p>
+          <p className="ft-lbl accent mt-2">Invitation · from {view.organizerName}</p>
           <h1 className="ft-display mt-3">
             You&apos;re invited to
             <br />
@@ -85,8 +85,12 @@ export default async function JoinPage({
               {view.parties
                 .filter((party) => party.status === "committed")
                 .slice(0, 6)
-                .map((party) => (
-                  <span key={party.payerUserId} className="flex size-9 items-center justify-center rounded-sm border-2 border-paper bg-accent font-mono text-[15px] font-medium text-accent-ink">
+                .map((party, i) => (
+                  <span
+                    key={party.payerUserId}
+                    className="flex size-9 items-center justify-center rounded-full border-2 border-paper font-mono text-[15px] font-medium text-white"
+                    style={{ background: `var(--av-${(i % 7) + 1})` }}
+                  >
                     {party.name.charAt(0)}
                   </span>
                 ))}
@@ -99,7 +103,7 @@ export default async function JoinPage({
           {alreadyIn ? (
             <Link
               href={`/trip/${tripId}`}
-              className="mt-6 flex h-12 items-center justify-center rounded-2xl bg-accent font-semibold text-accent-ink"
+              className="mt-6 flex h-12 items-center justify-center rounded-2xl bg-accent font-semibold text-accent-fg"
             >
               You&apos;re on this trip. Open it
             </Link>
@@ -116,7 +120,7 @@ export default async function JoinPage({
                 <p className="text-center text-xs text-muted">Your other trips stay on this phone, under Menu → Your trips.</p>
               </form>
               <details className="mt-3 text-sm">
-                <summary className="min-h-11 cursor-pointer py-2 font-semibold text-action-ink">Not {self.name}? Join as someone else</summary>
+                <summary className="min-h-11 cursor-pointer py-2 font-semibold text-accent-ink">Not {self.name}? Join as someone else</summary>
                 <JoinForm token={token} error={null} onTour={false} />
               </details>
             </>
@@ -130,7 +134,7 @@ export default async function JoinPage({
           <p className="mt-3 text-sm text-muted">Check the link, or start from the demo.</p>
         </>
       )}
-      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-action-ink">
+      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent-ink">
         Back to {APP_NAME}
       </Link>
       <FeedbackButton className="mt-2 self-start" />

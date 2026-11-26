@@ -26,7 +26,7 @@ export default async function BudgetPage({
           Your party has one budget, and only its payer sees it: {view.viewerParty?.payerName ?? "your payer"}. Nobody else on the trip
           can see it either, the organizer included.
         </p>
-        <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-action-ink">Go to the polls</Link>
+        <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent-ink">Go to the polls</Link>
       </div>
     );
   }
@@ -36,7 +36,7 @@ export default async function BudgetPage({
   return (
     <div className="grid gap-4">
       <div>
-        {welcome ? <p className="ft-lbl action">Step 2 of 2</p> : null}
+        {welcome ? <p className="ft-lbl accent">Step 2 of 2</p> : null}
         <h2 className="ft-h1">What can {size > 1 ? "your party" : "you"} spend?</h2>
         <p className="mt-3 rounded-2xl bg-chip px-4 py-3 text-sm leading-relaxed">
           <span className="font-semibold">Private.</span> Only you see this number. The organizer and the group will never see your budget or
@@ -86,7 +86,7 @@ export default async function BudgetPage({
               ].map(([id, label]) => (
                 <label
                   key={id}
-                  className="flex cursor-pointer items-center gap-2 rounded-sm border border-line px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-accent-ink"
+                  className="flex cursor-pointer items-center gap-2 rounded-sm border border-line px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-accent-fg"
                 >
                   <input className="sr-only" type="checkbox" name={id} value="yes" defaultChecked={(own?.mustHaves ?? "").split(",").includes(id)} />
                   {label}
@@ -105,7 +105,7 @@ export default async function BudgetPage({
           </>
         )}
       </form>
-      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-action-ink">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
+      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent-ink">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
     </div>
   );
 }

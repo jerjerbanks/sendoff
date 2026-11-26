@@ -182,7 +182,7 @@ export function ForecastSlider({
           <span className="sr-only">{dollars(row.totalCents)}</span>
         </p>
         {bandLowDeltaCents != null && bandHighDeltaCents != null ? (
-          <span ref={band} className="ft-mono mt-1 block text-[15px] text-action-ink" />
+          <span ref={band} className="ft-mono mt-1 block text-[15px] text-accent-ink" />
         ) : null}
         <p className="ft-meta mt-1">
           if <span className="ft-mono text-ink">{row.payers}</span> parties commit
@@ -209,7 +209,7 @@ export function ForecastSlider({
               goTo(next);
               (event.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
             }}
-            className={`ft-mono !text-[16px] ${i === index ? "on" : ""} ${item.payers === nowPayers && i !== index ? "!text-action-ink" : ""}`}
+            className={`ft-mono !text-[16px] ${i === index ? "on" : ""} ${item.payers === nowPayers && i !== index ? "!text-accent-ink" : ""}`}
           >
             {item.payers}
           </button>
@@ -262,7 +262,7 @@ export function ForecastSlider({
             </g>
           ) : null}
           <path d={line} fill="none" stroke="var(--lake)" strokeWidth="1.5" strokeLinejoin="round" />
-          <line ref={guide} x1={x(startIndex)} x2={x(startIndex)} y1={y(rows[startIndex]?.totalCents ?? 0)} y2={H - bottom} stroke="var(--action)" strokeWidth="1" strokeDasharray="2 3" />
+          <line ref={guide} x1={x(startIndex)} x2={x(startIndex)} y1={y(rows[startIndex]?.totalCents ?? 0)} y2={H - bottom} stroke="var(--accent)" strokeWidth="1" strokeDasharray="2 3" />
           {rows.map((item, i) => (
             <rect key={item.payers} x={x(i) - 3.5} y={y(item.totalCents) - 3.5} width="7" height="7" fill="var(--lake)" stroke="var(--bg-surface)" strokeWidth="1" />
           ))}
@@ -271,7 +271,7 @@ export function ForecastSlider({
             cx={x(startIndex)}
             cy={y(rows[startIndex]?.totalCents ?? 0)}
             r={dragging ? 8 : 6.5}
-            fill="var(--action)"
+            fill="var(--accent)"
             stroke="var(--bg-surface)"
             strokeWidth="2"
             style={{ transition: "r var(--dur-micro) var(--spring-micro)" }}
