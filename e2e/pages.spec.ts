@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { freshDemo, tourStep } from "./helpers";
+import { freshDemo, tourStep, settled } from "./helpers";
 
 /** Public pages and behavior from past handoff checks. All read-only (@smoke). */
 
@@ -13,7 +13,7 @@ test("landing page offers a way to start and a sample trip @smoke", async ({ pag
 test("/new: Adult or Family, a Type, and guests of honor only for wedding types @smoke", async ({ page }) => {
   await page.goto("/new");
   // Let the form hydrate first: a pick made before then is reset by hydration.
-  await page.waitForLoadState("networkidle");
+  await settled(page);
   const adult = page.getByRole("radio", { name: "Adult" });
   const family = page.getByRole("radio", { name: "Family" });
   await expect(adult).toBeChecked();

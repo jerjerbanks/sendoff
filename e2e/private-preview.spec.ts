@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { humanCheckDone, uniqueSuffix } from "./helpers";
+import { humanCheckDone, uniqueSuffix, settled } from "./helpers";
 
 /**
  * Someone who isn't on a real trip learns nothing from its URL: not on the page,
@@ -13,7 +13,7 @@ test("an outsider gets nothing about a real trip from its URL", async ({ browser
   const organizerName = `Orla ${id}`;
   const organizer = await (await browser.newContext()).newPage();
   await organizer.goto("/new");
-  await organizer.waitForLoadState("networkidle");
+  await settled(organizer);
   await organizer.getByLabel("Trip name").fill(name);
   await organizer.getByLabel("Your name").fill(organizerName);
   await organizer.getByLabel("Your phone or email").fill(`e2e-preview-${id}@example.com`);
@@ -32,7 +32,7 @@ test("an outsider gets nothing about a real trip from its URL", async ({ browser
     await outsider.goto(`/trip/${tripId}${path}`);
     await expect(outsider.getByRole("heading", { name: /this trip\s*is private/i })).toBeVisible();
     await expect(outsider).toHaveTitle(/^Private trip/);
-    await outsider.waitForLoadState("networkidle");
+    await settled(outsider);
     const html = await outsider.content();
     for (const secret of [name, organizerName, token]) {
       expect(html, `${path || "/"} must not carry "${secret}"`).not.toContain(secret);

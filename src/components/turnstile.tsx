@@ -43,6 +43,8 @@ export function Turnstile({ siteKey }: { siteKey: string | null }) {
   useEffect(() => {
     const form = box.current?.closest("form");
     if (!siteKey || !box.current || !form) return;
+    // Hydrated: tests wait for this instead of network idle, which the widget never allows.
+    box.current.dataset.mounted = "yes";
     let widgetId: string | undefined;
     let cancelled = false;
     let token = "";
