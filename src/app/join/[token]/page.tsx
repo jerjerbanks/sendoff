@@ -1,4 +1,5 @@
 import { Wordmark } from "@/components/wordmark";
+import { SceneHeader } from "@/components/scene";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -66,7 +67,10 @@ export default async function JoinPage({
       <Wordmark />
       {view ? (
         <>
-          <p className="ft-lbl clay mt-8">Invitation · from {view.organizerName}</p>
+          <div className="-mx-5 mt-4">
+            <SceneHeader scene="campfire" size="sm" />
+          </div>
+          <p className="ft-lbl action mt-2">Invitation · from {view.organizerName}</p>
           <h1 className="ft-display mt-3">
             You&apos;re invited to
             <br />
@@ -112,7 +116,7 @@ export default async function JoinPage({
                 <p className="text-center text-xs text-muted">Your other trips stay on this phone, under Menu → Your trips.</p>
               </form>
               <details className="mt-3 text-sm">
-                <summary className="min-h-11 cursor-pointer py-2 font-semibold text-clay-ink">Not {self.name}? Join as someone else</summary>
+                <summary className="min-h-11 cursor-pointer py-2 font-semibold text-action-ink">Not {self.name}? Join as someone else</summary>
                 <JoinForm token={token} error={null} onTour={false} />
               </details>
             </>
@@ -126,7 +130,7 @@ export default async function JoinPage({
           <p className="mt-3 text-sm text-muted">Check the link, or start from the demo.</p>
         </>
       )}
-      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-clay-ink">
+      <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-action-ink">
         Back to {APP_NAME}
       </Link>
       <FeedbackButton className="mt-2 self-start" />

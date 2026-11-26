@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Spot } from "@/components/spot";
 import { addOptionAction, clearLockAction, hideOptionAction, lockOptionAction, pollDeadlineAction, voteAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,12 @@ export default async function VotePage({
             </p>
             {anyBadge ? <p className="ft-meta mt-2">Your budget stays private. Tags only say whether an option fits the group.</p> : null}
             <ul className="ft-rule mt-5">
-              {visible.length === 0 ? <li className="ft-meta py-4">No options yet.</li> : null}
+              {visible.length === 0 ? (
+                <li className="py-6 text-center">
+                  <Spot name="empty-tent" className="w-[180px]" />
+                  <p className="ft-h2 mt-3">No options yet.</p>
+                </li>
+              ) : null}
               {visible.map((option, index) => {
                 const won = poll.lockedOptionId === option.id;
                 const on = option.votedByMe;
@@ -89,11 +95,11 @@ export default async function VotePage({
                         aria-pressed={on}
                         className={`relative grid w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 py-5 text-left transition-[transform,box-shadow] duration-[var(--dur-snappy)] ease-[var(--spring-snappy)] active:scale-[0.99] disabled:cursor-default disabled:active:scale-100 ${
                           on || won
-                            ? "z-10 -mx-3 w-[calc(100%+24px)] rounded-2xl border border-line bg-card px-3 shadow-[var(--shadow-2)] before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-sm before:bg-clay"
+                            ? "z-10 -mx-3 w-[calc(100%+24px)] rounded-2xl border border-line bg-card px-3 shadow-[var(--shadow-2)] before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-sm before:bg-action"
                             : "border-b border-line"
                         }`}
                       >
-                        <span className={`ft-mono pt-1 text-[15px] ${on || won ? "text-clay-ink" : "text-muted"}`}>{String(index + 1).padStart(2, "0")}</span>
+                        <span className={`ft-mono pt-1 text-[15px] ${on || won ? "text-action-ink" : "text-muted"}`}>{String(index + 1).padStart(2, "0")}</span>
                         <span className="min-w-0">
                           <span className="block text-[18px] font-semibold leading-snug">{option.label}</span>
                           <span className="ft-meta mt-0.5 block">
@@ -128,7 +134,7 @@ export default async function VotePage({
                             {option.badge ? (
                               <span className={`ft-chip ${option.badge === "Fits everyone" ? "pine" : option.badge === "Fits most" ? "warn" : "bad"}`}>{option.badge}</span>
                             ) : null}
-                            {on ? <span className="ft-mono text-[15px] font-medium tracking-[0.06em] text-clay-ink">YOURS</span> : null}
+                            {on ? <span className="ft-mono text-[15px] font-medium tracking-[0.06em] text-action-ink">YOURS</span> : null}
                           </span>
                           {option.privateLine ? (
                             <span className="mt-2 block text-[15px] text-ink-2">

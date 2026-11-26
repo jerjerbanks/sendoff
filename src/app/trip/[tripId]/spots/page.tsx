@@ -150,7 +150,7 @@ export default async function RoomsPage({
       ) : null}
 
       {requests.map((request) => (
-        <section key={request.id} className="ft-panel ring-1 ring-clay p-5">
+        <section key={request.id} className="ft-panel ring-1 ring-action p-5">
           <p className="font-semibold">{partyName(request.requesterUserId)} asked to share a bed with you.</p>
           <p className="mt-1 text-sm text-muted">
             {request.counterpartOptedIn ? "You said yes. The organizer decides next." : "Nothing changes unless you say yes and the organizer approves."}
@@ -300,18 +300,18 @@ function RoomCard({
   return (
     <li id={`room-${room.code}`} className={`scroll-mt-20 border-b border-line py-4 ${muted ? "text-ink-2" : ""}`}>
       <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-baseline gap-x-3">
-        <span className={`ft-mono text-[15px] ${mine ? "text-clay-ink" : "text-muted"}`}>{room.code}</span>
+        <span className={`ft-mono text-[15px] ${mine ? "text-action-ink" : "text-muted"}`}>{room.code}</span>
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 text-[18px] font-semibold leading-snug">
-            <span className={`inline-block size-3 flex-none rounded-[3px] border ${mine ? "border-clay bg-clay-tint" : muted ? "border-line-strong bg-chip" : "border-ink-2 bg-card"}`} aria-hidden />
+            <span className={`inline-block size-3 flex-none rounded-[3px] border ${mine ? "border-action bg-action-tint" : muted ? "border-line-strong bg-chip" : "border-ink-2 bg-card"}`} aria-hidden />
             {room.name}
           </h3>
           <p className="ft-meta">{features.join(" · ")}</p>
-          <p className={`mt-1 font-mono text-[14px] uppercase tracking-[0.06em] ${mine ? "text-clay-ink" : vacant && !honoree && !heldForOther ? "text-pine" : "text-muted"}`}>{status}</p>
+          <p className={`mt-1 font-mono text-[14px] uppercase tracking-[0.06em] ${mine ? "text-action-ink" : vacant && !honoree && !heldForOther ? "text-pine" : "text-muted"}`}>{status}</p>
         </div>
         {shown != null && !honoree ? (
           <p className="text-right">
-            <span className={`ft-mono block text-[18px] font-semibold ${mine ? "text-clay-ink" : ""}`}>{money(shown).replace(/\.\d\d$/, "")}</span>
+            <span className={`ft-mono block text-[18px] font-semibold ${mine ? "text-action-ink" : ""}`}>{money(shown).replace(/\.\d\d$/, "")}</span>
             <span className="ft-meta">{share ? "if shared" : room.spots.length > 1 ? "room" : "bed"}</span>
           </p>
         ) : null}

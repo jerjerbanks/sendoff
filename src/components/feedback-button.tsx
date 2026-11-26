@@ -13,7 +13,7 @@ export function FeedbackButton({ className, url = FEEDBACK_URL }: { className?: 
       target="_blank"
       rel="noopener"
       className={cn(
-        "inline-flex min-h-11 min-w-11 items-center gap-1.5 text-sm font-semibold text-clay-ink underline-offset-4 hover:underline",
+        "inline-flex min-h-11 min-w-11 items-center gap-1.5 text-sm font-semibold text-action-ink underline-offset-4 hover:underline",
         className,
       )}
     >

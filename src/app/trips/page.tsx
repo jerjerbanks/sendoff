@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Spot } from "@/components/spot";
 import { deleteTripAction, joinByCodeAction, leaveTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { FeedbackButton } from "@/components/feedback-button";
@@ -96,11 +97,14 @@ export default async function TripsPage({
           ))}
         </ul>
       ) : (
+        <div className="mt-6 text-center">
+          <Spot name="empty-tent" className="w-[180px]" />
         <p className="mt-3 text-sm text-muted">
           {viewer && !viewer.demo
             ? "No trips on this phone yet."
             : "This phone isn't signed in to a trip. Open a trip on the phone you joined with, or use an invite code below."}
         </p>
+        </div>
       )}
 
       <form action={joinByCodeAction} className="mt-8 grid gap-3 ft-panel p-4">

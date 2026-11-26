@@ -20,12 +20,12 @@
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ctl: var(--border-ctl);
-  --color-accent: var(--clay);
-  /* Text on a clay fill stays white in both themes (4.99:1); clay never flips. */
-  --color-accent-ink: var(--on-clay);
-  --color-clay: var(--clay);
-  --color-clay-ink: var(--clay-ink);
-  --color-clay-tint: var(--tint-clay);
+  --color-accent: var(--action);
+  /* Text on an action fill: white in light, dark ink in dark (the fill lightens). */
+  --color-accent-ink: var(--on-action);
+  --color-action: var(--action);
+  --color-action-ink: var(--action-ink);
+  --color-action-tint: var(--tint-action);
   --color-lake: var(--lake);
   --color-lake-60: var(--lake-60);
   --color-lake-tint: var(--tint-lake);
@@ -33,6 +33,7 @@
   --color-sun: var(--sun);
   --color-sun-ink: var(--sun-ink);
   --color-sun-tint: var(--tint-sun);
+  --color-sun-meter: var(--sun-meter);
   --color-good: var(--pine);
   --color-good-soft: var(--tint-pine);
   --color-warn: var(--warning);
@@ -45,8 +46,8 @@
   --radius-md: var(--r-sm);
   --radius-lg: var(--r-sm);
   --radius-xl: var(--r-sm);
-  --radius-2xl: var(--r-md);
-  --radius-3xl: var(--r-md);
+  --radius-2xl: var(--r-lg);
+  --radius-3xl: var(--r-xl);
 
   /* 14px is the floor for content text. */
   --text-xs: 14px;
@@ -79,8 +80,8 @@ body {
 }
 
 ::selection {
-  background: var(--tint-clay);
-  color: var(--clay-ink);
+  background: var(--tint-action);
+  color: var(--action-ink);
 }
 
 :focus-visible {
@@ -164,7 +165,7 @@ body {
     color: var(--ink-3);
   }
   .ft-lbl.ink { color: var(--ink-1); }
-  .ft-lbl.clay { color: var(--clay-ink); }
+  .ft-lbl.action { color: var(--action-ink); }
   .ft-lbl.pine { color: var(--pine); }
   .ft-lbl.lake { color: var(--lake); }
   .ft-mono {
@@ -186,7 +187,7 @@ body {
     font: 400 26px/1 var(--font-display);
     letter-spacing: -0.01em;
   }
-  .ft-wordmark i { color: var(--clay-ink); }
+  .ft-wordmark i { color: var(--action-ink); }
 
   /* ---------- top bar ---------- */
   .ft-bar {
@@ -217,7 +218,7 @@ body {
   }
   .ft-sec .ix {
     font: 500 14px var(--font-mono);
-    color: var(--clay-ink);
+    color: var(--action-ink);
     letter-spacing: 0.04em;
   }
   .ft-rule { border-top: 1px solid var(--line-ink); }
@@ -240,7 +241,7 @@ body {
     background: var(--pine);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pine) 16%, transparent);
   }
-  .ft-dot.clay { background: var(--clay); box-shadow: 0 0 0 3px color-mix(in srgb, var(--clay) 16%, transparent); }
+  .ft-dot.action { background: var(--action); box-shadow: 0 0 0 3px color-mix(in srgb, var(--action) 16%, transparent); }
   .ft-dot.lake { background: var(--lake); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lake) 14%, transparent); }
   .ft-dot.error { background: var(--error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 14%, transparent); }
   .ft-dot.open { background: var(--bg-surface); box-shadow: inset 0 0 0 1px var(--border-ctl); }
@@ -260,7 +261,7 @@ body {
     letter-spacing: 0.01em;
     white-space: nowrap;
   }
-  .ft-chip.on { border-color: var(--clay); color: var(--clay-ink); background: var(--tint-clay); }
+  .ft-chip.on { border-color: var(--action); color: var(--action-ink); background: var(--tint-action); }
   .ft-chip.pine { border-color: color-mix(in srgb, var(--pine) 40%, transparent); color: var(--pine); background: var(--tint-pine); }
   .ft-chip.sun { border-color: var(--sun-ink); color: var(--ink-1); background: var(--tint-sun); }
   .ft-chip.lake { border-color: color-mix(in srgb, var(--lake) 35%, transparent); color: var(--lake); background: var(--tint-lake); }
@@ -303,7 +304,7 @@ body {
   /* Floor plan SVG: fonts and the lifted "yours" bed read tokens, so dark mode can swap them. */
   .ft-svg-ui { font-family: var(--font-ui); }
   .ft-svg-mono { font-family: var(--font-mono); }
-  .ft-bed-lift { filter: drop-shadow(0 3px 2.5px color-mix(in srgb, var(--clay-ink) 24%, transparent)); }
+  .ft-bed-lift { filter: drop-shadow(0 3px 2.5px color-mix(in srgb, var(--action-ink) 24%, transparent)); }
 
   /* Demo banner goal: 16px on phones, the 22px h2 from md up. */
   .ft-demo-goal { font: 600 16px/1.35 var(--font-ui); letter-spacing: -0.01em; }
@@ -325,8 +326,8 @@ body {
   .ft-panel {
     background: var(--bg-surface);
     border: 1px solid var(--line);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-1);
+    border-radius: var(--r-lg);
+    box-shadow: var(--elev-card);
   }
   .ft-panel-h {
     display: flex;
@@ -338,7 +339,7 @@ body {
     border-bottom: 1px solid var(--line);
   }
   .ft-dotgrid { background: var(--dot-grid), var(--bg-surface); }
-  .ft-glow { background: var(--glow-clay); }
+  .ft-glow { background: var(--glow-action); }
 
   /* ---------- rows ---------- */
   .ft-kv {
@@ -374,13 +375,13 @@ body {
     gap: var(--s-3);
     width: 100%;
     min-height: var(--btn-h);
-    padding: 0 16px 0 18px;
-    border-radius: var(--r-sm);
-    background: var(--clay);
-    color: var(--on-clay);
+    padding: 0 20px 0 24px;
+    border-radius: var(--r-pill);
+    background: var(--action);
+    color: var(--on-action);
     font: 600 16px var(--font-ui);
     letter-spacing: -0.01em;
-    box-shadow: 0 0 0 1px rgba(120, 58, 24, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 14px -6px rgba(120, 58, 24, 0.55);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--action) 70%, black), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 14px -6px color-mix(in srgb, var(--action) 60%, transparent);
     transition: transform var(--dur-micro) var(--spring-micro), background var(--dur-fade) var(--ease-out);
     -webkit-tap-highlight-color: transparent;
   }
@@ -399,9 +400,9 @@ body {
     justify-content: center;
     gap: var(--s-2);
     min-height: var(--tap);
-    padding: 0 var(--s-4);
+    padding: 0 var(--s-5);
     border: 1px solid var(--line-strong);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-pill);
     background: var(--bg-surface);
     font: 500 15px var(--font-ui);
     color: var(--ink-1);
@@ -414,7 +415,7 @@ body {
     align-items: center;
     min-height: 44px;
     font: 500 15px var(--font-ui);
-    color: var(--clay-ink);
+    color: var(--action-ink);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
@@ -428,10 +429,10 @@ body {
     border: 1px solid var(--border-ctl);
     border-radius: 6px;
     background: var(--bg-surface);
-    color: var(--on-clay);
+    color: var(--on-action);
     transition: transform var(--dur-micro) var(--spring-micro), background var(--dur-fade) var(--ease-out);
   }
-  .ft-check.on { background: var(--clay); border-color: var(--clay); box-shadow: 0 2px 6px -2px rgba(120, 58, 24, 0.5); }
+  .ft-check.on { background: var(--action); border-color: var(--action); box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--action) 50%, transparent); }
   button:active .ft-check { transform: scale(0.88); }
 
   /* ---------- glass ---------- */
@@ -452,30 +453,76 @@ body {
     z-index: 20;
     max-width: 440px;
     margin: 0 auto;
-    height: 60px;
+    height: 68px;
     padding: 6px;
-    border-radius: var(--r-md);
+    border-radius: 24px;
   }
   .ft-tabs-track { position: relative; display: grid; height: 100%; }
   .ft-tabs-thumb {
     position: absolute;
     inset: 0 auto 0 0;
-    border-radius: var(--r-sm);
+    border-radius: 18px;
     background: var(--bg-surface);
     box-shadow: var(--shadow-1);
     transition: transform var(--dur-smooth) var(--spring-smooth);
   }
   .ft-tab {
     position: relative;
-    display: grid;
-    place-items: center;
-    min-height: var(--tap);
-    border-radius: var(--r-sm);
-    font: 500 15px var(--font-ui);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    border-radius: 18px;
+    font: 500 14px var(--font-ui);
     color: var(--ink-3);
     transition: color var(--dur-fade) var(--ease-out);
   }
-  .ft-tab[aria-current="page"] { color: var(--clay-ink); }
+  .ft-tab[aria-current="page"] { color: var(--action-ink); }
+  .ft-tab svg { width: 22px; height: 22px; }
+
+  /* ---------- v6 illustrated header: scene + ridge ----------
+     The scene is a background so only the current theme's image downloads. */
+  .ft-scene {
+    position: relative;
+    height: 250px;
+    overflow: hidden;
+    background: var(--scene-day) 50% 70% / cover no-repeat, linear-gradient(180deg, var(--sky-a), var(--sky-b));
+  }
+  .ft-scene.sm { height: 148px; background-position: 50% 62%, 0 0; }
+  [data-theme="dark"] .ft-scene { background-image: var(--scene-night), linear-gradient(180deg, var(--sky-a), var(--sky-b)); }
+  .ft-ridge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    width: 100%;
+    height: 56px;
+    color: var(--bg-canvas);
+  }
+  .ft-scene.sm .ft-ridge { height: 40px; }
+  @media (min-width: 64rem) {
+    .ft-scene { height: 300px; }
+  }
+
+  /* ---------- v6 spot illustrations: transparent, no box ---------- */
+  .ft-spot { display: block; width: 220px; max-width: 70%; height: auto; margin: 0 auto; }
+
+  /* ---------- v6.1 progress trail: sun-gold is progress ---------- */
+  .ft-trail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .ft-trail li { display: grid; gap: 6px; }
+  .ft-trail i { display: block; height: 10px; border-radius: var(--r-pill); background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
+  .ft-trail .done i { background: var(--sun-meter); box-shadow: none; }
+  .ft-trail .now i { background: linear-gradient(90deg, var(--sun-meter) 50%, var(--tint-sun) 50%); box-shadow: inset 0 0 0 1px var(--sun-meter); }
+  .ft-trail span { font: 500 14px var(--font-ui); color: var(--ink-3); }
+  .ft-trail .done span { color: var(--ink-2); }
+  .ft-trail .now span { color: var(--sun-ink); font-weight: 600; }
+
+  /* ---------- v6 tinted notice cards: sun for notices, pine for "fits", lake for money ---------- */
+  .ft-notice { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; background: var(--tint-sun); color: var(--ink-2); font-size: 15px; line-height: 1.45; }
+  .ft-notice b, .ft-notice strong { color: var(--ink-1); }
+  .ft-notice::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: var(--r-pill); background: var(--sun-meter); }
 
   /* ---------- headcount meter ---------- */
   .ft-meter { display: flex; align-items: flex-end; gap: 6px; }
@@ -493,8 +540,8 @@ body {
       box-shadow var(--dur-fade) var(--ease-out);
     transition-delay: var(--d, 0ms);
   }
-  .ft-cell.in { background: var(--lake); box-shadow: inset 0 0 0 1px var(--lake); }
-  .ft-cell.you { background: var(--clay); box-shadow: inset 0 0 0 1px var(--clay-ink), 0 4px 8px -3px rgba(120, 58, 24, 0.45); transform: translateY(-3px); }
+  .ft-cell.in { background: var(--sun-meter); box-shadow: inset 0 0 0 1px var(--sun-meter); }
+  .ft-cell.you { background: var(--action); box-shadow: inset 0 0 0 1px var(--action-ink), 0 4px 8px -3px color-mix(in srgb, var(--action) 45%, transparent); transform: translateY(-3px); }
   .ft-cell.booked { background: var(--pine); box-shadow: inset 0 0 0 1px var(--pine); }
   .ft-threshold { flex: none; align-self: stretch; width: 2px; margin: -6px 2px 0; background: var(--ink-1); }
   .ft-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; }
@@ -502,8 +549,8 @@ body {
   /* ---------- vote bars: 10 segments ---------- */
   .ft-vbar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 4px; }
   .ft-vbar > i { border-radius: 1px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
-  .ft-vbar > i.on { background: var(--lake); box-shadow: none; }
-  .ft-vbar.mine > i.on { background: var(--clay); }
+  .ft-vbar > i.on { background: var(--lake-60); box-shadow: none; }
+  .ft-vbar.mine > i.on { background: var(--action); }
 
   /* ---------- toast ---------- */
   .ft-toast {

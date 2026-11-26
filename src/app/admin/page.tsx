@@ -52,7 +52,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <div className="flex items-center justify-between">
         <Wordmark />
         <form action={adminSignOutAction}>
-          <button type="submit" className="min-h-11 text-sm font-semibold text-clay-ink">
+          <button type="submit" className="min-h-11 text-sm font-semibold text-action-ink">
             Sign out of admin
           </button>
         </form>

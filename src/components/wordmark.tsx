@@ -1,6 +1,6 @@
 import { APP_NAME } from "@/lib/constants";
 
-/** The product name as set in the v4 wordmark: Instrument Serif, last word in clay italic. */
+/** The product name as set in the wordmark: Instrument Serif, first word in ink, last word in lake italic (v6.1). */
 export const BRAND = APP_NAME;
 
 export function Wordmark({ name = BRAND, className = "" }: { name?: string; className?: string }) {

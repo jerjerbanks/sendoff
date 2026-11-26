@@ -59,10 +59,10 @@ function tag(name: string): string {
 function Bed({ bed, x, y }: { bed: PlanBed; x: number; y: number }) {
   const [w, h, pillows] = bedSize[bed.bedType] ?? [40, 44, 1];
   const fill =
-    bed.state === "mine" ? "var(--tint-clay)" : bed.state === "taken" || bed.state === "held" ? "var(--bg-sunken)" : "var(--bg-surface)";
+    bed.state === "mine" ? "var(--tint-action)" : bed.state === "taken" || bed.state === "held" ? "var(--bg-sunken)" : "var(--bg-surface)";
   const stroke =
-    bed.state === "mine" || bed.state === "requested" ? "var(--clay)" : bed.state === "taken" || bed.state === "held" ? "var(--line-strong)" : "var(--ink-2)";
-  const text = bed.state === "mine" ? "var(--clay-ink)" : bed.state === "taken" || bed.state === "held" ? "var(--ink-3)" : "var(--ink-2)";
+    bed.state === "mine" || bed.state === "requested" ? "var(--action)" : bed.state === "taken" || bed.state === "held" ? "var(--line-strong)" : "var(--ink-2)";
+  const text = bed.state === "mine" ? "var(--action-ink)" : bed.state === "taken" || bed.state === "held" ? "var(--ink-3)" : "var(--ink-2)";
   const lift = bed.state === "mine" ? -2 : 0;
   const pw = pillows === 2 ? (w - 14) / 2 : w - 10;
   return (
@@ -159,7 +159,7 @@ function Level({
                   </g>
                 ) : null}
                 <text x={rx + 12} y={ry + 24} className="ft-svg-mono" fontSize="14" fontWeight="500" letterSpacing="0.84">
-                  <tspan style={{ fill: "var(--clay-ink)" }}>{room.code}</tspan>
+                  <tspan style={{ fill: "var(--action-ink)" }}>{room.code}</tspan>
                   <tspan dx="7" style={{ fill: "var(--ink-1)" }}>
                     {tag(room.name).slice(0, alone ? 18 : 10)}
                   </tspan>
@@ -203,7 +203,7 @@ function entryX(index: number, count: number): number {
   return PAD + (index % 2) * rw + rw / 2;
 }
 
-/** A 46px door notch in the bottom wall, a clay arrow in, and the mono label beside it. */
+/** A 46px door notch in the bottom wall, a action arrow in, and the mono label beside it. */
 function Entry({ x, y }: { x: number; y: number }) {
   const label = "STEP-FREE ENTRY";
   const labelW = label.length * MONO_CH;
@@ -212,7 +212,7 @@ function Entry({ x, y }: { x: number; y: number }) {
     <g>
       <line x1={x - 23} x2={x + 23} y1={y} y2={y} strokeWidth="3" style={{ stroke: "var(--bg-surface)" }} />
       <path d={`M${x - 23} ${y} v12 h46 v-12`} strokeWidth="1" style={{ fill: "none", stroke: "var(--ink-1)" }} />
-      <path d={`M${x} ${y + 30} v-12 M${x - 4} ${y + 22} l4 -5 l4 5`} strokeWidth="1.25" style={{ fill: "none", stroke: "var(--clay)" }} />
+      <path d={`M${x} ${y + 30} v-12 M${x - 4} ${y + 22} l4 -5 l4 5`} strokeWidth="1.25" style={{ fill: "none", stroke: "var(--action)" }} />
       <text
         x={right ? x + 31 : x - 31}
         y={y + 27}
@@ -246,13 +246,13 @@ export function FloorPlan({ rooms, water = false }: { rooms: PlanRoom[]; water?:
           <i className="ft-key border border-ink-2 bg-card" aria-hidden /> Open
         </li>
         <li className="flex items-center gap-1.5">
-          <i className="ft-key border border-clay bg-clay-tint" aria-hidden /> Yours
+          <i className="ft-key border border-action bg-action-tint" aria-hidden /> Yours
         </li>
         <li className="flex items-center gap-1.5">
           <i className="ft-key border border-line-strong bg-chip" aria-hidden /> Taken
         </li>
         <li className="flex items-center gap-1.5">
-          <i className="ft-key border border-dashed border-clay bg-card" aria-hidden /> Requested
+          <i className="ft-key border border-dashed border-action bg-card" aria-hidden /> Requested
         </li>
       </ul>
     </div>

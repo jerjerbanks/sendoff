@@ -15,7 +15,7 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const wedding = isWeddingSubType(subType);
-  const option = "flex min-h-12 items-center gap-2 rounded-xl border border-line px-3 py-3 has-[:checked]:border-clay";
+  const option = "flex min-h-12 items-center gap-2 rounded-xl border border-line px-3 py-3 has-[:checked]:border-action";
   return (
     <>
       <fieldset className="grid gap-2 text-sm">

@@ -167,7 +167,7 @@ export function ListingImport({ tripId, existingRooms }: { tripId: string; exist
     <section className="ft-panel grid gap-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="ft-lbl clay">Check before adding</p>
+          <p className="ft-lbl action">Check before adding</p>
           <h3 className="ft-h2 mt-1">
             {rooms.length} {rooms.length === 1 ? "room" : "rooms"}, {spots} {spots === 1 ? "spot" : "spots"}
           </h3>
