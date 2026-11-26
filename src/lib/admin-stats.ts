@@ -31,7 +31,7 @@ export async function usageStats(db: StatsDb, now = new Date()): Promise<UsageSt
       .bind(weekAgo)
       .all<{ step: string; total: number; last7: number }>(),
     db
-      .prepare(`SELECT status, COUNT(*) AS count FROM trips WHERE id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}') GROUP BY status`)
+      .prepare(`SELECT CASE WHEN deleted_at IS NOT NULL THEN 'deleted' ELSE status END AS status, COUNT(*) AS count FROM trips WHERE id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}') GROUP BY 1`)
       .bind()
       .all<{ status: string; count: number }>(),
     db
@@ -40,7 +40,7 @@ export async function usageStats(db: StatsDb, now = new Date()): Promise<UsageSt
       .all<{ active: number | null; new7: number | null }>(),
     db
       .prepare(
-        `SELECT t.id AS id, t.trip_type AS tripType, t.status AS status,
+        `SELECT t.id AS id, t.trip_type AS tripType, CASE WHEN t.deleted_at IS NOT NULL THEN 'deleted' ELSE t.status END AS status,
            (SELECT COUNT(*) FROM trip_members m WHERE m.trip_id = t.id AND m.status != 'off_trip') AS members,
            (SELECT COUNT(*) FROM trip_members m WHERE m.trip_id = t.id AND m.status = 'committed') AS committed,
            COALESCE((SELECT MAX(e.at) FROM trip_events e WHERE e.trip_id = t.id), (SELECT MAX(f.at) FROM funnel_events f WHERE f.trip_id = t.id)) AS lastActive

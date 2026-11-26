@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { joinByCodeAction } from "@/app/actions";
+import { deleteTripAction, joinByCodeAction, leaveTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,8 +18,49 @@ export const metadata = { title: `Your trips · ${APP_NAME}` };
  * or paste an invite code. Lists only trips the viewer is a member of; someone signed out
  * (or on a demo sign-in) sees just the two ways in, never a trip.
  */
-export default async function TripsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+const DONE: Record<string, string> = {
+  left: "You left the trip. Any buy-in you'd paid is refunded.",
+  deleted: "Trip deleted. Nobody can open it now, and any buy-ins paid are refunded.",
+};
+
+/**
+ * Leave (members) or delete (the organizer), behind a disclosure and a confirm box. The
+ * store has the real rules: payers only, nobody leaves a booked trip they bought into, and a
+ * booked trip others paid for can't be deleted.
+ */
+function TripExit({ trip }: { trip: MyTrip }) {
+  if (trip.memberStatus === "off_trip") return null;
+  const organizing = trip.role === "organizer";
+  return (
+    <details className="mt-1 px-1 text-sm">
+      <summary className="flex min-h-11 cursor-pointer items-center text-muted">
+        {organizing ? "Delete this trip" : "Leave this trip"}
+      </summary>
+      <form action={organizing ? deleteTripAction : leaveTripAction} className="ft-panel mt-1 grid gap-3 p-4">
+        <input type="hidden" name="tripId" value={trip.tripId} />
+        <p>
+          {organizing
+            ? `This deletes ${trip.name} for everyone on it. Nobody can open it or join it after this. Buy-ins paid before booking are refunded.`
+            : `You and your party come off ${trip.name}. A buy-in paid before booking is refunded. You can rejoin with the invite while the trip is still planning or open for buy-ins.`}
+        </p>
+        <label className="flex min-h-11 items-center gap-3">
+          <input type="checkbox" name="confirm" value="yes" required className="size-5" />
+          {organizing ? `Yes, delete ${trip.name}` : `Yes, leave ${trip.name}`}
+        </label>
+        <SubmitButton variant="destructive" pendingLabel={organizing ? "Deleting…" : "Leaving…"}>
+          {organizing ? "Delete trip" : "Leave trip"}
+        </SubmitButton>
+      </form>
+    </details>
+  );
+}
+
+export default async function TripsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; problem?: string; done?: string }>;
+}) {
+  const { error, problem, done } = await searchParams;
   const viewer = await getViewer();
   const mine: MyTrip[] = viewer && !viewer.demo ? await listMyTrips(viewer.userId) : [];
   return (
@@ -33,6 +74,12 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
       <h1 className="ft-h1">
         Your <i>trips.</i>
       </h1>
+      {done && DONE[done] ? (
+        <p role="status" className="mt-3 rounded-xl bg-good-soft px-3 py-2 text-sm">
+          {DONE[done]}
+        </p>
+      ) : null}
+      {problem ? <p role="alert" className="mt-3 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{problem}</p> : null}
       {mine.length ? (
         <ul className="mt-4 grid gap-2" aria-label="Your trips">
           {mine.map((trip) => (
@@ -44,6 +91,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
                   {trip.role === "organizer" ? " · You're organizing" : trip.memberStatus === "off_trip" ? " · You're off this trip" : ""}
                 </span>
               </Link>
+              <TripExit trip={trip} />
             </li>
           ))}
         </ul>

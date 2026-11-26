@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
 import { RULES } from "./rules";
 import { contactKey } from "./tokens";
@@ -293,7 +293,8 @@ export function buyInTermsLocked(raw: RawTrip): boolean {
 export async function readRaw(tripId: string): Promise<RawTrip | null> {
   const db = getDb();
   const trip = (await db.select().from(trips).where(eq(trips.id, tripId)))[0];
-  if (!trip) return null;
+  // A deleted trip is gone for everyone: every page, action and API call sees "not found".
+  if (!trip || trip.deletedAt) return null;
 
   const [memberRows, pollRows, costRows, milestoneRows, spotRows, partyRows, travelerRows, ackRows] = await Promise.all([
     db.select({
@@ -794,7 +795,7 @@ async function syncOpenPayments(raw: RawTrip, now: string): Promise<boolean> {
 }
 
 export async function tripIdForToken(token: string) {
-  const trip = (await getDb().select({ id: trips.id }).from(trips).where(eq(trips.inviteToken, token)))[0];
+  const trip = (await getDb().select({ id: trips.id }).from(trips).where(and(eq(trips.inviteToken, token), isNull(trips.deletedAt))))[0];
   return trip?.id ?? null;
 }
 
@@ -1032,7 +1033,7 @@ export async function joinTrip(input: {
   viewerId?: string | null;
 }) {
   const db = getDb();
-  const found = (await db.select().from(trips).where(eq(trips.inviteToken, input.token)))[0];
+  const found = (await db.select().from(trips).where(and(eq(trips.inviteToken, input.token), isNull(trips.deletedAt))))[0];
   if (!found) return { ok: false, error: "That invite link doesn't go anywhere." };
   await persistMath(found.id);
   const raw = await readRaw(found.id);
@@ -1104,7 +1105,7 @@ const CONTACT_TAKEN =
  */
 export async function joinTripAsUser(input: { token: string; userId: string }) {
   const db = getDb();
-  const found = (await db.select().from(trips).where(eq(trips.inviteToken, input.token)))[0];
+  const found = (await db.select().from(trips).where(and(eq(trips.inviteToken, input.token), isNull(trips.deletedAt))))[0];
   if (!found || isDemoTrip(found.id)) return { ok: false, error: "That invite link doesn't go anywhere." };
   await persistMath(found.id);
   const raw = await readRaw(found.id);
@@ -1519,6 +1520,17 @@ export async function removeLateMember(tripId: string, actorId: string, userId: 
     return { ok: false, error: "After the stay is booked, only a late payer can be dropped, and their buy-in is forfeited." };
   }
 
+  await takeOffTrip(raw, userId, booked);
+  await persistMath(tripId);
+  return { ok: true };
+}
+
+/**
+ * Take a payer's party off the trip: a paid buy-in is refunded before booking and forfeited
+ * after, unpaid installments go away, and their bed claims are released.
+ */
+async function takeOffTrip(raw: RawTrip, userId: string, booked: boolean) {
+  const tripId = raw.trip.id;
   const db = getDb();
   for (const payment of raw.payments.filter((item) => item.userId === userId)) {
     if (payment.status === "paid") {
@@ -1535,7 +1547,51 @@ export async function removeLateMember(tripId: string, actorId: string, userId: 
     await db.delete(spotClaims).where(and(inArray(spotClaims.spotId, held), eq(spotClaims.userId, userId)));
   }
   await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, userId)));
+}
+
+/**
+ * A member leaves on their own, from Your trips. Payers only (a party leaves together).
+ * Before booking a buy-in is refundable, so it's refunded; after booking, leaving would
+ * forfeit it, so that goes through the organizer instead.
+ */
+export async function leaveTrip(tripId: string, userId: string) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const member = memberOf(raw, userId);
+  if (!member || member.status === "off_trip") return { ok: false, error: "You're not on this trip." };
+  if (member.role === "organizer") return { ok: false, error: "You're organizing this trip. Delete it instead of leaving." };
+  if (isHonoree(member)) return { ok: false, error: "The guest of honor stays on their trip. Ask the organizer." };
+  if (!isPayerMember(member)) return { ok: false, error: "Your party leaves together. Ask whoever pays for your party." };
+  const booked = isBooked(raw.trip.status);
+  if (booked && member.status === "committed") {
+    return { ok: false, error: "The stay is booked, so your buy-in can't be refunded. Talk to the organizer before leaving." };
+  }
+  await takeOffTrip(raw, userId, booked);
   await persistMath(tripId);
+  return { ok: true };
+}
+
+/**
+ * The organizer deletes the trip for everyone. Soft: rows stay (deleted_at is set) and the
+ * trip stops loading anywhere. Before booking every paid buy-in is refunded. Once the stay is
+ * booked and other people have paid, it refuses: that money has to be settled first.
+ */
+export async function deleteTrip(tripId: string, userId: string) {
+  if (isDemoTrip(tripId)) return { ok: false, error: "The sample trips can't be deleted." };
+  const raw = await requireOrganizer(tripId, userId);
+  if ("ok" in raw) return raw;
+  const booked = isBooked(raw.trip.status);
+  const othersPaid = raw.payments.some((payment) => payment.userId !== userId && payment.status === "paid");
+  if (booked && othersPaid) {
+    return { ok: false, error: "The stay is booked and others have paid. Settle up with them before deleting the trip." };
+  }
+  const db = getDb();
+  if (!booked) {
+    for (const payment of raw.payments.filter((item) => item.status === "paid")) {
+      await db.update(payments).set({ status: "refunded" }).where(eq(payments.id, payment.id));
+    }
+  }
+  await db.update(trips).set({ deletedAt: new Date().toISOString() }).where(eq(trips.id, tripId));
   return { ok: true };
 }
 
