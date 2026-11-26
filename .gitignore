@@ -48,3 +48,8 @@ next-env.d.ts
 /dist/
 .vinext/
 .wrangler/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/

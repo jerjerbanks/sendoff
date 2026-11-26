@@ -35,6 +35,28 @@ npm run build
 CI runs all of these, plus every migration from an empty database, on each push
 and pull request (`.github/workflows/ci.yml`).
 
+### End-to-end checks (Playwright, `e2e/`)
+
+After each PR deploys to staging, the `e2e (staging)` job runs the whole suite
+against sendoff-staging and reports pass/fail as a check on the PR, with a
+summary and the HTML report on the Actions run. The suite covers the project
+invariants (demo numbers, budget privacy, members-only trips, sessions and the
+duplicate-contact refusal, the demo tour and `/demo/reset`) plus checks from
+past handoffs.
+
+```bash
+npm run dev                     # or: npm run build && npm start
+npm run e2e                     # whole suite against http://localhost:4747
+E2E_BASE_URL=https://sendoff-staging.jccmiel92.workers.dev npm run e2e
+E2E_BASE_URL=https://sendoff.jccmiel92.workers.dev npm run e2e:smoke   # live-safe subset
+```
+
+Tests find things by role, label and text, never by layout or CSS classes, so a
+redesign that keeps the words and numbers keeps them green. Tests tagged
+`@smoke` never create trips, join, pay or reset: on live they only open demo
+pages, as any visitor taking the tour does. Real-trip tests (one new trip, two
+join attempts per run) are staging and local only.
+
 ## How it's put together
 
 - **Sign-in.** The cookie holds a random session token; D1 stores only its
