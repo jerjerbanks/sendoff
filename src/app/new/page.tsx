@@ -8,7 +8,8 @@ import { TripKindFields } from "@/components/trip-kind-fields";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { APP_NAME } from "@/lib/constants";
-import { ensureDemoSeed } from "@/lib/store";
+import { getViewer } from "@/lib/session";
+import { ensureDemoSeed, personBasics } from "@/lib/store";
 
 export const metadata = { title: `Start a trip · ${APP_NAME}` };
 
@@ -19,6 +20,9 @@ export default async function NewTripPage({
 }) {
   await ensureDemoSeed();
   const { error } = await searchParams;
+  // Signed in for real: the new trip is organized as you, and your other trips stay on this phone.
+  const viewer = await getViewer();
+  const self = viewer && !viewer.demo ? await personBasics(viewer.userId) : null;
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 pb-12 md:max-w-3xl">
       <header className="ft-bar -mx-5 mb-8">
@@ -82,10 +86,20 @@ export default async function NewTripPage({
         {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
         <Field label="Trip name" name="name" placeholder="Jamie & Sam's weekend" />
         <TripKindFields>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Your name" name="organizerName" placeholder="Jordan Lee" />
-            <Field label="Your phone or email" name="organizerContact" placeholder="jordan@example.com" />
-          </div>
+          {self ? (
+            <p className="text-sm text-muted">
+              You&apos;ll organize this as <span className="font-semibold text-ink">{self.name}</span>. Your other trips stay under{" "}
+              <Link href="/trips" className="ft-link">
+                Your trips
+              </Link>
+              .
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Your name" name="organizerName" placeholder="Jordan Lee" />
+              <Field label="Your phone or email" name="organizerContact" placeholder="jordan@example.com" />
+            </div>
+          )}
         </TripKindFields>
         <Field label="Rough date window" name="dateWindow" placeholder="A long weekend in April or May 2027" />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>

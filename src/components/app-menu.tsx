@@ -56,6 +56,7 @@ export function AppMenu({ tripId, isOrganizer, share }: { tripId: string; isOrga
 
   const base = `/trip/${tripId}`;
   const links: [string, string][] = [
+    ["/trips", "Your trips"],
     [`${base}/party`, "Your party"],
     [`${base}/budget`, "Your budget"],
     ...(isOrganizer

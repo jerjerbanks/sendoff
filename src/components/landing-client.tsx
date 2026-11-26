@@ -88,6 +88,7 @@ const LINKS = [
   ["#how", "How it works"],
   ["#for", "For organizers"],
   ["#pricing", "Pricing"],
+  ["/trips", "Have an invite code?"],
 ] as const;
 
 /**

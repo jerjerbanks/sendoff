@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { isDemoTrip } from "./demo-tour";
-import { sessions, tripEvents, tripMembers } from "./schema";
+import { sessions, tripEvents, tripMembers, trips } from "./schema";
 import { hashToken, plausibleToken } from "./tokens";
 
 /**
@@ -33,4 +33,41 @@ export async function landingDestination(token: string | undefined): Promise<str
     .limit(10);
   const trip = rows.find((row) => !isDemoTrip(row.tripId));
   return trip ? `/trip/${trip.tripId}` : null;
+}
+
+export interface MyTrip {
+  tripId: string;
+  name: string;
+  dateWindow: string;
+  status: string;
+  role: string;
+  memberStatus: string;
+}
+
+/**
+ * The trips this person belongs to, most recently active first, for "Your trips".
+ * One indexed query; nothing is recalculated. Demo trips are left out.
+ */
+export async function listMyTrips(userId: string): Promise<MyTrip[]> {
+  const lastActive = sql<string | null>`max(${tripEvents.at})`;
+  const rows = await getDb()
+    .select({
+      tripId: tripMembers.tripId,
+      name: trips.name,
+      dateWindow: trips.dateWindow,
+      status: trips.status,
+      role: tripMembers.role,
+      memberStatus: tripMembers.status,
+      lastActive,
+    })
+    .from(tripMembers)
+    .innerJoin(trips, eq(trips.id, tripMembers.tripId))
+    .leftJoin(tripEvents, eq(tripEvents.tripId, tripMembers.tripId))
+    .where(eq(tripMembers.userId, userId))
+    .groupBy(tripMembers.tripId)
+    .orderBy(desc(lastActive))
+    .limit(50);
+  return rows
+    .filter((row) => !isDemoTrip(row.tripId))
+    .map(({ tripId, name, dateWindow, status, role, memberStatus }) => ({ tripId, name, dateWindow, status, role, memberStatus }));
 }

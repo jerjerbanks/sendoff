@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { demoResetAllowed } from "@/lib/demo-flag";
 import { zonedToUtc } from "@/lib/format";
-import { createSignInLink, endSession, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
+import { createSignInLink, endSession, getViewer, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
+import { inviteTokenFrom } from "@/lib/invite-code";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { isContact } from "@/lib/tokens";
 import { parseTripKind } from "@/lib/trip-kind";
@@ -19,6 +20,9 @@ import {
   deleteCost,
   extendDeadline,
   joinTrip,
+  joinTripAsUser,
+  personBasics,
+  tripIdForToken,
   jumpPastSecondPayment,
   lockPollOption,
   payMilestone,
@@ -104,8 +108,11 @@ function honoreeRole(value: string): HonoreeRole {
 export async function createTripAction(formData: FormData) {
   if (!(await withinLimit("create"))) fail("/new", TOO_MANY);
   const name = text(formData, "name", 80);
-  const organizerName = text(formData, "organizerName", NAME_MAX);
-  const organizerContact = text(formData, "organizerContact", 120);
+  // Already signed in (for real): organize as yourself, so this phone keeps every trip.
+  const viewer = await getViewer();
+  const self = viewer && !viewer.demo ? await personBasics(viewer.userId) : null;
+  const organizerName = self?.name ?? text(formData, "organizerName", NAME_MAX);
+  const organizerContact = self?.contact ?? text(formData, "organizerContact", 120);
   const dateWindow = text(formData, "dateWindow", 120);
   const { tripType, preWeddingStyle, allowsHonorees } = parseTripKind({
     tripKind: text(formData, "tripKind"),
@@ -133,8 +140,17 @@ export async function createTripAction(formData: FormData) {
       role: honoreeRole(text(formData, `honoree${index}Role`)),
     });
   }
-  const created = await createTrip({ name, organizerName, organizerContact, tripType, preWeddingStyle, honorees, dateWindow });
-  await startSession(created.organizerId);
+  const created = await createTrip({
+    name,
+    organizerName,
+    organizerContact,
+    tripType,
+    preWeddingStyle,
+    honorees,
+    dateWindow,
+    organizerUserId: self && viewer ? viewer.userId : undefined,
+  });
+  if (!self) await startSession(created.organizerId);
   redirect(`/trip/${created.tripId}/party?welcome=1`);
 }
 
@@ -152,6 +168,27 @@ export async function joinTripAction(formData: FormData) {
   await startSession(result.userId, { demo: isDemoTrip(result.tripId) });
   // S18 then S17: confirm the party and its travelers, then the private budget.
   redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
+}
+
+/** "Join as Jordan": a signed-in person joins another trip without retyping anything or losing their other trips. */
+export async function joinAsMeAction(formData: FormData) {
+  const token = text(formData, "token", 64);
+  if (!(await withinLimit("join"))) fail(`/join/${token}`, TOO_MANY);
+  const viewer = await getViewer();
+  if (!viewer || viewer.demo) fail(`/join/${token}`, "Fill in your name and a phone or email to join.");
+  const result = await joinTripAsUser({ token, userId: viewer.userId });
+  if (!result.ok || !result.tripId) fail(`/join/${token}`, result.error ?? "Could not join.");
+  revalidatePath("/trips");
+  redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
+}
+
+/** "Have an invite code?": a pasted code or invite link goes to that trip's invite page. */
+export async function joinByCodeAction(formData: FormData) {
+  if (!(await withinLimit("join"))) fail("/trips", TOO_MANY);
+  const token = inviteTokenFrom(text(formData, "code", 500));
+  if (!token) fail("/trips", "That doesn't look like an invite code or link.");
+  if (!(await tripIdForToken(token))) fail("/trips", "That code doesn't match a trip. Check it with whoever invited you.");
+  redirect(`/join/${token}`);
 }
 
 export async function switchUserAction(formData: FormData) {

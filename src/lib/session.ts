@@ -21,15 +21,23 @@ const LINK_MINUTES = 15;
  * form or a cookie: ids are visible to everyone on a trip, tokens are not.
  */
 export const getViewerId = cache(async (): Promise<string | null> => {
+  return (await getViewer())?.userId ?? null;
+});
+
+/**
+ * The signed-in person and whether it's a throwaway demo sign-in. Only a real
+ * (non-demo) sign-in can list its trips, join another trip as itself, or start one.
+ */
+export const getViewer = cache(async (): Promise<{ userId: string; demo: boolean } | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!plausibleToken(token)) return null;
   const row = (
     await getDb()
-      .select({ userId: sessions.userId })
+      .select({ userId: sessions.userId, demo: sessions.demo })
       .from(sessions)
       .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date().toISOString())))
   )[0];
-  return row?.userId ?? null;
+  return row ? { userId: row.userId, demo: row.demo === 1 } : null;
 });
 
 /**

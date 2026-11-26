@@ -2,13 +2,13 @@ import { Wordmark } from "@/components/wordmark";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { joinTripAction } from "@/app/actions";
+import { joinAsMeAction, joinTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { FeedbackButton } from "@/components/feedback-button";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
-import { getViewerId } from "@/lib/session";
-import { ensureDemoSeed, isMemberOf, tripIdForToken } from "@/lib/store";
+import { getViewer } from "@/lib/session";
+import { ensureDemoSeed, isMemberOf, personBasics, tripIdForToken } from "@/lib/store";
 import { DemoBanner } from "@/components/demo-panel";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { loadTripView } from "@/lib/view";
@@ -50,8 +50,11 @@ export default async function JoinPage({
   const onTour = tour === "2" && isDemoTrip(tripId);
   const closed = !!view && (view.lockedIn || view.underMinimum || view.cancelled);
   // Already on this trip on this phone: no second sign-up, just the way in.
-  const viewerId = tripId && !onTour ? await getViewerId() : null;
+  const viewer = tripId && !onTour ? await getViewer() : null;
+  const viewerId = viewer?.userId ?? null;
   const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
+  // Signed in for real on another trip: join as yourself in one tap and keep every trip on this phone.
+  const self = viewer && !viewer.demo && !alreadyIn && !isDemoTrip(tripId) ? await personBasics(viewer.userId) : null;
 
   return (
     <main className={`mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10 ${isDemoTrip(tripId) && tripId ? "pt-16 md:pt-64" : ""}`}>
@@ -100,47 +103,21 @@ export default async function JoinPage({
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">
               The buy-in deadline has passed. You can&apos;t join or rejoin.
             </p>
+          ) : self ? (
+            <>
+              <form action={joinAsMeAction} className="mt-6 grid gap-3 ft-panel p-4">
+                <input type="hidden" name="token" value={token} />
+                {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+                <SubmitButton pendingLabel="Joining…">Join as {self.name}</SubmitButton>
+                <p className="text-center text-xs text-muted">Your other trips stay on this phone, under Menu → Your trips.</p>
+              </form>
+              <details className="mt-3 text-sm">
+                <summary className="min-h-11 cursor-pointer py-2 font-semibold text-clay-ink">Not {self.name}? Join as someone else</summary>
+                <JoinForm token={token} error={null} onTour={false} />
+              </details>
+            </>
           ) : (
-            <form action={joinTripAction} className="mt-6 grid gap-3 ft-panel p-4">
-              <input type="hidden" name="token" value={token} />
-              {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
-              <label className="text-sm font-medium">
-                Your name
-                <Input
-                  className="mt-1.5 scroll-mb-28"
-                  name="name"
-                  required
-                  placeholder="Your name"
-                  autoComplete="name"
-                  autoCapitalize="words"
-                  enterKeyHint="next"
-                  defaultValue={onTour ? "Taylor Nguyen" : undefined}
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Phone or email
-                {/* Phone or email in one field: the email keyboard has both @ and digits; scroll margin keeps Join visible over the keyboard. */}
-                <Input
-                  className="mt-1.5 scroll-mb-28"
-                  name="contact"
-                  type="text"
-                  required
-                  placeholder="you@example.com or 555-123-4567"
-                  inputMode="email"
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  enterKeyHint="go"
-                  defaultValue={onTour ? "taylor@example.com" : undefined}
-                />
-              </label>
-              <SubmitButton>Join the trip</SubmitButton>
-              <p className="text-center text-xs text-muted">
-                No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
-                this one.
-              </p>
-            </form>
+            <JoinForm token={token} error={error ?? null} onTour={onTour} />
           )}
         </>
       ) : (
@@ -154,6 +131,52 @@ export default async function JoinPage({
       </Link>
       <FeedbackButton className="mt-2 self-start" />
     </main>
+  );
+}
+
+/** Name and phone or email: a new sign-in on this phone. */
+function JoinForm({ token, error, onTour }: { token: string; error: string | null; onTour: boolean }) {
+  return (
+    <form action={joinTripAction} className="mt-6 grid gap-3 ft-panel p-4">
+      <input type="hidden" name="token" value={token} />
+      {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
+      <label className="text-sm font-medium">
+        Your name
+        <Input
+          className="mt-1.5 scroll-mb-28"
+          name="name"
+          required
+          placeholder="Your name"
+          autoComplete="name"
+          autoCapitalize="words"
+          enterKeyHint="next"
+          defaultValue={onTour ? "Taylor Nguyen" : undefined}
+        />
+      </label>
+      <label className="text-sm font-medium">
+        Phone or email
+        {/* Phone or email in one field: the email keyboard has both @ and digits; scroll margin keeps Join visible over the keyboard. */}
+        <Input
+          className="mt-1.5 scroll-mb-28"
+          name="contact"
+          type="text"
+          required
+          placeholder="you@example.com or 555-123-4567"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
+          defaultValue={onTour ? "taylor@example.com" : undefined}
+        />
+      </label>
+      <SubmitButton>Join the trip</SubmitButton>
+      <p className="text-center text-xs text-muted">
+        No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
+        this one.
+      </p>
+    </form>
   );
 }
 

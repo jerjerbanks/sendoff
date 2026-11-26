@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
 import { RULES } from "./rules";
 import { contactKey } from "./tokens";
+import { isDemoTrip } from "./demo-tour";
 import { getD1, getDb } from "./db";
 import { recordFunnel, type FunnelStep } from "./funnel";
 import { importedRoomSpots, type ImportRoom } from "./listing-import";
@@ -951,13 +952,15 @@ export async function createTrip(input: {
   preWeddingStyle: PreWeddingStyle | null;
   honorees: { name: string; contact: string; contactGiven?: boolean; role: HonoreeRole }[];
   dateWindow: string;
+  /** A signed-in person starting another trip organizes it as themselves, so they keep every trip on this phone. */
+  organizerUserId?: string;
 }) {
   const db = getDb();
   const tripId = crypto.randomUUID();
-  const organizerId = crypto.randomUUID();
+  const organizerId = input.organizerUserId ?? crypto.randomUUID();
   const now = Date.now();
   const honorees = input.honorees.map((honoree) => ({ ...honoree, id: crypto.randomUUID() }));
-  await db.insert(users).values({ id: organizerId, name: input.organizerName, contact: input.organizerContact });
+  if (!input.organizerUserId) await db.insert(users).values({ id: organizerId, name: input.organizerName, contact: input.organizerContact });
   for (const honoree of honorees) {
     // A made-up contact is marked claimed, so nobody can sign in as the honoree with it.
     await db.insert(users).values({ id: honoree.id, name: honoree.name, contact: honoree.contact, claimed: honoree.contactGiven === false ? 1 : 0 });
@@ -1043,11 +1046,7 @@ export async function joinTrip(input: {
     // honoree the organizer added, or someone from before sessions existed).
     const owner = (await db.select({ claimed: users.claimed }).from(users).where(eq(users.id, existing.userId)))[0];
     if (existing.userId !== input.viewerId && owner?.claimed === 1) {
-      return {
-        ok: false,
-        error:
-          "Someone on this trip already joined with that phone or email. If it's you, open the trip on the phone you joined with, go to Your party, and tap “Sign in on another phone.”",
-      };
+      return { ok: false, error: CONTACT_TAKEN };
     }
     if (existing.status === "off_trip") {
       if (raw.trip.status !== "buy_in_open" && raw.trip.status !== "voting" && raw.trip.status !== "planning") {
@@ -1062,18 +1061,8 @@ export async function joinTrip(input: {
     return { ok: true, tripId: raw.trip.id, userId: existing.userId, isNew: false };
   }
 
-  if (raw.trip.status === "cancelled") return { ok: false, error: "This trip was cancelled." };
-  if (raw.trip.status === "booked" || raw.trip.status === "under_minimum") {
-    return { ok: false, error: "The buy-in deadline has passed. Nobody can join after that." };
-  }
-
-  const onTrip = raw.travelers.filter((traveler) => {
-    const payer = memberOf(raw, traveler.partyId);
-    return payer && payer.status !== "off_trip" && payer.status !== "declined";
-  }).length;
-  if (onTrip >= raw.trip.maxHeadcount) {
-    return { ok: false, error: `This trip is full at ${raw.trip.maxHeadcount} travelers. Ask the organizer to raise the cap.` };
-  }
+  const blocked = newMemberBlocked(raw);
+  if (blocked) return { ok: false, error: blocked };
 
   const userId = crypto.randomUUID();
   await db.insert(users).values({ id: userId, name: input.name, contact: input.contact.trim() });
@@ -1086,6 +1075,72 @@ export async function joinTrip(input: {
   // The Metrics page reads the first "joined" event.
   await safeEvent(raw.trip.id, userId, "joined");
   return { ok: true, tripId: raw.trip.id, userId, isNew: true };
+}
+
+/** Why nobody new can join this trip right now, or null when they can. */
+function newMemberBlocked(raw: RawTrip): string | null {
+  if (raw.trip.status === "cancelled") return "This trip was cancelled.";
+  if (raw.trip.status === "booked" || raw.trip.status === "under_minimum") {
+    return "The buy-in deadline has passed. Nobody can join after that.";
+  }
+  const onTrip = raw.travelers.filter((traveler) => {
+    const payer = memberOf(raw, traveler.partyId);
+    return payer && payer.status !== "off_trip" && payer.status !== "declined";
+  }).length;
+  if (onTrip >= raw.trip.maxHeadcount) {
+    return `This trip is full at ${raw.trip.maxHeadcount} travelers. Ask the organizer to raise the cap.`;
+  }
+  return null;
+}
+
+const CONTACT_TAKEN =
+  "Someone on this trip already joined with that phone or email. If it's you, open the trip on the phone you joined with, go to Your party, and tap “Sign in on another phone.”";
+
+/**
+ * Join a trip as the person this phone is already signed in as, so one sign-in holds
+ * every trip they're on. Same rules as joinTrip: a contact already used on the trip by
+ * someone else is refused, and nobody joins a cancelled, booked or full trip. Demo
+ * trips are joined only through the form, which makes a throwaway demo sign-in.
+ */
+export async function joinTripAsUser(input: { token: string; userId: string }) {
+  const db = getDb();
+  const found = (await db.select().from(trips).where(eq(trips.inviteToken, input.token)))[0];
+  if (!found || isDemoTrip(found.id)) return { ok: false, error: "That invite link doesn't go anywhere." };
+  await persistMath(found.id);
+  const raw = await readRaw(found.id);
+  if (!raw) return { ok: false, error: "That invite link doesn't go anywhere." };
+  const person = (await db.select({ name: users.name, contact: users.contact }).from(users).where(eq(users.id, input.userId)))[0];
+  if (!person) return { ok: false, error: "Sign in again, then open the invite." };
+
+  const existing = memberOf(raw, input.userId);
+  if (existing) {
+    if (existing.status === "off_trip") {
+      if (raw.trip.status !== "buy_in_open" && raw.trip.status !== "voting" && raw.trip.status !== "planning") {
+        return { ok: false, error: "The deadline has passed. You can't rejoin this trip." };
+      }
+      await db.update(tripMembers)
+        .set({ status: "joined", committedAt: null })
+        .where(and(eq(tripMembers.tripId, raw.trip.id), eq(tripMembers.userId, input.userId)));
+    }
+    return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: false };
+  }
+  const key = contactKey(person.contact);
+  if (raw.members.some((member) => contactKey(member.contact) === key)) return { ok: false, error: CONTACT_TAKEN };
+  const blocked = newMemberBlocked(raw);
+  if (blocked) return { ok: false, error: blocked };
+
+  await db.insert(tripMembers)
+    .values({ tripId: raw.trip.id, userId: input.userId, role: "member", status: "joined", committedAt: null, partyUserId: null });
+  await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: input.userId, name: defaultPartyName(person.name, raw.trip.tripType) });
+  await funnel(raw.trip.id, input.userId, "member_joined");
+  await safeEvent(raw.trip.id, input.userId, "joined");
+  return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: true };
+}
+
+/** Name and contact of one person, for "Join as …" and "Organizing as …". */
+export async function personBasics(userId: string): Promise<{ name: string; contact: string } | null> {
+  const row = (await getDb().select({ name: users.name, contact: users.contact }).from(users).where(eq(users.id, userId)))[0];
+  return row ?? null;
 }
 
 function memberOf(raw: RawTrip, userId: string): MemberRecord | undefined {
