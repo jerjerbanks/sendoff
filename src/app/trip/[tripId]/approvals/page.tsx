@@ -4,7 +4,7 @@ import { getViewerId } from "@/lib/session";
 import { listSpotRequests } from "@/lib/store";
 import { money } from "@/lib/format";
 import { shareComfortLabel } from "@/lib/labels";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 export default async function ApprovalsPage({
   params,
@@ -15,7 +15,7 @@ export default async function ApprovalsPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const requests = await listSpotRequests(tripId);
   const pending = requests.filter((request) => request.status === "pending");

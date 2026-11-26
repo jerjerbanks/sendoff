@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { APP_NAME } from "./constants";
-import { ogCard } from "./og-copy";
+import { ogCard, privateTripCard } from "./og-copy";
 
 const bachelor = {
   name: "Cabo",
@@ -64,5 +64,15 @@ describe("og card copy", () => {
       expect(card.shareTitle).toBe(`${APP_NAME} · ${card.title}`);
       expect(card.alt).not.toContain(APP_NAME);
     }
+  });
+});
+
+describe("privateTripCard", () => {
+  it("says nothing about the trip", () => {
+    const card = privateTripCard();
+    const all = Object.values(card).join(" ");
+    expect(card.shareTitle).toBe(`${APP_NAME} · You're invited to a trip`);
+    expect(card.pageTitle).toBe(`Private trip · ${APP_NAME}`);
+    expect(all).not.toMatch(/\$|\d|part(y|ies)|going|commit by/i);
   });
 });

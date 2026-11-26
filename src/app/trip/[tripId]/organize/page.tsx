@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { money, utcToZonedInput } from "@/lib/format";
 import { splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 /** Everything only the organizer does, in one place, so members never see it. */
 export default async function OrganizePage({
@@ -18,7 +18,7 @@ export default async function OrganizePage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   if (!view.isOrganizer) {
     return <p className="text-sm text-muted">Only the organizer runs these. Use the tabs below for your own steps.</p>;

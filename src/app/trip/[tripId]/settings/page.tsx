@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandHint, ageBandLabel, splitModeHint, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 const modes = ["weighted_by_spot", "even_per_traveler", "even_per_party"] as const;
 
@@ -27,7 +27,7 @@ export default async function SettingsPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId(), true);
+  const view = await loadMemberView(tripId, await getViewerId(), true);
   if (!view) return null;
   const me = view.viewer?.userId ?? "";
   const hidden = (

@@ -76,3 +76,22 @@ export function ogCard(view: Pick<
     shareTitle: `${APP_NAME} · ${title}`,
   };
 }
+
+/**
+ * What someone who isn't on a real trip gets from its URL: tab title, link preview
+ * and card image. Nothing about the trip (no name, place, headcount or dates), so a
+ * forwarded /trip link or a chat unfurl bot learns only that a private trip exists.
+ */
+export function privateTripCard(): OgCard {
+  const title = "You're invited to a trip";
+  const line = "Open your invite link to join";
+  return {
+    eyebrow: APP_NAME.toUpperCase(),
+    title,
+    line,
+    foot: "This trip is private",
+    alt: `${title} · ${line}`,
+    pageTitle: `Private trip · ${APP_NAME}`,
+    shareTitle: `${APP_NAME} · ${title}`,
+  };
+}

@@ -17,7 +17,7 @@ import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandHint, ageBandLabel, honoreeRoleLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 const bands = ["adult", "teen", "child", "infant"] as const;
 
@@ -31,7 +31,7 @@ export default async function PartyPage({
 }) {
   const { tripId } = await params;
   const { error, welcome, party: partyParam } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view || !view.viewer) return null;
   const viewer = view.viewer;
   const party =

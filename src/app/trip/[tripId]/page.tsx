@@ -8,7 +8,7 @@ import { ageBandLabel, honoreeRoleLabel } from "@/lib/labels";
 import { meterCells, meterSub, tripMeter } from "@/lib/meter";
 import type { JourneyStep, NextStep } from "@/lib/next-step";
 import { getViewerId } from "@/lib/session";
-import { loadTripView, type PartyView, type TripView } from "@/lib/view";
+import { loadMemberView, type PartyView, type TripView } from "@/lib/view";
 
 /** S3, rebuilt around one question: what should I do next? Everything else is one tap away. */
 export default async function DashboardPage({
@@ -20,7 +20,7 @@ export default async function DashboardPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const origin = await requestOrigin();
 

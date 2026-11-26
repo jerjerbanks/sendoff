@@ -769,6 +769,18 @@ export const loadTripView = cache(async (tripId: string, viewerUserId: string | 
   return withNextStep(view, data.pending);
 });
 
+/**
+ * The view a trip *page* may render: null for someone who isn't on a real trip.
+ * The layout shows them "This trip is private", but pages render alongside it and
+ * stream their output too, so each page must load through this, never loadTripView.
+ */
+export async function loadMemberView(tripId: string, viewerUserId: string | null, withSplitPreview = false): Promise<TripView | null> {
+  const view = await loadTripView(tripId, viewerUserId, withSplitPreview);
+  if (!view) return null;
+  if (!view.viewer && view.id !== DEMO_TRIP_ID && view.id !== LAKE_TRIP_ID) return null;
+  return view;
+}
+
 function optionFit(
   raw: RawTrip,
   option: RawTrip["options"][number],

@@ -7,7 +7,7 @@ import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandLabel, categoryLabel, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 const categories = ["lodging", "flights", "activities", "tee_times", "other"];
 
@@ -20,7 +20,7 @@ export default async function CostsPage({
 }) {
   const { tripId } = await params;
   const { error } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
   const party = view.viewerParty;
