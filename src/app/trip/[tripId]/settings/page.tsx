@@ -58,7 +58,7 @@ export default async function SettingsPage({
                   <th className="py-1 pr-2 font-semibold">Your party</th>
                   <th className="py-1 pr-2 font-semibold">Now ({splitModeLabel(view.splitMode)})</th>
                   {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
-                    <th className="py-1 pr-2 font-semibold text-clay-ink">If {splitModeLabel(view.pendingSplitMode)}</th>
+                    <th className="py-1 pr-2 font-semibold text-action-ink">If {splitModeLabel(view.pendingSplitMode)}</th>
                   ) : (
                     modes
                       .filter((mode) => mode !== view.splitMode)
@@ -76,7 +76,7 @@ export default async function SettingsPage({
                     <td className="py-1.5 pr-2 font-medium">{row.name}</td>
                     <td className="py-1.5 pr-2 font-semibold">{money(row.byMode[view.splitMode])}</td>
                     {view.pendingSplitMode && view.pendingSplitMode !== view.splitMode ? (
-                      <td className="py-1.5 pr-2 text-clay-ink">{money(row.byMode[view.pendingSplitMode])}</td>
+                      <td className="py-1.5 pr-2 text-action-ink">{money(row.byMode[view.pendingSplitMode])}</td>
                     ) : (
                       modes
                         .filter((mode) => mode !== view.splitMode)
@@ -235,7 +235,7 @@ export default async function SettingsPage({
           <SubmitButton variant="secondary">Simulate deadline now</SubmitButton>
         </form>
       ) : null}
-      <a href={`/trip/${view.id}/approvals`} className="text-sm font-semibold text-clay-ink">Open the approvals queue</a>
+      <a href={`/trip/${view.id}/approvals`} className="text-sm font-semibold text-action-ink">Open the approvals queue</a>
     </div>
   );
 }

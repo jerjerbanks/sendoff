@@ -41,7 +41,7 @@ export function TopBar({
   tripName: string;
   payLabel: string;
   status: string;
-  tone: "pine" | "clay" | "lake" | "error";
+  tone: "pine" | "action" | "lake" | "error";
 }) {
   const pathname = usePathname();
   const base = `/trip/${tripId}`;

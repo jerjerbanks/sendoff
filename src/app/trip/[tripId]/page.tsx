@@ -28,6 +28,7 @@ export default async function DashboardPage({
     <div className="grid grid-cols-1 gap-10 [&>*]:min-w-0">
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
       <div className="grid gap-6">
+        <TripTrail view={view} />
         {/* TODO(map): the v4 pack opens Plan with a lake map. Deferred (Jeremy, Nov 24): trips have no
             coordinates yet, so there is no map slot here. No tiles, no map API until that's decided. */}
         <Hero view={view} />
@@ -85,7 +86,7 @@ function Hero({ view }: { view: TripView }) {
   const households = view.parties.filter((item) => item.status !== "off_trip" && item.status !== "declined").length;
   return (
     <section>
-      <p className="ft-lbl clay">
+      <p className="ft-lbl action">
         {view.subtitle}
         {view.organizerName ? ` · from ${view.organizerName}` : ""}
       </p>
@@ -110,7 +111,7 @@ function Hero({ view }: { view: TripView }) {
           <div className="ft-kv">
             <dt>Your share</dt>
             <dd className="flex items-baseline justify-between gap-3">
-              <Link href={`/trip/${view.id}/costs`} className="ft-mono text-[22px] font-semibold text-clay-ink underline decoration-1 underline-offset-4">
+              <Link href={`/trip/${view.id}/costs`} className="ft-mono text-[22px] font-semibold text-action-ink underline decoration-1 underline-offset-4">
                 {money(share).replace(/\.00$/, "")}
               </Link>
               {party ? (
@@ -134,7 +135,38 @@ const stepHref: Record<JourneyStep["key"], string> = {
   room: "/spots",
 };
 
-/** Your steps as numbered mono cells. Done is lake with a check, current is clay. */
+/**
+ * v6.1 progress trail: where the whole trip stands, from data the page already has.
+ * Done is a sun-gold segment, the current step a half-filled one. Words carry the state too.
+ */
+function TripTrail({ view }: { view: TripView }) {
+  const active = view.parties.filter((party) => party.status !== "off_trip" && party.status !== "declined");
+  const done = [
+    active.length >= 2,
+    view.polls.length === 0 || view.polls.every((poll) => poll.closed || !!poll.lockedOptionId),
+    view.lockedIn || view.status === "booked",
+  ];
+  const current = done.findIndex((item) => !item);
+  const labels = ["Invite", "Vote", "Commit"];
+  return (
+    <ol className="ft-trail" aria-label={current < 0 ? "Trip progress: all steps done" : `Trip progress: ${labels[current]} is next`}>
+      {labels.map((label, index) => {
+        const state = done[index] ? "done" : index === current ? "now" : "todo";
+        return (
+          <li key={label} className={state} aria-current={state === "now" ? "step" : undefined}>
+            <i aria-hidden />
+            <span>
+              {label}
+              <span className="sr-only">{state === "done" ? ", done" : state === "now" ? ", in progress" : ", not started"}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Your steps as numbered mono cells. Done is sun-gold with a check (progress), current is the lake action colour. */
 function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
   const done = steps.filter((step) => step.state === "done" || step.state === "skipped").length;
   return (
@@ -143,9 +175,9 @@ function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
         {steps.map((step, index) => {
           const tone =
             step.state === "done"
-              ? "border-lake bg-lake-tint text-lake"
+              ? "border-sun-meter bg-sun-tint text-sun-ink"
               : step.state === "current"
-                ? "border-clay bg-clay-tint text-clay-ink"
+                ? "border-action bg-action-tint text-action-ink"
                 : "border-line-strong bg-card text-muted";
           return (
             <li key={step.key}>
@@ -168,12 +200,12 @@ function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
 }
 
 function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
-  const dot = step.tone === "bad" ? "error" : step.tone === "warn" ? "clay" : step.tone === "action" ? "clay" : "";
+  const dot = step.tone === "bad" ? "error" : step.tone === "warn" ? "action" : step.tone === "action" ? "action" : "";
   return (
     <section className={`rise-in ft-panel p-5 ${step.tone === "bad" ? "border-bad/40" : ""}`}>
       <p className="ft-live">
         <span className={`ft-dot ${dot}`} aria-hidden />
-        <span className={step.tone === "bad" ? "text-bad" : "text-clay-ink"}>{step.eyebrow.toUpperCase()}</span>
+        <span className={step.tone === "bad" ? "text-bad" : "text-action-ink"}>{step.eyebrow.toUpperCase()}</span>
       </p>
       <h2 className="ft-h2 mt-3">{step.title}</h2>
       <p className="ft-lead mt-1.5">{step.body}</p>
@@ -190,7 +222,7 @@ function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
 function statusWord(party: PartyView): { text: string; tone: string; dot: string } {
   if (party.isHonoreeOnly) return { text: "Honored", tone: "text-sun-ink", dot: "lake" };
   if (party.status === "committed") return { text: "In", tone: "text-pine", dot: "" };
-  if (party.status === "joined") return { text: "Deciding", tone: "text-clay-ink", dot: "clay" };
+  if (party.status === "joined") return { text: "Deciding", tone: "text-action-ink", dot: "action" };
   if (party.status === "invited") return { text: "Invited", tone: "text-muted", dot: "open" };
   if (party.status === "declined") return { text: "Declined", tone: "text-muted", dot: "open" };
   return { text: "Dropped", tone: "text-bad", dot: "error" };
@@ -317,7 +349,7 @@ function OrganizerCard({ view }: { view: TripView }) {
         <span className="ft-lbl ink block">Organizer tools</span>
         <span className="ft-meta block">{items.length ? items.join(" · ") : "Rooms, costs, payments, settings"}</span>
       </span>
-      <span className="text-clay-ink">
+      <span className="text-action-ink">
         <Arrow />
       </span>
     </Link>

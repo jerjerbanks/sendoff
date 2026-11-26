@@ -33,7 +33,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
       <PhoneDemoBar view={view} step={step} total={total} who={who} runDeadline={runDeadline} tripId={tripId} />
       <div className="sticky top-0 z-30 hidden border-b border-line-strong bg-chip px-5 py-3 md:block">
         <div className="flex items-center justify-between gap-3">
-          <p className="ft-lbl clay">
+          <p className="ft-lbl action">
             Demo{step ? ` · Step ${step.n} of ${total}` : ""}
           </p>
           <Link href="/" className="text-xs font-semibold text-muted">
@@ -113,7 +113,7 @@ function PhoneDemoBar({
   return (
     <div className="relative z-30 md:hidden">
       <div className="flex h-10 items-stretch border-b border-line-strong bg-chip pl-5">
-        <p className="ft-lbl clay flex min-w-0 flex-1 items-center truncate">
+        <p className="ft-lbl action flex min-w-0 flex-1 items-center truncate">
           Demo · {step ? `${step.n}/${total} · ${who}` : "sample trip"}
         </p>
         {step && step.n > 1 ? (
@@ -207,7 +207,7 @@ function DemoControls({ view }: { view: TripView }) {
                     {member.name}
                     <span className="text-muted"> · {member.isPayer ? roleLabel(member.role) : `on ${party.name}`}</span>
                   </span>
-                  {member.userId === view.viewer?.userId ? <span className="text-xs text-clay-ink">You</span> : null}
+                  {member.userId === view.viewer?.userId ? <span className="text-xs text-action-ink">You</span> : null}
                 </button>
               </form>
             )),

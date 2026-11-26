@@ -2,6 +2,7 @@ import { openBuyInAction, payAction, removeMemberAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { CommitButton, HeadcountMeter } from "@/components/motion";
 import { PaymentGrid } from "@/components/payment-grid";
+import { Spot } from "@/components/spot";
 import { meterCells, meterSub, restScheduleNote, tripMeter } from "@/lib/meter";
 import { Input, fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
@@ -35,6 +36,9 @@ export default async function PayPage({
   const share = view.currentShareCents ?? view.ifYouCommitCents ?? party?.bill?.totalCents ?? null;
   const daysLeft = view.buyInDeadline ? Math.max(0, Math.ceil((Date.parse(view.buyInDeadline) - Date.parse(view.now)) / 86_400_000)) : null;
   const after = view.payerCount + 1;
+  // v6 celebration: every party still on the trip has committed (honoree-only parties don't pay).
+  const payingParties = view.parties.filter((item) => !item.isHonoreeOnly && item.status !== "off_trip" && item.status !== "declined");
+  const everyoneIn = payingParties.length >= 2 && payingParties.every((item) => item.status === "committed");
 
   return (
     <div className="grid grid-cols-1 gap-8 [&>*]:min-w-0">
@@ -46,9 +50,23 @@ export default async function PayPage({
         </p>
       ) : null}
 
+      {everyoneIn ? (
+        <section className="ft-panel overflow-hidden px-5 pt-6 pb-5 text-center">
+          <Spot name="everyone-in" alt="Friends and family cheering together on a lake dock at sunset" className="w-[240px]" />
+          <p className="ft-lbl mt-4 text-sun-ink">
+            {payingParties.length} of {payingParties.length} parties committed
+          </p>
+          <h2 className="ft-h1 mt-2">
+            You made it out of
+            <br />
+            <i>the group chat.</i>
+          </h2>
+        </section>
+      ) : null}
+
       {viewer?.role === "honoree" ? (
         <section>
-          <p className="ft-lbl clay">Guest of honor</p>
+          <p className="ft-lbl action">Guest of honor</p>
           <h1 className="ft-display mt-3">
             You&apos;re
             <br />
@@ -60,7 +78,7 @@ export default async function PayPage({
 
       {viewer && !viewer.isPayer && viewer.role !== "honoree" ? (
         <section>
-          <p className="ft-lbl clay">{party?.name ?? "Your party"}</p>
+          <p className="ft-lbl action">{party?.name ?? "Your party"}</p>
           <h1 className="ft-display mt-3">
             {party?.payerName.split(" ")[0] ?? "Your payer"} pays
             <br />
@@ -159,7 +177,7 @@ export default async function PayPage({
             <input type="hidden" name="milestoneId" value={buyIn.id} />
             <input type="hidden" name="kind" value="buy_in" />
             <label className="flex min-h-12 items-start gap-3 text-[15px] text-ink-2">
-              <input className="mt-0.5 size-6 shrink-0 accent-[var(--clay)]" type="checkbox" name="ack" value="yes" required />
+              <input className="mt-0.5 size-6 shrink-0 accent-[var(--action)]" type="checkbox" name="ack" value="yes" required />
               I understand it&apos;s refundable only until the stay is booked.
             </label>
             <TestModeNotice />
@@ -175,7 +193,7 @@ export default async function PayPage({
       {viewer?.isPayer && viewer.role !== "honoree" && party?.status === "committed" ? (
         <>
           <section>
-            <p className="ft-lbl clay">{party.name} · committed</p>
+            <p className="ft-lbl action">{party.name} · committed</p>
             <h1 className="ft-display mt-3">
               You&apos;re in.
               <br />
@@ -207,7 +225,7 @@ export default async function PayPage({
           <div className="ft-panel-h">
             <span className="ft-lbl ink">{line.name}</span>
             <span className={`ft-live ${line.status === "late" ? "text-bad" : ""}`}>
-              <span className={`ft-dot ${line.status === "late" ? "error" : "clay"}`} aria-hidden />
+              <span className={`ft-dot ${line.status === "late" ? "error" : "action"}`} aria-hidden />
               {line.status === "late" ? "LATE" : "DUE"} {formatDay(line.dueDate).toUpperCase()}
             </span>
           </div>
@@ -331,8 +349,10 @@ export default async function PayPage({
 /** Shown above every commit and pay button until real payments exist (they don't yet). */
 function TestModeNotice({ className = "" }: { className?: string }) {
   return (
-    <p role="note" className={`rounded-xl border border-line bg-chip px-3 py-2.5 text-[15px] leading-snug text-ink ${className}`}>
-      <strong className="font-semibold">Test mode: no real money moves.</strong> Nothing is charged and no card is asked for.
+    <p role="note" className={`ft-notice ${className}`}>
+      <span>
+        <strong className="font-semibold">Test mode: no real money moves.</strong> Nothing is charged and no card is asked for.
+      </span>
     </p>
   );
 }

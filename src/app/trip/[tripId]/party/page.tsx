@@ -54,7 +54,7 @@ export default async function PartyPage({
   return (
     <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
       <div>
-        {welcome ? <p className="ft-lbl clay">Step 1 of 2</p> : null}
+        {welcome ? <p className="ft-lbl action">Step 1 of 2</p> : null}
         <h2 className="ft-h1">{editingOther ? party.name : welcome ? "Who's coming with you?" : "Your party"}</h2>
         <p className="mt-2 text-sm text-muted">
           {editingOther
@@ -96,7 +96,7 @@ export default async function PartyPage({
                       <span className="block truncate font-semibold">{traveler.name}</span>
                       <span className="block text-xs text-muted">{meta}</span>
                     </span>
-                    <span className="text-xs font-semibold text-clay-ink">Edit</span>
+                    <span className="text-xs font-semibold text-action-ink">Edit</span>
                   </summary>
                   <form action={updateTravelerAction} className="grid gap-2 px-4 pb-4">
                     {hidden}

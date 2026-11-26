@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /**
- * v4 buttons. Primary is clay with an inner highlight, a 1px ring and a warm
+ * v6.1 buttons. Primary is a lake-blue pill with an inner highlight, a 1px ring and a soft
  * shadow; everything presses to .97 on the micro spring. 52px tall, 8px radius.
  */
 const buttonVariants = cva(
