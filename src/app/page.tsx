@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { LandingEnhance, LandingMenu } from "@/components/landing-client";
 import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { versionLine } from "@/lib/build-info";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
 import { landingDestination } from "@/lib/landing";
 import { requestOrigin } from "@/lib/origin";
@@ -21,7 +22,7 @@ const lastWord = words.pop() ?? "";
 const WORDMARK_HTML = words.length ? `${escapeHtml(words.join(" "))} <i>${escapeHtml(lastWord)}</i>` : escapeHtml(lastWord);
 
 // Filled once per isolate, not per request: the landing page is two static strings.
-const fill = (markup: string) => markup.replaceAll("%%WM%%", WORDMARK_HTML).replaceAll("%%APP%%", escapeHtml(APP_NAME));
+const fill = (markup: string) => markup.replaceAll("%%WM%%", WORDMARK_HTML).replaceAll("%%APP%%", escapeHtml(APP_NAME)).replaceAll("%%VERSION%%", escapeHtml(versionLine()));
 const HERO_HTML = fill(HERO_ART);
 const LOWER_HTML = fill(LOWER);
 

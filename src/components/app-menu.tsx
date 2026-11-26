@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { versionLine } from "@/lib/build-info";
 import { useEffect, useRef, useState } from "react";
 import { FeedbackButton } from "@/components/feedback-button";
 import { copyText } from "@/components/share-button";
@@ -116,6 +117,7 @@ export function AppMenu({ tripId, isOrganizer, share }: { tripId: string; isOrga
             <FeedbackButton />
             <ThemeToggle variant="bar" />
           </div>
+          <p className="font-mono text-xs text-muted">{versionLine()}</p>
         </div>
       </dialog>
     </>

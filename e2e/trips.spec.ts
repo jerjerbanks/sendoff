@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { uniqueSuffix } from "./helpers";
+import { createTrip, uniqueSuffix } from "./helpers";
 
 /**
  * Your trips and invite codes: one sign-in holds every trip it starts or joins, an invite
@@ -8,25 +8,13 @@ import { uniqueSuffix } from "./helpers";
  * and one by real-trip.spec.ts, under the create limit of 5 a minute.
  */
 
-test.describe.configure({ mode: "serial" });
+// Room to wait out the trip-creation limit once (see createTrip).
+test.describe.configure({ mode: "serial", timeout: 180_000 });
 
 const PRIVATE = /this trip\s*is private/i;
 
 async function freshPage(browser: Browser): Promise<Page> {
   return (await browser.newContext()).newPage();
-}
-
-async function createTrip(page: Page, name: string, who?: { name: string; contact: string }) {
-  await page.goto("/new");
-  await page.getByLabel("Trip name").fill(name);
-  if (who) {
-    await page.getByLabel("Your name").fill(who.name);
-    await page.getByLabel("Your phone or email").fill(who.contact);
-  }
-  await page.getByLabel("Rough date window").fill("A long weekend in June 2027");
-  await page.getByRole("button", { name: /create the trip/i }).click();
-  await expect(page).toHaveURL(/\/trip\/[^/]+\/party\?welcome=1/);
-  return new URL(page.url()).pathname.split("/")[2]!;
 }
 
 async function inviteLink(page: Page, tripId: string): Promise<string> {
