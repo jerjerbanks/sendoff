@@ -57,3 +57,28 @@ export async function becomeDemoPerson(page: Page, fullName: string) {
 export function uniqueSuffix(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
+
+const TOO_MANY = /too many tries/i;
+
+/**
+ * Start a real trip from /new and return its id. Trip creation is limited to 5 a minute
+ * per address, and several specs create trips, so a refusal waits out the window once.
+ */
+export async function createTrip(page: Page, name: string, who?: { name: string; contact: string }): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto("/new");
+    await page.getByLabel("Trip name").fill(name);
+    if (who) {
+      await page.getByLabel("Your name").fill(who.name);
+      await page.getByLabel("Your phone or email").fill(who.contact);
+    }
+    await page.getByLabel("Rough date window").fill("A long weekend in June 2027");
+    await page.getByRole("button", { name: /create the trip/i }).click();
+    await page.waitForURL(/\/trip\/[^/]+\/party\?welcome=1|\/new\?error=/);
+    if (/\/trip\//.test(page.url())) return new URL(page.url()).pathname.split("/")[2]!;
+    expect(decodeURIComponent(page.url()), "only the rate limit may refuse a valid trip").toMatch(TOO_MANY);
+    // Fixed one-minute windows: wait until the next one starts.
+    await page.waitForTimeout(61_000 - (Date.now() % 60_000));
+  }
+  throw new Error("Trip creation stayed rate limited");
+}

@@ -94,6 +94,9 @@ jobs:
 
       - name: Build
         run: npm run "$BUILD"
+        env:
+          # Shown in the app's test-version line; on a PR, the branch's own commit.
+          BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Deploy Worker (${{ env.WORKER }})
         run: npx wrangler deploy --config dist/server/wrangler.json
