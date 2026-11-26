@@ -50,6 +50,8 @@ export const trips = sqliteTable("trips", {
   splitMode: text("split_mode").notNull().default("weighted_by_spot"),
   ageWeights: text("age_weights"),
   pendingSplitMode: text("pending_split_mode"),
+  /** Set when the organizer deletes the trip (migration 0011). A deleted trip never loads. */
+  deletedAt: text("deleted_at"),
 });
 
 /** One per paying party. Keyed by the payer's user id. */

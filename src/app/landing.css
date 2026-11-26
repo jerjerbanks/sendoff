@@ -188,6 +188,8 @@
 .ftl .nav {grid-template-columns:1fr auto;padding:0 28px}
 .ftl .nav .links,
 .ftl .nav .right .pill {display:none}
+/* Signed in: "Your trips" stays visible on phones too, so "/" never strands anyone. */
+.ftl .nav .right .pill.mine {display:inline-flex;align-items:center;min-height:44px;padding:0 14px;font-size:14px}
 .ftl .nav .menu {display:inline-flex;min-height:44px;align-items:center;padding:0 16px;border-radius:999px;background:var(--nav-glass);box-shadow:0 0 0 1px color-mix(in srgb,var(--hero-ink) 12%,transparent);font:500 14px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--hero-ink)}
 .ftl .hero {height:1240px}
 .ftl .hero h1 {font-size:72px}
@@ -220,6 +222,9 @@
 .ftl .nav {padding:0 16px;height:68px}
 .ftl .nav .right {gap:8px}
 .ftl .nav .theme button {width:44px;height:44px}
+/* Phones only fit one extra control: signed in, "Your trips" wins over the theme picker
+   (it's on Your trips and in the app's Menu too). */
+.ftl .nav .right:has(.pill.mine) .theme {display:none}
 .ftl .wm {font-size:26px}
 .ftl .hero {height:1170px}
 .ftl .photo {background-size:auto 1500px;background-position:42% top}

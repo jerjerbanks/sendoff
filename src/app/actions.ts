@@ -12,6 +12,8 @@ import { isContact } from "@/lib/tokens";
 import { parseTripKind } from "@/lib/trip-kind";
 import { withinLimit } from "@/lib/limit-check";
 import {
+  deleteTrip,
+  leaveTrip,
   addCost,
   addPollOption,
   cancelTrip,
@@ -183,6 +185,26 @@ export async function joinAsMeAction(formData: FormData) {
 }
 
 /** "Have an invite code?": a pasted code or invite link goes to that trip's invite page. */
+/** Leave a trip from Your trips. Needs the confirm box ticked; the store checks the rest. */
+export async function leaveTripAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  if (text(formData, "confirm") !== "yes") redirect(`/trips?problem=${encodeURIComponent("Tick the box to confirm.")}`);
+  const result = await leaveTrip(tripId, await me());
+  if (!result.ok) redirect(`/trips?problem=${encodeURIComponent(result.error ?? "That didn't work.")}`);
+  revalidatePath(`/trip/${tripId}`, "layout");
+  redirect(`/trips?done=left`);
+}
+
+/** Delete a trip for everyone, from Your trips. Organizer only, confirm box required. */
+export async function deleteTripAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  if (text(formData, "confirm") !== "yes") redirect(`/trips?problem=${encodeURIComponent("Tick the box to confirm.")}`);
+  const result: { ok: boolean; error?: string } = await deleteTrip(tripId, await me());
+  if (!result.ok) redirect(`/trips?problem=${encodeURIComponent(result.error ?? "That didn't work.")}`);
+  revalidatePath(`/trip/${tripId}`, "layout");
+  redirect(`/trips?done=deleted`);
+}
+
 export async function joinByCodeAction(formData: FormData) {
   if (!(await withinLimit("join"))) fail("/trips", TOO_MANY);
   const token = inviteTokenFrom(text(formData, "code", 500));

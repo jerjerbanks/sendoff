@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { LandingEnhance, LandingMenu } from "@/components/landing-client";
 import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { versionLine } from "@/lib/build-info";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
-import { landingDestination } from "@/lib/landing";
+import { getViewer } from "@/lib/session";
 import { requestOrigin } from "@/lib/origin";
 import { HERO_ART, LOWER } from "./landing-content";
 import "./landing.css";
@@ -49,16 +48,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * "/" is the v5 landing page. Someone signed in (a real session, not a demo one) goes
- * straight to their most recently active trip. Logged-out visitors cost no database work:
- * the cookie check is the only thing that runs before the static markup.
+ * "/" is the v5 landing page, for everyone. Someone signed in (a real session, not a demo
+ * one) gets "Your trips" in place of "Start a trip"; it used to redirect them into their
+ * latest trip, which hid the landing page. Logged-out visitors cost no database work: the
+ * session lookup runs only when the cookie is present.
  */
 export default async function LandingPage() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (token) {
-    const destination = await landingDestination(token);
-    if (destination) redirect(destination);
-  }
+  const viewer = token ? await getViewer() : null;
+  const signedIn = !!viewer && !viewer.demo;
   return (
     <div className="ftl">
       <header className="hero">
@@ -76,9 +74,15 @@ export default async function LandingPage() {
           </div>
           <div className="right">
             <ThemeToggle className="theme" />
-            <a className="pill dark" href="/new">
-              Start a trip
-            </a>
+            {signedIn ? (
+              <Link className="pill dark mine" href="/trips">
+                Your trips
+              </Link>
+            ) : (
+              <a className="pill dark" href="/new">
+                Start a trip
+              </a>
+            )}
             <LandingMenu />
           </div>
         </nav>

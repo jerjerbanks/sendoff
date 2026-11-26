@@ -20,9 +20,9 @@ const counts = (sqlite: Database.Database) =>
   Object.fromEntries((sqlite.prepare("SELECT step, COUNT(*) AS n FROM funnel_events GROUP BY step").all() as { step: string; n: number }[]).map((row) => [row.step, row.n]));
 
 describe("funnel events", () => {
-  it("migrations 0001–0010 apply cleanly from empty, and 0010 is re-runnable", () => {
+  it("every migration applies cleanly from empty, and 0010 is re-runnable", () => {
     const { sqlite, files } = migratedDb();
-    expect(files.at(-1)).toBe("0010_funnel_events.sql");
+    expect(files).toContain("0010_funnel_events.sql");
     expect(() => sqlite.exec(readFileSync("migrations/0010_funnel_events.sql", "utf8"))).not.toThrow();
   });
 

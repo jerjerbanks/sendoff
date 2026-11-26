@@ -90,7 +90,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <section className="mt-6 grid gap-1 text-sm" aria-label="Totals">
         <p>
           <span className="font-mono">{stats.trips.total}</span> trips in all
-          {stats.trips.byStatus.length ? `: ${stats.trips.byStatus.map((row) => `${row.count} ${tripStatusLabel(row.status as TripStatus).toLowerCase()}`).join(", ")}` : ""}.
+          {stats.trips.byStatus.length ? `: ${stats.trips.byStatus.map((row) => `${row.count} ${statusLabel(row.status).toLowerCase()}`).join(", ")}` : ""}.
         </p>
         <p>
           <span className="font-mono">{stats.signedInPhones.active}</span> signed-in phones, <span className="font-mono">{stats.signedInPhones.new7}</span> new in the last 7 days.
@@ -119,7 +119,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <td className="py-2 font-mono">
                     {row.idShort} <span className="text-muted">{row.tripType}</span>
                   </td>
-                  <td className="py-2">{tripStatusLabel(row.status as TripStatus)}</td>
+                  <td className="py-2">{statusLabel(row.status)}</td>
                   <td className="py-2 text-right font-mono">{row.members}</td>
                   <td className="py-2 text-right font-mono">{row.committed}</td>
                   <td className="py-2 text-right font-mono">{row.lastActive ? row.lastActive.slice(0, 10) : "—"}</td>
@@ -134,4 +134,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <p className="mt-6 text-xs text-muted">As of {stats.generatedAt.replace("T", " ").slice(0, 16)} UTC.</p>
     </main>
   );
+}
+
+/** Trip statuses, plus "deleted" for trips their organizer deleted (still counted here). */
+function statusLabel(status: string): string {
+  return status === "deleted" ? "Deleted" : tripStatusLabel(status as TripStatus);
 }
