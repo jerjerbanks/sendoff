@@ -107,3 +107,39 @@ jobs:
           [ "$code" = 200 ] || { echo "::error::$URL/ returned $code"; exit 1; }
           curl -fsS -o /dev/null -w "demo %{http_code}\n" "$URL/trip/trip_demo"
           echo "Deployed $GITHUB_SHA to $URL" >> "$GITHUB_STEP_SUMMARY"
+
+  # After a PR's staging deploy: the Playwright suite (e2e/) against staging.
+  # Shows on the PR as the "Deploy / e2e (staging)" check; the report is attached
+  # to the run. It holds the staging concurrency group, so the next deploy waits
+  # until these tests finish against the build they were meant for.
+  e2e:
+    name: e2e (staging)
+    needs: deploy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_BASE_URL: https://sendoff-staging.jccmiel92.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e against staging
+        run: npm run e2e
+      - name: Summary
+        if: always()
+        run: node scripts/e2e-summary.mjs playwright-report/results.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
