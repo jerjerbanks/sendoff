@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { uniqueSuffix } from "./helpers";
+import { humanCheckDone, uniqueSuffix } from "./helpers";
 
 /**
  * Someone who isn't on a real trip learns nothing from its URL: not on the page,
@@ -18,6 +18,7 @@ test("an outsider gets nothing about a real trip from its URL", async ({ browser
   await organizer.getByLabel("Your name").fill(organizerName);
   await organizer.getByLabel("Your phone or email").fill(`e2e-preview-${id}@example.com`);
   await organizer.getByLabel("Rough date window").fill("A long weekend in May 2027");
+  await humanCheckDone(organizer);
   await organizer.getByRole("button", { name: /create the trip/i }).click();
   await expect(organizer).toHaveURL(/\/trip\/[^/]+\/party\?welcome=1/);
   const tripId = new URL(organizer.url()).pathname.split("/")[2]!;

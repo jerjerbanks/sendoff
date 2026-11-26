@@ -11,6 +11,7 @@ import { isDemoTrip } from "@/lib/demo-tour";
 import { isContact } from "@/lib/tokens";
 import { parseTripKind } from "@/lib/trip-kind";
 import { withinLimit } from "@/lib/limit-check";
+import { passesTurnstile } from "@/lib/turnstile";
 import {
   deleteTrip,
   leaveTrip,
@@ -76,6 +77,7 @@ async function me(): Promise<string> {
 }
 
 const TOO_MANY = "Too many tries. Wait a minute and try again.";
+const NOT_CHECKED = "We couldn't confirm you're a person. Wait a few seconds and try again. If it keeps happening, turn off any content blocker for this site.";
 
 function fail(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -109,6 +111,7 @@ function honoreeRole(value: string): HonoreeRole {
 
 export async function createTripAction(formData: FormData) {
   if (!(await withinLimit("create"))) fail("/new", TOO_MANY);
+  if (!(await passesTurnstile(formData, "create"))) fail("/new", NOT_CHECKED);
   const name = text(formData, "name", 80);
   // Already signed in (for real): organize as yourself, so this phone keeps every trip.
   const viewer = await getViewer();
@@ -159,6 +162,7 @@ export async function createTripAction(formData: FormData) {
 export async function joinTripAction(formData: FormData) {
   const token = text(formData, "token", 40);
   if (!(await withinLimit("join"))) fail(`/join/${token}`, TOO_MANY);
+  if (!(await passesTurnstile(formData, "join"))) fail(`/join/${token}`, NOT_CHECKED);
   const name = text(formData, "name", NAME_MAX);
   const contact = text(formData, "contact", 120);
   if (!name || !contact) fail(`/join/${token}`, "Add your name and a phone or email.");

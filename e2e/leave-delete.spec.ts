@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createTrip, uniqueSuffix } from "./helpers";
+import { createTrip, humanCheckDone, uniqueSuffix } from "./helpers";
 
 /**
  * Leaving and deleting a trip from Your trips, and "/" no longer jumping into a trip.
@@ -24,6 +24,7 @@ test("a member leaves, then the organizer deletes the trip for everyone", async 
   await mo.goto(`/join/${invite}`);
   await mo.getByLabel("Your name").fill("Mo Member");
   await mo.getByLabel("Phone or email").fill(`e2e-mo-${id}@example.com`);
+  await humanCheckDone(mo);
   await mo.getByRole("button", { name: /join the trip/i }).click();
   await expect(mo).toHaveURL(new RegExp(`/trip/${tripId}/party\\?welcome=1`));
 

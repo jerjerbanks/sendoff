@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { Turnstile } from "@/components/turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile";
 import { Arrow } from "@/components/motion";
 import { Input } from "@/components/ui/input";
 import { FeedbackButton } from "@/components/feedback-button";
@@ -102,6 +104,7 @@ export default async function NewTripPage({
           )}
         </TripKindFields>
         <Field label="Rough date window" name="dateWindow" placeholder="A long weekend in April or May 2027" />
+        <Turnstile siteKey={turnstileSiteKey()} />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>
       </form>
       <FeedbackButton className="mt-6 self-center" />

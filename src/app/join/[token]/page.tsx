@@ -4,6 +4,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { joinAsMeAction, joinTripAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
+import { Turnstile } from "@/components/turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile";
 import { FeedbackButton } from "@/components/feedback-button";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
@@ -171,6 +173,7 @@ function JoinForm({ token, error, onTour }: { token: string; error: string | nul
           defaultValue={onTour ? "taylor@example.com" : undefined}
         />
       </label>
+      <Turnstile siteKey={turnstileSiteKey()} />
       <SubmitButton>Join the trip</SubmitButton>
       <p className="text-center text-xs text-muted">
         No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
