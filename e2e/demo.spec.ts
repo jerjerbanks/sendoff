@@ -116,3 +116,11 @@ test.describe("demo tour", () => {
     await expect(page.getByText("$1,414").filter({ visible: true }).first()).toBeVisible();
   });
 });
+
+test("visitors starting the tour at the same moment all get in", async ({ playwright, baseURL }) => {
+  // Each /demo/1 reseeds the shared demo trips; overlapping reseeds once collided (500).
+  const contexts = await Promise.all([1, 2, 3, 4].map(() => playwright.request.newContext({ baseURL })));
+  const responses = await Promise.all(contexts.map((context) => context.get("/demo/1", { maxRedirects: 0 })));
+  for (const response of responses) expect(response.status(), "every /demo/1 redirects into the tour").toBeLessThan(400);
+  await Promise.all(contexts.map((context) => context.dispose()));
+});
