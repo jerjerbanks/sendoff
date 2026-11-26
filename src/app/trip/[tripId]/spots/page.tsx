@@ -9,7 +9,7 @@ import { money } from "@/lib/format";
 import { bedLabel, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { listSpotRequests, type SpotRecord } from "@/lib/store";
-import { loadTripView, type TripView } from "@/lib/view";
+import { loadMemberView, type TripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
 
 type Room = { name: string; spots: SpotRecord[]; code: string };
@@ -25,7 +25,7 @@ export default async function RoomsPage({
   const { tripId } = await params;
   const { error, committed, view: layout } = await searchParams;
   const listOnly = layout === "list";
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
   const party = view.viewerParty;

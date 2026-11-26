@@ -1,6 +1,6 @@
 import { getViewerId } from "@/lib/session";
 import { listEvents } from "@/lib/store";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 import { outOfPocketAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ export default async function MetricsPage({
   params: Promise<{ tripId: string }>;
 }) {
   const { tripId } = await params;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const events = await listEvents(tripId);
   const committed = view.payerCount >= view.minHeadcount;

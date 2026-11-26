@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { getViewerId } from "@/lib/session";
-import { loadTripView } from "@/lib/view";
+import { loadMemberView } from "@/lib/view";
 
 export default async function VotePage({
   params,
@@ -16,7 +16,7 @@ export default async function VotePage({
 }) {
   const { tripId } = await params;
   const { error, q } = await searchParams;
-  const view = await loadTripView(tripId, await getViewerId());
+  const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   const viewer = view.viewer;
   const canVote = !!viewer && viewer.status !== "off_trip" && viewer.status !== "invited" && !view.cancelled;
