@@ -86,7 +86,7 @@ export default async function PayPage({
         <section>
           <p className="ft-lbl accent">{party?.name ?? "Your party"}</p>
           <h1 className="ft-display mt-3">
-            {party?.payerName.split(" ")[0] ?? "Your payer"} pays
+            {party?.payerShortName ?? "Your payer"} pays
             <br />
             <i>for your party.</i>
           </h1>
@@ -107,7 +107,7 @@ export default async function PayPage({
           <p className="ft-lead mt-4">
             {view.isOrganizer
               ? "Open it below once the place and dates are set and the house is on the cost sheet. Everyone then commits with a refundable test buy-in."
-              : `${view.organizerName.split(" ")[0] || "The organizer"} opens it once the place and dates are set. Until then, vote and check your number on Costs.`}
+              : `${view.organizerShortName || "The organizer"} opens it once the place and dates are set. Until then, vote and check your number on Costs.`}
           </p>
         </section>
       ) : null}
@@ -117,7 +117,7 @@ export default async function PayPage({
           <section>
             <p className="ft-lbl">
               {party && party.travelers.length > 1
-                ? party.travelers.map((traveler) => traveler.name.split(" ")[0]).join(" & ")
+                ? party.travelers.map((traveler) => traveler.shortName).join(" & ")
                 : (viewer?.name ?? "")}
             </p>
             <h1 className="ft-display mt-3">
@@ -126,7 +126,7 @@ export default async function PayPage({
               <i>{after <= view.minPayerCount ? `You make ${word(after).toLowerCase()}.` : "Join them."}</i>
             </h1>
             <p className="ft-lead mt-4">
-              {view.organizerName.split(" ")[0]} books the stay at {view.minPayerCount} {view.minPayerCount === 1 ? "party" : "parties"}.{" "}
+              {view.organizerShortName} books the stay at {view.minPayerCount} {view.minPayerCount === 1 ? "party" : "parties"}.{" "}
               {after === view.minPayerCount
                 ? `Your ${party && party.travelers.length > 1 ? `${party.travelers.length} places take` : "place takes"} it to the line.`
                 : after > view.minPayerCount
@@ -226,7 +226,7 @@ export default async function PayPage({
                 lockedIn: view.lockedIn,
                 payerCount: view.payerCount,
                 minPayers: view.minPayerCount,
-                organizerFirstName: view.organizerName.split(" ")[0] ?? view.organizerName,
+                organizerFirstName: view.organizerShortName,
                 viewerIsOrganizer: view.isOrganizer,
               })}
             </p>

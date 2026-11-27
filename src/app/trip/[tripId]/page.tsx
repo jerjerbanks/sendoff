@@ -287,7 +287,7 @@ function WhoCard({ view }: { view: TripView }) {
                   <ul className="flex flex-wrap gap-1.5 pb-3 pl-6">
                     {party.travelers.map((traveler) => (
                       <li key={traveler.id} className="ft-chip font-sans">
-                        {traveler.name.split(" ")[0]}
+                        {traveler.shortName}
                         <span className="text-muted">
                           {traveler.isHonoree ? honoreeRoleLabel(traveler.honoreeRole) : ageBandLabel(traveler.ageBand)}
                           {!traveler.hasAccount ? " · no app" : ""}

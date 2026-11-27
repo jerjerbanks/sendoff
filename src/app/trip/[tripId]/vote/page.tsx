@@ -89,7 +89,7 @@ export default async function VotePage({
                   <p className="ft-meta mt-1.5">
                     {view.isOrganizer
                       ? `Add ${poll.kind === "destination" ? "two or three places" : poll.kind === "dates" ? "two or three date ranges" : "a few things to do"} below. Your group taps every one they'd do.`
-                      : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added any yet. Check back soon.`}
+                      : `${view.organizerShortName || "The organizer"} hasn't added any yet. Check back soon.`}
                   </p>
                 </li>
               ) : null}

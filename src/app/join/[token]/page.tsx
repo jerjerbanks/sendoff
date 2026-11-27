@@ -124,7 +124,7 @@ export default async function JoinPage({
           ) : asked === "pending" ? (
             <section className="mt-6 ft-panel p-4" aria-live="polite">
               <p className="ft-lbl accent">Asked to join</p>
-              <h2 className="ft-h2 mt-1">Waiting for {view.organizerName.split(" ")[0]} to let you in</h2>
+              <h2 className="ft-h2 mt-1">Waiting for {view.organizerShortName} to let you in</h2>
               <p className="mt-2 text-sm text-muted">
                 You&apos;ll see the trip once they say yes. This phone stays signed in, so just come back to this link.
               </p>
@@ -137,7 +137,7 @@ export default async function JoinPage({
             </section>
           ) : asked === "declined" ? (
             <p className="mt-6 rounded-xl bg-chip px-3 py-3 text-sm">
-              {view.organizerName.split(" ")[0]} didn&apos;t add you to this trip. If that&apos;s a mistake, ask them directly.
+              {view.organizerShortName} didn&apos;t add you to this trip. If that&apos;s a mistake, ask them directly.
             </p>
           ) : closed ? (
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">

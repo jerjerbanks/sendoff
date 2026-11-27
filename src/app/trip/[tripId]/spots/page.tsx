@@ -56,7 +56,7 @@ export default async function RoomsPage({
   const names = new Map(rooms.flatMap((room) => [...bedNames(room.spots)]));
   const bedName = (spot: SpotRecord) => names.get(spot.id) ?? bedLabel(spot.bedType);
   const occupants = (room: Room) => [...new Set(room.spots.flatMap((spot) => holders(spot.id)))];
-  const price = (room: Room) => room.spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0);
+  const price = (room: Room) => view.roomPrices?.[room.name] ?? 0;
   const rank = (room: Room) => {
     const who = occupants(room);
     if (who.includes(myParty ?? "")) return 0;
@@ -144,7 +144,9 @@ export default async function RoomsPage({
             : viewer?.role === "honoree"
               ? "Your room is reserved."
               : "Commit first, then pick. Parties choose in the order they bought in."}{" "}
-          {view.spotPrices ? "Prices follow the bed: a private bath costs more, a couch less." : `Every room costs the same here (${splitModeLabel(view.splitMode).toLowerCase()}).`}
+          {view.spotPrices
+            ? `Each price is your share of the ${whole(view.lodgingTotalCents)} lodging if you take that room now. It drops as more parties pick. A private bath costs more, a couch less.`
+            : `Every room costs the same here (${splitModeLabel(view.splitMode).toLowerCase()}).`}
         </p>
       </section>
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
@@ -155,7 +157,7 @@ export default async function RoomsPage({
           <p className="ft-lead mt-1.5">
             {view.isOrganizer
               ? "Add the rooms and beds, or paste the Airbnb link and we'll read them for you. Then parties can pick."
-              : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added the rooms yet. You'll pick here after you commit.`}
+              : `${view.organizerShortName || "The organizer"} hasn't added the rooms yet. You'll pick here after you commit.`}
           </p>
           {view.isOrganizer ? (
             <Link href={`/trip/${view.id}/sleep`} className="ft-btn mt-5">
@@ -236,7 +238,7 @@ export default async function RoomsPage({
                         <input type="hidden" name="tripId" value={view.id} />
                         <input type="hidden" name="userId" value={viewer?.userId} />
                         <input type="hidden" name="travelerId" value={traveler.id} />
-                        <span className="min-w-20 text-sm font-semibold">{traveler.name.split(" ")[0]}</span>
+                        <span className="min-w-20 text-sm font-semibold">{traveler.shortName}</span>
                         {/* Keyed by the current bed so a move made for someone else resets this uncontrolled select. */}
                         <select
                           key={now?.id ?? "none"}
@@ -279,7 +281,7 @@ export default async function RoomsPage({
                       <input type="hidden" name="tripId" value={view.id} />
                       <input type="hidden" name="userId" value={viewer?.userId} />
                       <input type="hidden" name="travelerId" value={traveler.id} />
-                      <span className="min-w-20 text-sm font-semibold">{traveler.name.split(" ")[0]}</span>
+                      <span className="min-w-20 text-sm font-semibold">{traveler.shortName}</span>
                       <select className={`${fieldClass} w-auto min-w-0 flex-1`} name="spotId" defaultValue={traveler.coSleepSpotId ?? ""} aria-label={`Where ${traveler.name} sleeps`}>
                         <option value="">Own bed</option>
                         {myBeds
@@ -310,6 +312,10 @@ export default async function RoomsPage({
 /** No geodata, so the water strip keys off the place name: "Harper Lake", "Bay house", "Ocean Shores". */
 function onWater(view: TripView): boolean {
   return /\b(lake|lakes|lakeside|lakefront|beach|ocean|bay|river|riverside|shore|shores|coast|sea|lagoon|pond|harbor|harbour|waterfront)\b/i.test(`${view.place} ${view.name}`);
+}
+
+function shortOf(view: TripView, travelerId: string, name: string): string {
+  return view.parties.flatMap((party) => party.travelers).find((traveler) => traveler.id === travelerId)?.shortName ?? name.split(" ")[0] ?? name;
 }
 
 function openShare(view: TripView, spot: SpotRecord, here: string[], myParty: string | null): boolean {
@@ -356,7 +362,7 @@ function RoomCard({
   // Joining a share slot doesn't release your current bed, so only bed-less parties are offered it.
   const share = hasBed ? undefined : room.spots.find((spot) => openShare(view, spot, holders(spot.id), myParty));
   const prices = view.spotPrices;
-  const roomPrice = prices ? room.spots.reduce((sum, spot) => sum + (prices[spot.id] ?? 0), 0) : null;
+  const roomPrice = prices ? (view.roomPrices?.[room.name] ?? 0) : null;
   const shown = share && prices ? prices[share.id] : roomPrice;
   const features = [
     room.spots.map((spot) => bedName(spot)).join(" + "),
@@ -404,7 +410,7 @@ function RoomCard({
                       <span className="text-ink-2">
                         {" · "}
                         {here.length
-                          ? here.map((sleeper) => `${sleeper.name.split(" ")[0]}${sleeper.coSleeping ? " (sharing)" : ""}`).join(", ")
+                          ? here.map((sleeper) => `${shortOf(view, sleeper.travelerId, sleeper.name)}${sleeper.coSleeping ? " (sharing)" : ""}`).join(", ")
                           : holders(spot.id).map(partyName).join(" + ")}
                       </span>
                     </li>
@@ -416,7 +422,8 @@ function RoomCard({
         {shown != null && !honoree ? (
           <p className="text-right">
             <span className={`ft-mono block text-[18px] font-semibold ${mine ? "text-accent-ink" : ""}`}>{money(shown).replace(/\.\d\d$/, "")}</span>
-            <span className="ft-meta">{share ? "if shared" : room.spots.length > 1 ? "room" : "bed"}</span>
+            <span className="ft-meta block">{mine ? "your share" : vacant || share ? "your share" : "their share"}</span>
+            {!mine && (vacant || share) ? <span className="ft-meta block">{share ? "if you join" : "if you take it"}</span> : null}
           </p>
         ) : null}
       </div>

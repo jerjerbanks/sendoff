@@ -1,3 +1,4 @@
+import { distinctPartyNames } from "./display-names";
 import crypto from "node:crypto";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
@@ -400,6 +401,11 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       shareComfort: row?.shareComfort === "no_share" || row?.shareComfort === "note_only" ? row.shareComfort : "any",
       shareComfortNote: row?.shareComfortNote ?? null,
     };
+  });
+  // Two parties auto-named "Audit" (from "Audit Alex" and "Audit Blake") must not read the same.
+  const distinct = distinctPartyNames(partyList.map((party, index) => ({ name: party.name, payerName: payers[index]?.name ?? party.name })));
+  partyList.forEach((party, index) => {
+    party.name = distinct[index] ?? party.name;
   });
   const honoreeExcluded = trip.honoreeExcludedFromSplit === 1;
   /** A legacy per-person opt-in belongs to that payer's own traveler row. */

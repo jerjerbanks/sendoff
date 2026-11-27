@@ -52,7 +52,7 @@ export default async function SleepSetupPage({
       <div>
         <h2 className="ft-h1">Rooms and beds</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          One lodging bill, split by the beds each party claims. Defaults: king or queen with a private bath 1.5, private room 1.25, full or a
+          One lodging bill, split by the beds each party claims. Each bed has a price share, set from its type. Defaults: king or queen with a private bath 1.5, private room 1.25, full or a
           bed in a shared room 1.0, twin or bunk 0.8, sofa bed 0.6, couch or air mattress 0.5. An empty bed costs nothing.
         </p>
       </div>
@@ -70,7 +70,7 @@ export default async function SleepSetupPage({
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
       {!error && importedSpots > 0 ? (
         <p className="rounded-xl bg-good-soft px-3 py-2 text-sm text-good">
-          Added {importedSpots} sleeping {importedSpots === 1 ? "spot" : "spots"} from the import. Check private baths, holds and weights on each room.
+          Added {importedSpots} sleeping {importedSpots === 1 ? "spot" : "spots"} from the import. Check private baths, holds and price shares on each room.
         </p>
       ) : null}
 
@@ -85,14 +85,17 @@ export default async function SleepSetupPage({
                   <h3 className="ft-h2">{roomName}</h3>
                   {floors.get(roomName) ? <span className="ft-chip">{floors.get(roomName)}</span> : null}
                 </div>
-                {view.spotPrices ? (
-                  <p className="text-sm font-semibold">{money(spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0))}</p>
+                {view.roomPrices?.[roomName] != null ? (
+                  <p className="text-right text-sm font-semibold">
+                    {money(view.roomPrices[roomName] ?? 0)}
+                    <span className="block text-xs font-normal text-muted">{occupantIds.length > 0 ? "their share now" : "share if taken now"}</span>
+                  </p>
                 ) : null}
               </div>
               <ul className="mt-1 text-sm text-muted">
                 {spots.map((spot) => (
                   <li key={spot.id}>
-                    {bedLabel(spot.bedType)} · weight {spot.weight}
+                    {bedLabel(spot.bedType)} · price share {spot.weight}×
                     {spot.sharingEnabled ? " · shareable between parties" : ""}
                     {spot.reservedForHonoree ? " · guest of honor" : ""}
                   </li>
@@ -107,7 +110,7 @@ export default async function SleepSetupPage({
                         <span className="font-semibold">{party?.name ?? "Party"}</span>
                         <span className="text-muted">
                           {" "}
-                          · {party?.travelers.map((traveler) => `${traveler.name.split(" ")[0]} (${ageBandLabel(traveler.ageBand).toLowerCase()})`).join(", ")}
+                          · {party?.travelers.map((traveler) => `${traveler.shortName} (${ageBandLabel(traveler.ageBand).toLowerCase()})`).join(", ")}
                         </span>
                       </p>
                     );
@@ -195,7 +198,7 @@ export default async function SleepSetupPage({
                   <p className="font-semibold">{party.name}</p>
                   {notes.map((traveler) => (
                     <p key={traveler.id} className="text-warn">
-                      {traveler.name.split(" ")[0]}: {traveler.needsNotes}
+                      {traveler.shortName}: {traveler.needsNotes}
                     </p>
                   ))}
                   {party.shareComfort !== "any" || party.shareComfortNote ? (
@@ -218,7 +221,10 @@ export default async function SleepSetupPage({
       {view.isOrganizer && view.status !== "booked" ? (
         <form action={addSpotAction} className="grid gap-3 ft-panel p-4">
           <h3 className="ft-h2">Add a bed</h3>
-          <p className="text-xs text-muted">Beds with the same room name form a room a party can claim as a unit.</p>
+          <p className="text-xs text-muted">
+            Beds with the same room name form a room a party can claim as a unit. Leave price share on Auto and we set it from the bed and its private
+            bath or room, using the defaults above.
+          </p>
           <input type="hidden" name="tripId" value={view.id} />
           <input type="hidden" name="userId" value={view.viewer?.userId} />
           <Input name="roomName" placeholder="Room name, e.g. Bunk room" required aria-label="Room name" />
@@ -234,11 +240,12 @@ export default async function SleepSetupPage({
               </select>
             </label>
             <label className="text-sm font-medium">
-              Weight
-              <select className={`${fieldClass} mt-1.5`} name="weight" defaultValue="1">
+              Price share
+              <select className={`${fieldClass} mt-1.5`} name="weight" defaultValue="auto">
+                <option value="auto">Auto, from the bed</option>
                 {["1.5", "1.25", "1", "0.8", "0.6", "0.5"].map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {value}×
                   </option>
                 ))}
               </select>

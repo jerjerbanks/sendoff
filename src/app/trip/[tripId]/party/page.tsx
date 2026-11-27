@@ -58,7 +58,7 @@ export default async function PartyPage({
         <h2 className="ft-h1">{editingOther ? party.name : welcome ? "Who's coming with you?" : "Your party"}</h2>
         <p className="mt-2 text-sm text-muted">
           {editingOther
-            ? `Paid by ${party.payerName.split(" ")[0]}.`
+            ? `Paid by ${party.payerShortName}.`
             : "Add a partner, kids, or anyone you're bringing — even people without the app. One buy-in covers everyone here."}
         </p>
       </div>
@@ -79,7 +79,7 @@ export default async function PartyPage({
       ) : null}
 
       {!canEdit ? (
-        <p className="rounded-2xl bg-chip px-4 py-3 text-sm">{party.payerName.split(" ")[0]} manages this party. You can vote and see the plan.</p>
+        <p className="rounded-2xl bg-chip px-4 py-3 text-sm">{party.payerShortName} manages this party. You can vote and see the plan.</p>
       ) : null}
 
       <ul className="grid gap-2">

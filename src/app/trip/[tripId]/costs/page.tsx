@@ -38,7 +38,7 @@ export default async function CostsPage({
       : cost.splitType === "shared"
         ? "split per person"
         : cost.splitType === "individual"
-          ? `${cost.memberName?.split(" ")[0] ?? "one party"} only`
+          ? `${view.parties.find((party) => party.payerUserId === cost.memberId)?.name ?? cost.memberName?.split(" ")[0] ?? "one party"} only`
           : `${cost.optInTravelerIds.length} going`;
 
   const budget = viewer?.isPayer ? await ownBudget(tripId, viewer.userId) : null;
@@ -135,7 +135,7 @@ export default async function CostsPage({
           <p className="ft-lead mt-4">
             {view.isOrganizer
               ? "Start with the house: add its total as Lodging below (an estimate is fine). Everyone then sees their own share before anyone commits."
-              : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added the house or shared costs yet. Your number shows here once they do.`}
+              : `${view.organizerShortName || "The organizer"} hasn't added the house or shared costs yet. Your number shows here once they do.`}
           </p>
         </section>
       ) : null}
@@ -172,7 +172,7 @@ export default async function CostsPage({
                     Add rooms and beds
                   </Link>
                 ) : (
-                  `${view.organizerName.split(" ")[0] || "The organizer"} adds them next.`
+                  `${view.organizerShortName || "The organizer"} adds them next.`
                 )}
               </span>
             </p>
@@ -246,7 +246,7 @@ export default async function CostsPage({
                                 className={`ft-chip min-h-12 px-4 !text-[15px] ${inIt ? "on" : ""}`}
                               >
                                 {inIt ? "✓ " : "+ "}
-                                {many ? traveler.name.split(" ")[0] : inIt ? "I'm in" : "Count me in"}
+                                {many ? traveler.shortName : inIt ? "I'm in" : "Count me in"}
                               </button>
                             </form>
                           );

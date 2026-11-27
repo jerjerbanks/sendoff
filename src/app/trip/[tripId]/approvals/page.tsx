@@ -63,7 +63,7 @@ export default async function ApprovalsPage({
                     <li key={id}>
                       Only you see: {item.name} — {shareComfortLabel(item.shareComfort)}
                       {item.shareComfortNote ? ` ("${item.shareComfortNote}")` : ""}
-                      {notes.map((traveler) => `; ${traveler.name.split(" ")[0]}: ${traveler.needsNotes}`).join("")}
+                      {notes.map((traveler) => `; ${traveler.shortName}: ${traveler.needsNotes}`).join("")}
                     </li>
                   );
                 })}
