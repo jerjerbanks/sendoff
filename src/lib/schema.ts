@@ -54,6 +54,8 @@ export const trips = sqliteTable("trips", {
   deletedAt: text("deleted_at"),
   /** 1 = new people wait for the organizer before they're on the trip (migration 0013). */
   approveJoiners: integer("approve_joiners").notNull().default(0),
+  /** The organizer's chosen trip look (migration 0014). NULL = derived from type, name and options. */
+  theme: text("theme"),
 });
 
 /** One per paying party. Keyed by the payer's user id. */

@@ -1,7 +1,7 @@
 /**
  * v7 trip-type themes. A trip's theme is DERIVED at render time from data the page already
- * loaded for a member (type, sub-type, name, place, option titles). Pure: no I/O, no queries,
- * nothing stored. Storing a theme on the trip is a follow-up that needs Jeremy's approval.
+ * loaded for a member (type, sub-type, name, place, option titles), unless the organizer picked
+ * one (trips.theme, migration 0014), which wins. Pure: no I/O, no queries.
  */
 export type TripTheme = "outdoors" | "golf" | "beach" | "party" | "city" | "ski";
 
@@ -147,8 +147,8 @@ export function vibeOrder(kind: string | null | undefined, subType: string | nul
   return ["outdoors", "golf", "city", "ski", "beach", "party"];
 }
 
-/** The theme for a trip the page already loaded: its kind, sub-type, name, place and option titles. */
-export function themeForTrip(trip: {
+/** The look derived from what the page already loaded: kind, sub-type, name, place and option titles. */
+export function derivedThemeForTrip(trip: {
   tripType: string;
   preWeddingStyle: string | null;
   name: string;
@@ -162,6 +162,11 @@ export function themeForTrip(trip: {
     destination: trip.place,
     activities: (trip.polls ?? []).flatMap((poll) => poll.options.map((option) => option.label)),
   });
+}
+
+/** The trip's look: the organizer's stored pick (migration 0014) if any, else the derived one. */
+export function themeForTrip(trip: Parameters<typeof derivedThemeForTrip>[0] & { storedTheme?: string | null }): TripTheme {
+  return isTripTheme(trip.storedTheme) ? trip.storedTheme : derivedThemeForTrip(trip);
 }
 
 /**

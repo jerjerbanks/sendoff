@@ -7,9 +7,10 @@ import { deriveTripTheme, THEME_INFO, vibeOrder, type TripTheme } from "@/lib/tr
 
 /**
  * v7 "What's the vibe?" step, behind NEXT_PUBLIC_FT_VIBE_STEP (staging only).
- * PREVIEW ONLY: the create action has no existing field that would store a theme, so the choice
- * is not submitted (the radios belong to no form) and the trip renders its derived theme.
- * Storing it needs a trip.theme column, a follow-up that needs Jeremy's approval.
+ * The tiles are display radios outside the form. Only a tile the organizer actually taps is
+ * posted, as the hidden "vibe" field, and saved on the trip (trips.theme, migration 0014).
+ * Leaving the suggestion alone posts nothing, so the look keeps following the trip's name,
+ * type and options as they change.
  */
 export function VibeStep({ kind, subType }: { kind: string; subType: string }) {
   const root = useRef<HTMLFieldSetElement>(null);
@@ -37,11 +38,12 @@ export function VibeStep({ kind, subType }: { kind: string; subType: string }) {
   return (
     <fieldset ref={root} className="grid gap-2">
       <legend className="text-sm font-medium">What&apos;s the vibe?</legend>
-      <p className="text-sm text-muted">Sets the trip&apos;s look. Preview only for now: the trip picks its look from its name and type.</p>
+      <p className="text-sm text-muted">Sets the trip&apos;s look. Leave the suggestion and it follows the trip&apos;s name and plans. You can change it later in Settings.</p>
+      <input type="hidden" name="vibe" value={picked && tiles.includes(picked) ? picked : ""} />
       <div className="ft-tiles mt-1">
         {tiles.map((theme) => (
           <label key={theme} className="ft-vibe" data-trip-theme={theme}>
-            {/* form="" keeps these out of the create form: nothing about the vibe is submitted. */}
+            {/* Display-only radios kept out of the form; the hidden "vibe" field carries a real pick. */}
             <input type="radio" name="ft-vibe-preview" form="ft-vibe-preview-none" value={theme} checked={current === theme} onChange={() => setPicked(theme)} />
             <span className="ft-tile" style={{ backgroundImage: `url(${sceneUrl(themeTileScene(theme))})` }} aria-hidden />
             <span className="ft-chip ft-chip-theme absolute bottom-2 left-2">
