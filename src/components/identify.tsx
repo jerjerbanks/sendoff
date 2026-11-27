@@ -24,7 +24,7 @@ export function Identify({
   return (
     <div className="fixed inset-0 z-30 flex items-end bg-black/70 p-3 md:items-center md:justify-center">
       <div className="w-full max-w-lg rounded-3xl bg-card p-4 shadow-xl">
-        <p className="ft-lbl clay">Who are you?</p>
+        <p className="ft-lbl accent">Who are you?</p>
         <h2 className="mt-1 ft-h1">One tap, then you&apos;re in.</h2>
         <p className="mt-1 text-sm text-muted">This is a mock login so the group chat link knows which share to show.</p>
         <div className="mt-4 grid gap-2">

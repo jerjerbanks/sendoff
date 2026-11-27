@@ -66,7 +66,7 @@ export default async function CostsPage({
               </span>
             ) : (
               <span className={`ft-chip ${view.payerCount >= view.minPayerCount ? "pine" : "warn"}`}>
-                <span className={`ft-dot ${view.payerCount >= view.minPayerCount ? "" : "clay"}`} aria-hidden />
+                <span className={`ft-dot ${view.payerCount >= view.minPayerCount ? "" : "warn"}`} aria-hidden />
                 {view.lockedIn ? "Final" : view.payerCount >= view.minPayerCount ? "Official" : "Estimate"}
               </span>
             )}
@@ -131,7 +131,7 @@ export default async function CostsPage({
           </div>
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="ft-chip warn">
-              <span className="ft-dot clay" aria-hidden />
+              <span className="ft-dot warn" aria-hidden />
               Estimate
             </span>
             <span className="ft-meta">The line-by-line breakdown shows once you commit.</span>

@@ -13,7 +13,7 @@ export default function MockupIndex() {
           <ul className="mt-2 grid gap-2">
             {screens.map((screen) => (
               <li key={screen}>
-                <Link className="text-clay-ink font-semibold" href={`/mockups/${direction}/${screen}`}>{screen}</Link>
+                <Link className="text-accent-ink font-semibold" href={`/mockups/${direction}/${screen}`}>{screen}</Link>
               </li>
             ))}
           </ul>

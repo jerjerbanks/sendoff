@@ -4,6 +4,8 @@ import { DemoBanner } from "@/components/demo-panel";
 import { Identify } from "@/components/identify";
 import { TripNav } from "@/components/nav";
 import { TopBar } from "@/components/top-bar";
+import { TripScene } from "@/components/scene";
+import { sceneFor } from "@/lib/scene";
 import { Wordmark } from "@/components/wordmark";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { tripStatusLabel } from "@/lib/labels";
@@ -18,7 +20,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
   // A real trip shows nothing to someone who isn't on it: no roster, no plan, no numbers.
   if (!demo && !view.viewer) return <PrivateTrip />;
   const payLabel = view.lockedIn || view.status === "booked" ? "Pay" : "Commit";
-  const live = view.cancelled || view.underMinimum ? "error" : view.lockedIn ? "pine" : view.buyInOpen ? "clay" : "lake";
+  const live = view.cancelled || view.underMinimum ? "error" : view.lockedIn ? "pine" : view.buyInOpen ? "accent" : "lake";
   const status = view.cancelled
     ? "Cancelled"
     : view.buyInOpen || view.lockedIn
@@ -45,6 +47,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
         {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} /> : null}
         <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} isOrganizer={view.isOrganizer} share={share} />
+        <TripScene tripId={view.id} scene={sceneFor(view.name, view.place)} />
         {demo ? (
           <Identify
             tripId={view.id}
@@ -57,7 +60,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
             }))}
           />
         ) : null}
-        <main className="flex-1 px-5 pt-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+        <main className="flex-1 px-5 pt-2 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
           {children}
           {/* Inline at the end of the page, above the tab bar's reserved space: it never covers the tabs or a CTA. */}
           <FeedbackButton className="mt-10" />

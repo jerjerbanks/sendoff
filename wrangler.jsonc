@@ -35,7 +35,8 @@
       "/*",
       "!/_next/static/*",
       "!/*/_next/static/*",
-      "!/landing/*"
+      "!/landing/*",
+      "!/illustrations/*"
     ]
   },
   // Staging: its own Worker (sendoff-staging.<account>.workers.dev) and its own

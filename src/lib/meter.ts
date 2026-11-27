@@ -49,7 +49,7 @@ export function restScheduleNote(args: {
 
 /**
  * The cells, in order: committed parties (lake, or pine once the minimum is met
- * or the stay is booked), then the viewer's own undecided party (clay), then open
+ * or the stay is booked), then the viewer's own undecided party (accent), then open
  * cells up to `total`. Extra commitments past the minimum fill cells beyond the
  * threshold line.
  */
