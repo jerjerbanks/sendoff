@@ -15,8 +15,12 @@ export interface PlanBed {
   id: string;
   bedType: string;
   state: BedState;
-  /** Short label inside the bed: initials of who holds it, or blank. */
+  /** Short label inside the bed: each sleeper's initials (one per line), else the holding party's, else blank. */
   label: string;
+  /** Initials of each person sleeping here, when known. Two fit; more read "JC +2". */
+  people?: string[];
+  /** Shown under the bed when a room has two of the same type: "1", "2". */
+  number?: string;
 }
 
 export interface PlanRoom {
@@ -65,15 +69,29 @@ function Bed({ bed, x, y }: { bed: PlanBed; x: number; y: number }) {
   const text = bed.state === "mine" ? "var(--accent-ink)" : bed.state === "taken" || bed.state === "held" ? "var(--ink-3)" : "var(--ink-2)";
   const lift = bed.state === "mine" ? -2 : 0;
   const pw = pillows === 2 ? (w - 14) / 2 : w - 10;
+  const people = bed.people ?? [];
+  const lines = people.length > 2 ? [people[0] ?? "", `+${people.length - 1}`] : people.length ? people : bed.label ? [bed.label] : [];
+  // Centre the block of lines in the part of the bed below the pillows.
+  const body = pillows ? 13 : 0;
+  const top = body + (h - body) / 2 + 5 - ((lines.length - 1) * 15) / 2;
   return (
     <g transform={`translate(${x}, ${y + lift})`} className={bed.state === "mine" ? "ft-bed-lift" : undefined}>
       <rect width={w} height={h} rx="3" strokeWidth="1.25" strokeDasharray={bed.state === "requested" ? "4 3" : undefined} style={{ fill: fill, stroke: stroke }} />
       {Array.from({ length: pillows }, (_, i) => (
         <rect key={i} x={5 + i * (pw + 4)} y="5" width={pw} height="8" rx="2" strokeWidth="1" style={{ fill: "var(--bg-surface)", stroke: stroke }} />
       ))}
-      {bed.label ? (
-        <text x={w / 2} y={pillows ? h / 2 + 10 : h / 2 + 5} textAnchor="middle" className="ft-svg-ui" fontSize="14" fontWeight="600" style={{ fill: text }}>
-          {bed.label}
+      {lines.length ? (
+        <text textAnchor="middle" className="ft-svg-ui" fontSize="14" fontWeight="600" style={{ fill: text }}>
+          {lines.map((line, i) => (
+            <tspan key={i} x={w / 2} y={top + i * 15}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      ) : null}
+      {bed.number ? (
+        <text x={w / 2} y={h + 17} textAnchor="middle" className="ft-svg-mono" fontSize="14" style={{ fill: "var(--ink-3)" }}>
+          {bed.number}
         </text>
       ) : null}
     </g>

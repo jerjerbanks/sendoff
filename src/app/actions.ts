@@ -58,6 +58,7 @@ import {
   saveParty,
   setAgeWeights,
   setCoSleep,
+  assignBed,
   setHeadcounts,
   setHonoreeExclusion,
   acknowledgeSplitMode,
@@ -409,6 +410,12 @@ export async function coSleepAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const spotId = text(formData, "spotId") || null;
   done(tripId, await setCoSleep(tripId, await me(), text(formData, "travelerId"), spotId), `/trip/${tripId}/spots`);
+}
+
+export async function assignBedAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const spotId = text(formData, "spotId") || null;
+  done(tripId, await assignBed(tripId, await me(), text(formData, "travelerId"), spotId), `/trip/${tripId}/spots`);
 }
 
 export async function optInShareAction(formData: FormData) {

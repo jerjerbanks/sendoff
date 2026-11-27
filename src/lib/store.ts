@@ -130,6 +130,7 @@ export interface TravelerRecord extends MathTraveler {
   needsNotes: string | null;
   honoreeRole: string | null;
   coSleepSpotId: string | null;
+  bedSpotId: string | null;
   sortOrder: number;
   /** Read from the payer because the party has no traveler rows yet. */
   synthetic: boolean;
@@ -360,6 +361,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
         needsNotes: null,
         honoreeRole: payer.role === "honoree" ? honoreeRoleFor(trip.preWeddingStyle) : null,
         coSleepSpotId: null,
+        bedSpotId: null,
         coSleep: false,
         sortOrder: 0,
         synthetic: true,
@@ -377,6 +379,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
         needsNotes: row.needsNotes,
         honoreeRole: row.honoreeRole,
         coSleepSpotId: row.coSleepSpotId,
+        bedSpotId: row.bedSpotId ?? null,
         coSleep: !!row.coSleepSpotId,
         sortOrder: row.sortOrder,
         synthetic: false,
@@ -1546,7 +1549,7 @@ async function takeOffTrip(raw: RawTrip, userId: string, booked: boolean) {
   if (held.length) {
     await db.delete(spotClaims).where(and(inArray(spotClaims.spotId, held), eq(spotClaims.userId, userId)));
   }
-  await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, userId)));
+  await db.update(travelers).set({ coSleepSpotId: null, bedSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, userId)));
 }
 
 /**
@@ -1693,7 +1696,7 @@ export async function claimSpot(tripId: string, userId: string, spotId: string, 
   if (!openShare) {
     // A solo pick replaces the party's other claims. A whole-room claim uses claimRoom.
     await db.delete(spotClaims).where(and(eq(spotClaims.userId, party), inArray(spotClaims.spotId, raw.spots.map((item) => item.id))));
-    await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
+    await db.update(travelers).set({ coSleepSpotId: null, bedSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
   }
   await db.insert(spotClaims).values({ spotId, userId: party, status: "approved" }).onConflictDoUpdate({
     target: [spotClaims.spotId, spotClaims.userId],
@@ -1727,7 +1730,7 @@ export async function claimRoom(tripId: string, userId: string, roomName: string
   if (takenByOthers) return { ok: false, error: "Someone else already has a bed in that room." };
   const db = getDb();
   await db.delete(spotClaims).where(and(eq(spotClaims.userId, party), inArray(spotClaims.spotId, raw.spots.map((item) => item.id))));
-  await db.update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
+  await db.update(travelers).set({ coSleepSpotId: null, bedSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, party)));
   for (const spot of room) {
     await db.insert(spotClaims).values({ spotId: spot.id, userId: party, status: "approved" }).onConflictDoUpdate({
       target: [spotClaims.spotId, spotClaims.userId],
@@ -1758,6 +1761,38 @@ export async function setCoSleep(tripId: string, actorId: string, travelerId: st
   await materializeParty(raw, traveler.partyId);
   await getDb().update(travelers).set({ coSleepSpotId: spotId }).where(eq(travelers.id, travelerId));
   await persistMath(tripId);
+  return { ok: true };
+}
+
+/**
+ * Say which of the party's own beds a traveler sleeps in. Display only: it never changes
+ * what anyone pays, because a party pays for the beds it holds, not for who lies in them.
+ * Anyone else already placed in that bed by the same party is moved to "not chosen".
+ */
+export async function assignBed(tripId: string, actorId: string, travelerId: string, spotId: string | null) {
+  const raw = await readRaw(tripId);
+  if (!raw) return { ok: false, error: "Trip not found." };
+  const actor = memberOf(raw, actorId);
+  const traveler = raw.travelers.find((item) => item.id === travelerId);
+  if (!actor || !traveler) return { ok: false, error: "That person isn't on this trip." };
+  if (actor.role !== "organizer" && actor.partyUserId !== traveler.partyId) return { ok: false, error: "Only your own party." };
+  if (spotId) {
+    if (!raw.spots.some((item) => item.id === spotId)) return { ok: false, error: "That bed isn't on this trip." };
+    if (!raw.claims.some((claim) => claim.spotId === spotId && claim.userId === traveler.partyId && claim.status === "approved")) {
+      return { ok: false, error: "Pick one of the beds your party already has." };
+    }
+  }
+  await materializeParty(raw, traveler.partyId);
+  const db = getDb();
+  if (spotId) {
+    await db
+      .update(travelers)
+      .set({ bedSpotId: null })
+      .where(and(eq(travelers.tripId, tripId), eq(travelers.partyUserId, traveler.partyId), eq(travelers.bedSpotId, spotId)));
+  }
+  // A traveler in their own bed isn't also squeezed into someone else's.
+  await db.update(travelers).set({ bedSpotId: spotId, ...(spotId ? { coSleepSpotId: null } : {}) }).where(eq(travelers.id, travelerId));
+  if (spotId && traveler.coSleepSpotId) await persistMath(tripId);
   return { ok: true };
 }
 
@@ -1857,6 +1892,7 @@ export async function releaseSpot(tripId: string, userId: string, spotId: string
   }
   await getDb().delete(spotClaims).where(and(eq(spotClaims.spotId, spotId), eq(spotClaims.userId, party)));
   await getDb().update(travelers).set({ coSleepSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.coSleepSpotId, spotId)));
+  await getDb().update(travelers).set({ bedSpotId: null }).where(and(eq(travelers.tripId, tripId), eq(travelers.bedSpotId, spotId)));
   return { ok: true };
 }
 
