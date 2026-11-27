@@ -502,6 +502,62 @@ body {
     transition: color var(--dur-fade) var(--ease-out);
   }
   .ft-tab[aria-current="page"] { color: var(--accent-ink); }
+
+  /* v6.1 vote option thumbnail: one small scene per place. */
+  .ft-vthumb {
+    display: block;
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+    background: 50% 65% / cover no-repeat var(--bg-sunken);
+    box-shadow: inset 0 0 0 1px rgba(31, 27, 22, 0.06);
+  }
+  .ft-vthumb.on { box-shadow: 0 0 0 2px var(--accent); }
+
+  /* ---------- desktop sidebar (1024px and up); the tab bar steps aside ---------- */
+  .ft-side { display: none; }
+  @media (min-width: 1024px) {
+    .ft-tabs { display: none; }
+    .ft-side {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 20;
+      width: 264px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px 16px;
+      background: var(--bg-sunken);
+      border-right: 1px solid var(--line);
+      overflow-y: auto;
+    }
+    .ft-side-brand { display: flex; min-height: 48px; align-items: center; padding: 0 8px; }
+    .ft-side-nav { display: flex; flex-direction: column; gap: 4px; }
+    .ft-side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 0 16px;
+      border-radius: 16px;
+      border: 1px solid transparent;
+      font: 500 15px var(--font-ui);
+      color: var(--ink-2);
+      transition: background var(--dur-fade) var(--ease-out), color var(--dur-fade) var(--ease-out);
+    }
+    .ft-side-nav a:hover { background: var(--bg-surface); color: var(--ink-1); }
+    .ft-side-nav a[aria-current="page"] { background: var(--bg-surface); color: var(--accent-ink); border-color: var(--line); box-shadow: var(--shadow-1); }
+    .ft-side-nav svg { width: 20px; height: 20px; flex: none; }
+    .ft-side-trip {
+      margin-top: auto;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-1);
+    }
+    .ft-side-thumb { display: block; height: 96px; background: 50% 65% / cover no-repeat; }
+  }
   .ft-tab svg { width: 22px; height: 22px; }
 
   /* ---------- v6 illustrated header: scene + ridge ----------

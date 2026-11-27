@@ -59,7 +59,8 @@ export function TopBar({
           <span className="truncate">{title}</span>
         </Link>
       ) : (
-        <Link href={base} className="flex min-h-12 items-center" aria-label={`${tripName}, home`}>
+        // On desktop the sidebar carries the wordmark; the bar keeps its slot so the controls stay right.
+        <Link href={base} className="flex min-h-12 items-center lg:invisible" aria-label={`${tripName}, home`}>
           <Wordmark className="whitespace-nowrap" />
         </Link>
       )}

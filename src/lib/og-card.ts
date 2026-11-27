@@ -1,4 +1,5 @@
 import atlasJson from "./og-atlas.json";
+import markJson from "./og-mark.json";
 
 type Glyph = { w: number; h: number; advance: number; rle: string };
 type Face = { size: number; ascent: number; glyphs: Record<string, Glyph> };
@@ -110,6 +111,41 @@ export function fitLine(face: Face, text: string, maxWidth = SAFE_WIDTH): string
 
 export const faces = atlas;
 
+let markPixels: Uint8Array | null = null;
+
+/** The logo mark, pre-rasterized by scripts/og-mark.mjs as run-length RGBA ([count, r, g, b, a]...). */
+function mark(): Uint8Array {
+  if (markPixels) return markPixels;
+  const raw = Uint8Array.from(atob(markJson.rle), (char) => char.charCodeAt(0));
+  const out = new Uint8Array(markJson.size * markJson.size * 4);
+  let at = 0;
+  for (let i = 0; i < raw.length; i += 5) {
+    for (let n = 0; n < (raw[i] ?? 0); n += 1) {
+      out.set(raw.subarray(i + 1, i + 5), at);
+      at += 4;
+    }
+  }
+  markPixels = out;
+  return out;
+}
+
+function blitMark(image: Uint8ClampedArray, width: number, x: number, y: number) {
+  const size = markJson.size;
+  const px = mark();
+  for (let my = 0; my < size; my += 1) {
+    for (let mx = 0; mx < size; mx += 1) {
+      const from = (my * size + mx) * 4;
+      const cover = (px[from + 3] ?? 0) / 255;
+      if (cover <= 0) continue;
+      const to = ((y + my) * width + (x + mx)) * 4;
+      for (let k = 0; k < 3; k += 1) image[to + k] = Math.round(image[to + k]! * (1 - cover) + (px[from + k] ?? 0) * cover);
+      image[to + 3] = 255;
+    }
+  }
+}
+
+export const MARK_SIZE = markJson.size;
+
 export function paintCard(lines: { eyebrow: string; title: string; line: string; foot: string }): Uint8ClampedArray {
   const width = 1200;
   const height = 630;
@@ -117,7 +153,8 @@ export function paintCard(lines: { eyebrow: string; title: string; line: string;
   fill(image, width, 0, 0, width, height, [12, 11, 10]);
   fill(image, width, 0, 0, 28, height, [228, 196, 138]);
   fill(image, width, 72, 168, 180, 8, [228, 196, 138]);
-  blitText(image, width, atlas.label, lines.eyebrow, 72, 130, [228, 196, 138]);
+  blitMark(image, width, width - 72 - markJson.size, 48);
+  blitText(image, width, atlas.label, fitLine(atlas.label, lines.eyebrow, SAFE_WIDTH - markJson.size - 24), 72, 130, [228, 196, 138]);
   blitText(image, width, atlas.display, fitLine(atlas.display, lines.title), 72, 280, [246, 241, 232]);
   blitText(image, width, atlas.body, fitLine(atlas.body, lines.line), 72, 390, [228, 196, 138]);
   blitText(image, width, atlas.body, fitLine(atlas.body, lines.foot), 72, 500, [179, 168, 156]);
