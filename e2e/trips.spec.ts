@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createTrip, uniqueSuffix } from "./helpers";
+import { createTrip, letIn, uniqueSuffix } from "./helpers";
 
 /**
  * Your trips and invite codes: one sign-in holds every trip it starts or joins, an invite
@@ -40,7 +40,11 @@ test("one phone keeps every trip it starts and joins, listed under Your trips", 
   await erin.getByRole("button", { name: /find the trip/i }).click();
   await expect(erin).toHaveURL(new RegExp(`/join/${code}`));
   await erin.getByRole("button", { name: /join as erin two-trips/i }).click();
-  await expect(erin).toHaveURL(new RegExp(`/trip/${samTrip}/party\\?welcome=1`));
+  // Sam's new trip asks him first; once he lets Erin in, she's on it.
+  await expect(erin.getByRole("heading", { name: /waiting for sam to let you in/i })).toBeVisible();
+  await letIn(sam, samTrip, "Erin Two-Trips");
+  await erin.goto(`/join/${code}`);
+  await expect(erin.getByRole("link", { name: /you're on this trip/i })).toBeVisible();
 
   // Starting another trip while signed in organizes it as Erin, without signing her out of the others.
   await erin.goto("/new");

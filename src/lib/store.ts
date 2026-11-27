@@ -59,6 +59,7 @@ import {
   spotClaims,
   spotRequests,
   tripMembers,
+  joinRequests,
   trips,
   users,
   votes,
@@ -209,6 +210,8 @@ export interface RawTrip {
     maxHeadcount: number;
     bedChangePolicy: "member_requests" | "locked";
     honoreeExcluded: boolean;
+    /** New people wait for the organizer before they're on the trip. */
+    approveJoiners: boolean;
     inviteToken: string;
     simulatedNow: string | null;
     bookingConfirmation: string | null;
@@ -449,6 +452,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       maxHeadcount: trip.maxHeadcount,
       bedChangePolicy: trip.bedChangePolicy === "locked" ? "locked" : "member_requests",
       honoreeExcluded: trip.honoreeExcludedFromSplit === 1,
+      approveJoiners: trip.approveJoiners === 1,
       inviteToken: trip.inviteToken,
       simulatedNow: trip.simulatedNow,
       bookingConfirmation: trip.bookingConfirmation,
@@ -988,6 +992,8 @@ export async function createTrip(input: {
     honoreeExcludedFromSplit: honorees.length > 0 ? 1 : 0,
     inviteToken: crypto.randomBytes(9).toString("base64url"),
     simulatedNow: null,
+    // New trips start with the organizer approving new people; they can turn it off in Organizer tools.
+    approveJoiners: 1,
   });
   await db.insert(tripMembers).values({ tripId, userId: organizerId, role: "organizer", status: "joined", committedAt: null, partyUserId: null });
   await db.insert(parties).values({ tripId, payerUserId: organizerId, name: defaultPartyName(input.organizerName, input.tripType) });
@@ -1062,11 +1068,25 @@ export async function joinTrip(input: {
         ;
     }
     await db.update(users).set({ name: input.name }).where(eq(users.id, existing.userId));
-    return { ok: true, tripId: raw.trip.id, userId: existing.userId, isNew: false };
+    return { ok: true, tripId: raw.trip.id, userId: existing.userId, isNew: false, waiting: false };
   }
 
   const blocked = newMemberBlocked(raw);
   if (blocked) return { ok: false, error: blocked };
+
+  if (raw.trip.approveJoiners) {
+    // Already asked from this phone (or another): one request per phone or email.
+    const asked = await requestsByContact(raw.trip.id, contact);
+    if (asked) {
+      if (asked.userId !== input.viewerId) return { ok: false, error: ALREADY_ASKED };
+      await db.update(users).set({ name: input.name }).where(eq(users.id, asked.userId));
+      return { ok: true, tripId: raw.trip.id, userId: asked.userId, isNew: false, waiting: true };
+    }
+    const userId = crypto.randomUUID();
+    await db.insert(users).values({ id: userId, name: input.name, contact: input.contact.trim() });
+    await askToJoin(raw.trip.id, userId);
+    return { ok: true, tripId: raw.trip.id, userId, isNew: true, waiting: true };
+  }
 
   const userId = crypto.randomUUID();
   await db.insert(users).values({ id: userId, name: input.name, contact: input.contact.trim() });
@@ -1078,7 +1098,7 @@ export async function joinTrip(input: {
   await funnel(raw.trip.id, userId, "member_joined");
   // The Metrics page reads the first "joined" event.
   await safeEvent(raw.trip.id, userId, "joined");
-  return { ok: true, tripId: raw.trip.id, userId, isNew: true };
+  return { ok: true, tripId: raw.trip.id, userId, isNew: true, waiting: false };
 }
 
 /** Why nobody new can join this trip right now, or null when they can. */
@@ -1126,19 +1146,123 @@ export async function joinTripAsUser(input: { token: string; userId: string }) {
         .set({ status: "joined", committedAt: null })
         .where(and(eq(tripMembers.tripId, raw.trip.id), eq(tripMembers.userId, input.userId)));
     }
-    return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: false };
+    return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: false, waiting: false };
   }
   const key = contactKey(person.contact);
   if (raw.members.some((member) => contactKey(member.contact) === key)) return { ok: false, error: CONTACT_TAKEN };
   const blocked = newMemberBlocked(raw);
   if (blocked) return { ok: false, error: blocked };
 
+  if (raw.trip.approveJoiners) {
+    const asked = await requestsByContact(raw.trip.id, key);
+    if (asked && asked.userId !== input.userId) return { ok: false, error: ALREADY_ASKED };
+    if (!asked) await askToJoin(raw.trip.id, input.userId);
+    return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: !asked, waiting: true };
+  }
+
+  await addMember(raw, input.userId, person.name);
+  return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: true, waiting: false };
+}
+
+/** Put a new person on the trip: a member with a party of one. */
+async function addMember(raw: RawTrip, userId: string, name: string) {
+  const db = getDb();
   await db.insert(tripMembers)
-    .values({ tripId: raw.trip.id, userId: input.userId, role: "member", status: "joined", committedAt: null, partyUserId: null });
-  await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: input.userId, name: defaultPartyName(person.name, raw.trip.tripType) });
-  await funnel(raw.trip.id, input.userId, "member_joined");
-  await safeEvent(raw.trip.id, input.userId, "joined");
-  return { ok: true, tripId: raw.trip.id, userId: input.userId, isNew: true };
+    .values({ tripId: raw.trip.id, userId, role: "member", status: "joined", committedAt: null, partyUserId: null });
+  await db.insert(parties).values({ tripId: raw.trip.id, payerUserId: userId, name: defaultPartyName(name, raw.trip.tripType) });
+  await funnel(raw.trip.id, userId, "member_joined");
+  // The Metrics page reads the first "joined" event.
+  await safeEvent(raw.trip.id, userId, "joined");
+}
+
+const ALREADY_ASKED =
+  "Someone already asked to join with that phone or email. If it's you, open the invite on the phone you used, and wait for the organizer.";
+
+async function askToJoin(tripId: string, userId: string) {
+  await getDb().insert(joinRequests).values({ tripId, userId, status: "pending", createdAt: new Date().toISOString(), decidedAt: null });
+  await safeEvent(tripId, userId, "asked_to_join");
+}
+
+/** The open or declined request on this trip from this phone or email, if any. */
+async function requestsByContact(tripId: string, key: string): Promise<{ userId: string; status: string } | null> {
+  const rows = await getDb()
+    .select({ userId: joinRequests.userId, status: joinRequests.status, contact: users.contact })
+    .from(joinRequests)
+    .innerJoin(users, eq(users.id, joinRequests.userId))
+    .where(and(eq(joinRequests.tripId, tripId), inArray(joinRequests.status, ["pending", "declined"])));
+  const row = rows.find((item) => contactKey(item.contact) === key);
+  return row ? { userId: row.userId, status: row.status } : null;
+}
+
+export type JoinRequestStatus = "pending" | "approved" | "declined";
+
+/** Where this person stands on a trip they asked to join, or null if they never asked. */
+export async function joinRequestStatus(tripId: string, userId: string): Promise<JoinRequestStatus | null> {
+  if (!userId) return null;
+  const row = (await getDb().select({ status: joinRequests.status }).from(joinRequests).where(and(eq(joinRequests.tripId, tripId), eq(joinRequests.userId, userId))))[0];
+  if (!row) return null;
+  return row.status === "approved" || row.status === "declined" ? row.status : "pending";
+}
+
+/** How many people are waiting for the organizer. Cheap: one indexed count. */
+export async function countWaitingJoiners(tripId: string): Promise<number> {
+  const rows = await getDb()
+    .select({ userId: joinRequests.userId })
+    .from(joinRequests)
+    .where(and(eq(joinRequests.tripId, tripId), eq(joinRequests.status, "pending")));
+  return rows.length;
+}
+
+export type JoinRequestRecord = { userId: string; name: string; contact: string; status: JoinRequestStatus; createdAt: string };
+
+/** The organizer's list: who's waiting and who was turned away. Organizer only, since it carries contacts. */
+export async function listJoinRequests(tripId: string, actorId: string): Promise<JoinRequestRecord[] | null> {
+  const raw = await requireOrganizer(tripId, actorId);
+  if ("ok" in raw) return null;
+  const rows = await getDb()
+    .select({ userId: joinRequests.userId, status: joinRequests.status, createdAt: joinRequests.createdAt, name: users.name, contact: users.contact })
+    .from(joinRequests)
+    .innerJoin(users, eq(users.id, joinRequests.userId))
+    .where(and(eq(joinRequests.tripId, tripId), inArray(joinRequests.status, ["pending", "declined"])));
+  return rows
+    .map((row) => ({ ...row, status: row.status === "declined" ? ("declined" as const) : ("pending" as const) }))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** The organizer lets someone in (they become a member with a party of one) or turns them away. */
+export async function decideJoinRequest(tripId: string, actorId: string, userId: string, approve: boolean) {
+  const raw = await requireOrganizer(tripId, actorId);
+  if ("ok" in raw) return raw;
+  const db = getDb();
+  const row = (await db.select().from(joinRequests).where(and(eq(joinRequests.tripId, tripId), eq(joinRequests.userId, userId))))[0];
+  if (!row || row.status === "approved") return { ok: false, error: "That request isn't open any more." };
+  if (!approve) {
+    if (row.status !== "pending") return { ok: false, error: "That request isn't open any more." };
+    await db.update(joinRequests).set({ status: "declined", decidedAt: new Date().toISOString() })
+      .where(and(eq(joinRequests.tripId, tripId), eq(joinRequests.userId, userId)));
+    return { ok: true };
+  }
+  if (memberOf(raw, userId)) return { ok: false, error: "They're already on the trip." };
+  const person = (await db.select({ name: users.name, contact: users.contact }).from(users).where(eq(users.id, userId)))[0];
+  if (!person) return { ok: false, error: "That request isn't open any more." };
+  // Someone may have joined with the same phone or email since they asked.
+  if (raw.members.some((member) => contactKey(member.contact) === contactKey(person.contact))) {
+    return { ok: false, error: "Someone on the trip already uses that phone or email." };
+  }
+  const blocked = newMemberBlocked(raw);
+  if (blocked) return { ok: false, error: blocked };
+  await db.update(joinRequests).set({ status: "approved", decidedAt: new Date().toISOString() })
+    .where(and(eq(joinRequests.tripId, tripId), eq(joinRequests.userId, userId)));
+  await addMember(raw, userId, person.name);
+  return { ok: true };
+}
+
+/** Organizer setting: whether new people wait for approval. Turning it off doesn't let anyone in by itself. */
+export async function setApproveJoiners(tripId: string, actorId: string, on: boolean) {
+  const raw = await requireOrganizer(tripId, actorId);
+  if ("ok" in raw) return raw;
+  await getDb().update(trips).set({ approveJoiners: on ? 1 : 0 }).where(eq(trips.id, tripId));
+  return { ok: true };
 }
 
 /** Name and contact of one person, for "Join as …" and "Organizing as …". */

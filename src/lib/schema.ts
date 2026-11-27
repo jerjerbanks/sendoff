@@ -52,6 +52,8 @@ export const trips = sqliteTable("trips", {
   pendingSplitMode: text("pending_split_mode"),
   /** Set when the organizer deletes the trip (migration 0011). A deleted trip never loads. */
   deletedAt: text("deleted_at"),
+  /** 1 = new people wait for the organizer before they're on the trip (migration 0013). */
+  approveJoiners: integer("approve_joiners").notNull().default(0),
 });
 
 /** One per paying party. Keyed by the payer's user id. */
@@ -134,6 +136,22 @@ export const spotClaims = sqliteTable(
     status: text("status").notNull(),
   },
   (table) => [primaryKey({ columns: [table.spotId, table.userId] })],
+);
+
+/**
+ * Someone waiting for the organizer to let them onto a trip (migration 0013). Not a
+ * member until approved, so they never read trip data. status: pending | approved | declined.
+ */
+export const joinRequests = sqliteTable(
+  "join_requests",
+  {
+    tripId: text("trip_id").notNull(),
+    userId: text("user_id").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    decidedAt: text("decided_at"),
+  },
+  (table) => [primaryKey({ columns: [table.tripId, table.userId] }), index("join_requests_trip_status_idx").on(table.tripId, table.status)],
 );
 
 export const tripMembers = sqliteTable(

@@ -27,7 +27,7 @@ test("an outsider gets nothing about a real trip from its URL", async ({ browser
   const token = (await organizer.content()).match(/\/join\/([A-Za-z0-9_-]{6,})/)![1]!;
 
   const outsider = await (await browser.newContext()).newPage();
-  const paths = ["", "/costs", "/vote", "/pay", "/party", "/budget", "/spots", "/sleep", "/organize", "/settings", "/book", "/metrics", "/approvals"];
+  const paths = ["", "/costs", "/vote", "/pay", "/party", "/budget", "/spots", "/sleep", "/organize", "/settings", "/book", "/metrics", "/approvals", "/joiners"];
   for (const path of paths) {
     await outsider.goto(`/trip/${tripId}${path}`);
     await expect(outsider.getByRole("heading", { name: /this trip\s*is private/i })).toBeVisible();

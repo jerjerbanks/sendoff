@@ -11,7 +11,7 @@ import { FeedbackButton } from "@/components/feedback-button";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
 import { getViewer } from "@/lib/session";
-import { ensureDemoSeed, isMemberOf, personBasics, tripIdForToken } from "@/lib/store";
+import { ensureDemoSeed, isMemberOf, joinRequestStatus, personBasics, tripIdForToken } from "@/lib/store";
 import { DemoBanner } from "@/components/demo-panel";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { loadTripView } from "@/lib/view";
@@ -56,6 +56,8 @@ export default async function JoinPage({
   const viewer = tripId && !onTour ? await getViewer() : null;
   const viewerId = viewer?.userId ?? null;
   const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
+  // Asked to join a trip where the organizer lets people in: waiting, or turned away.
+  const asked = viewerId && tripId && !alreadyIn ? await joinRequestStatus(tripId, viewerId) : null;
   // Signed in for real on another trip: join as yourself in one tap and keep every trip on this phone.
   const self = viewer && !viewer.demo && !alreadyIn && !isDemoTrip(tripId) ? await personBasics(viewer.userId) : null;
 
@@ -109,6 +111,24 @@ export default async function JoinPage({
             >
               You&apos;re on this trip. Open it
             </Link>
+          ) : asked === "pending" ? (
+            <section className="mt-6 ft-panel p-4" aria-live="polite">
+              <p className="ft-lbl accent">Asked to join</p>
+              <h2 className="ft-h2 mt-1">Waiting for {view.organizerName.split(" ")[0]} to let you in</h2>
+              <p className="mt-2 text-sm text-muted">
+                You&apos;ll see the trip once they say yes. This phone stays signed in, so just come back to this link.
+              </p>
+              <Link
+                href={`/join/${token}`}
+                className="mt-4 flex h-12 items-center justify-center rounded-2xl border border-line font-semibold"
+              >
+                Check again
+              </Link>
+            </section>
+          ) : asked === "declined" ? (
+            <p className="mt-6 rounded-xl bg-chip px-3 py-3 text-sm">
+              {view.organizerName.split(" ")[0]} didn&apos;t add you to this trip. If that&apos;s a mistake, ask them directly.
+            </p>
           ) : closed ? (
             <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">
               The buy-in deadline has passed. You can&apos;t join or rejoin.
@@ -118,16 +138,16 @@ export default async function JoinPage({
               <form action={joinAsMeAction} className="mt-6 grid gap-3 ft-panel p-4">
                 <input type="hidden" name="token" value={token} />
                 {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
-                <SubmitButton pendingLabel="Joining…">Join as {self.name}</SubmitButton>
+                <SubmitButton pendingLabel="Joining…">{view.approveJoiners ? `Ask to join as ${self.name}` : `Join as ${self.name}`}</SubmitButton>
                 <p className="text-center text-xs text-muted">Your other trips stay on this phone, under Menu → Your trips.</p>
               </form>
               <details className="mt-3 text-sm">
                 <summary className="min-h-11 cursor-pointer py-2 font-semibold text-accent-ink">Not {self.name}? Join as someone else</summary>
-                <JoinForm token={token} error={null} onTour={false} />
+                <JoinForm token={token} error={null} onTour={false} approval={view.approveJoiners} />
               </details>
             </>
           ) : (
-            <JoinForm token={token} error={error ?? null} onTour={onTour} />
+            <JoinForm token={token} error={error ?? null} onTour={onTour} approval={view.approveJoiners} />
           )}
         </>
       ) : (
@@ -145,7 +165,7 @@ export default async function JoinPage({
 }
 
 /** Name and phone or email: a new sign-in on this phone. */
-function JoinForm({ token, error, onTour }: { token: string; error: string | null; onTour: boolean }) {
+function JoinForm({ token, error, onTour, approval }: { token: string; error: string | null; onTour: boolean; approval: boolean }) {
   return (
     <form action={joinTripAction} className="mt-6 grid gap-3 ft-panel p-4">
       <input type="hidden" name="token" value={token} />
@@ -182,7 +202,7 @@ function JoinForm({ token, error, onTour }: { token: string; error: string | nul
         />
       </label>
       <Turnstile siteKey={turnstileSiteKey()} />
-      <SubmitButton>Join the trip</SubmitButton>
+      <SubmitButton>{approval ? "Ask to join" : "Join the trip"}</SubmitButton>
       <p className="text-center text-xs text-muted">
         No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
         this one.

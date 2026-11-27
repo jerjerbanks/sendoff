@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createTrip, humanCheckDone, uniqueSuffix } from "./helpers";
+import { JOIN_BUTTON, createTrip, humanCheckDone, letIn, uniqueSuffix } from "./helpers";
 
 /**
  * Leaving and deleting a trip from Your trips, and "/" no longer jumping into a trip.
@@ -25,8 +25,9 @@ test("a member leaves, then the organizer deletes the trip for everyone", async 
   await mo.getByLabel("Your name").fill("Mo Member");
   await mo.getByLabel("Phone or email").fill(`e2e-mo-${id}@example.com`);
   await humanCheckDone(mo);
-  await mo.getByRole("button", { name: /join the trip/i }).click();
-  await expect(mo).toHaveURL(new RegExp(`/trip/${tripId}/party\\?welcome=1`));
+  await mo.getByRole("button", { name: JOIN_BUTTON }).click();
+  await expect(mo.getByRole("heading", { name: /waiting for olivia to let you in/i })).toBeVisible();
+  await letIn(olivia, tripId, "Mo Member");
 
   // "/" shows the landing page to a signed-in person, with a way to their trips.
   await olivia.goto("/");
@@ -88,5 +89,5 @@ test("a member leaves, then the organizer deletes the trip for everyone", async 
   }
   const stranger = await freshPage(browser);
   await stranger.goto(`/join/${invite}`);
-  await expect(stranger.getByRole("button", { name: /join the trip/i })).toHaveCount(0);
+  await expect(stranger.getByRole("button", { name: JOIN_BUTTON })).toHaveCount(0);
 });
