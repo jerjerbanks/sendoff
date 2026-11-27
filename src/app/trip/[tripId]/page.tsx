@@ -341,6 +341,7 @@ function OrganizerCard({ view }: { view: TripView }) {
   const items = [
     view.status === "booking_ready" ? "ready to book" : null,
     view.underMinimum ? "short of the minimum" : null,
+    view.joinersWaiting > 0 ? `${view.joinersWaiting} waiting to join` : null,
     view.pendingApprovals > 0 ? `${view.pendingApprovals} room ${view.pendingApprovals === 1 ? "request" : "requests"}` : null,
   ].filter(Boolean);
   return (

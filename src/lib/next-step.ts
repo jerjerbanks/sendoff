@@ -42,6 +42,8 @@ export interface NextStepInput {
   nextPayment: { name: string; amountLabel: string; dueLabel: string } | null;
   isOrganizer: boolean;
   pendingApprovals: number;
+  /** People waiting for the organizer to let them onto the trip. */
+  joinersWaiting?: number;
   payerCount: number;
   minPayers: number;
   /**
@@ -188,6 +190,19 @@ export function nextStep(input: NextStepInput): NextStep {
     href: "/vote",
     tone: "action",
   });
+
+  // Someone is stuck at the door until the organizer answers, so this comes before the organizer's own steps.
+  const waiting = input.joinersWaiting ?? 0;
+  if (input.isOrganizer && waiting > 0) {
+    return {
+      eyebrow: "Organizer",
+      title: waiting === 1 ? "1 person wants to join" : `${waiting} people want to join`,
+      body: "They can't see the trip until you let them in.",
+      cta: "Review",
+      href: "/joiners",
+      tone: "action",
+    };
+  }
 
   if (viewer.role === "honoree") {
     if (input.unvotedPolls.length > 0) return vote("You don't pay a share, but you do get a say.");

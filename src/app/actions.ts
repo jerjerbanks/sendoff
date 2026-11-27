@@ -15,6 +15,8 @@ import { passesTurnstile } from "@/lib/turnstile";
 import {
   deleteTrip,
   leaveTrip,
+  decideJoinRequest,
+  setApproveJoiners,
   addCost,
   addPollOption,
   cancelTrip,
@@ -175,6 +177,8 @@ export async function joinTripAction(formData: FormData) {
     fail(`/join/${token}`, result.ok ? "Could not join." : result.error ?? "Could not join.");
   }
   await startSession(result.userId, { demo: isDemoTrip(result.tripId) });
+  // Waiting for the organizer: the invite page says so until they're let in.
+  if (result.waiting) redirect(`/join/${token}`);
   // S18 then S17: confirm the party and its travelers, then the private budget.
   redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
 }
@@ -188,6 +192,7 @@ export async function joinAsMeAction(formData: FormData) {
   const result = await joinTripAsUser({ token, userId: viewer.userId });
   if (!result.ok || !result.tripId) fail(`/join/${token}`, result.error ?? "Could not join.");
   revalidatePath("/trips");
+  if (result.waiting) redirect(`/join/${token}`);
   redirect(result.isNew ? `/trip/${result.tripId}/party?welcome=1` : `/trip/${result.tripId}`);
 }
 
@@ -534,6 +539,22 @@ export async function resolveRequestAction(formData: FormData) {
     await resolveSpotRequest(tripId, await me(), text(formData, "requestId"), text(formData, "decision") === "approve"),
     `/trip/${tripId}/approvals`,
   );
+}
+
+/** Organizer lets a waiting person in, or turns them away. */
+export async function decideJoinAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(
+    tripId,
+    await decideJoinRequest(tripId, await me(), text(formData, "joinerId"), text(formData, "decision") === "approve"),
+    `/trip/${tripId}/joiners`,
+  );
+}
+
+/** Organizer setting: new people wait for approval, or join straight away. */
+export async function approveJoinersAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  done(tripId, await setApproveJoiners(tripId, await me(), text(formData, "on") === "yes"), `/trip/${tripId}/joiners`);
 }
 
 export async function bedPolicyAction(formData: FormData) {

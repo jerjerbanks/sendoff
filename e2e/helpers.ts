@@ -106,3 +106,17 @@ export async function settled(page: Page) {
     await page.waitForLoadState("networkidle");
   }
 }
+
+/** The invite form's submit: "Ask to join" where the organizer approves new people, else "Join the trip". */
+export const JOIN_BUTTON = /^(join the trip|ask to join)$/i;
+
+/**
+ * New trips ask the organizer before anyone joins. From the organizer's page, let a waiting
+ * person in by name, and wait until they've left the waiting list.
+ */
+export async function letIn(organizer: Page, tripId: string, name: string) {
+  await organizer.goto(`/trip/${tripId}/joiners`);
+  const first = name.trim().split(/\s+/)[0]!;
+  await organizer.getByRole("button", { name: `Let ${first} in` }).click();
+  await expect(organizer.getByRole("list", { name: "People waiting to join" })).not.toContainText(name);
+}
