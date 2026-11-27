@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Input, fieldClass } from "@/components/ui/input";
 import { SUB_TYPES, isWeddingSubType } from "@/lib/trip-kind";
 import { VibeStep } from "@/components/vibe-step";
-import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 /**
  * Adult or Family, a sub-type for either, and guests of honor only for the wedding sub-types.
@@ -44,7 +43,7 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
           </select>
         </label>
       </fieldset>
-      {VIBE_STEP_ON ? <VibeStep kind={kind} subType={subType} /> : null}
+      <VibeStep kind={kind} subType={subType} />
       {children}
       <fieldset className="ft-honorees grid gap-3" disabled={hydrated && !wedding} hidden={hydrated && !wedding}>
         <legend className="text-sm font-medium">Guests of honor (optional — leave blank for none)</legend>

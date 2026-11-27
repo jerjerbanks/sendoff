@@ -10,7 +10,7 @@ import { paymentStatusLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
 import { activeTripTheme, THEME_INFO, themeForTrip } from "@/lib/trip-theme";
-import { VIBE_STEP_ON } from "@/lib/vibe-flag";
+import { THEME_PREVIEW_ON } from "@/lib/vibe-flag";
 
 export default async function PayPage({
   params,
@@ -23,7 +23,7 @@ export default async function PayPage({
   const { error, opened, "ft-theme": themePreview } = await searchParams;
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
-  const theme = activeTripTheme(themeForTrip(view), themePreview, VIBE_STEP_ON);
+  const theme = activeTripTheme(themeForTrip(view), themePreview, THEME_PREVIEW_ON);
   const viewer = view.viewer;
   const buyIn = view.milestones.find((milestone) => milestone.kind === "buy_in");
   const owed = viewer?.isPayer ? viewer.lines.filter((line) => line.canPay) : [];

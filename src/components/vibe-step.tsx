@@ -6,7 +6,7 @@ import { sceneUrl, themeTileScene } from "@/lib/scenes";
 import { deriveTripTheme, THEME_INFO, vibeOrder, type TripTheme } from "@/lib/trip-theme";
 
 /**
- * v7 "What's the vibe?" step, behind NEXT_PUBLIC_FT_VIBE_STEP (staging only).
+ * v7 "What's the vibe?" step on /new.
  * The tiles are display radios outside the form. Only a tile the organizer actually taps is
  * posted, as the hidden "vibe" field, and saved on the trip (trips.theme, migration 0014).
  * Leaving the suggestion alone posts nothing, so the look keeps following the trip's name,

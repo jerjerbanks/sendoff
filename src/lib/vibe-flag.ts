@@ -1,14 +1,15 @@
 /**
- * NEXT_PUBLIC_FT_VIBE_STEP: the v7 "What's the vibe?" step, the organizer theme override UI and
- * the ?ft-theme= QA preview. Off by default; on only in staging (set by `npm run build:staging`).
+ * NEXT_PUBLIC_FT_THEME_PREVIEW: the ?ft-theme= QA preview (one page view shows another trip look,
+ * nothing saved). Off by default; on only in staging (set by `npm run build:staging`).
  * Inlined at build time, so it's the same on the server and in the browser.
+ * The "What's the vibe?" step and Settings → Trip look are on everywhere (no flag).
  */
 function read(): boolean {
   try {
-    return process.env.NEXT_PUBLIC_FT_VIBE_STEP === "1";
+    return process.env.NEXT_PUBLIC_FT_THEME_PREVIEW === "1";
   } catch {
     return false;
   }
 }
 
-export const VIBE_STEP_ON = read();
+export const THEME_PREVIEW_ON = read();
