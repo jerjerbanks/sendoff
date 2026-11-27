@@ -1,4 +1,4 @@
-import { livePriceTable } from "./room-prices";
+import { livePriceTable, roomEstimates } from "./room-prices";
 import { shortNamer } from "./display-names";
 import type { TripTheme } from "./trip-theme";
 import { cache } from "react";
@@ -182,6 +182,11 @@ export interface TripView {
    * Null in even split modes.
    */
   roomPrices: Record<string, number> | null;
+  /**
+   * For empty rooms before the trip reaches its minimum: the likely share once `parties` parties are in.
+   * Shown as the main number, with the live price (roomPrices) as "up to" underneath.
+   */
+  roomEstimates: Record<string, { estimate: number; parties: number }>;
   lodgingTotalCents: number;
   /** Each paying party's all-in under every lodging split mode, for the before/after. */
   splitPreview: { payerUserId: string; name: string; byMode: Record<SplitMode, number> }[];
@@ -539,7 +544,7 @@ function buildView(
   const underMinimum = raw.trip.status === "under_minimum";
   const locked = isBooked(raw.trip.status);
   const notices = buildNotices({ raw, viewer, underMinimum, payerCount, minPayerCount, locked });
-  const prices = raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw) : null;
+  const prices = raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw, minPayerCount) : null;
 
   return {
     id: raw.trip.id,
@@ -557,6 +562,7 @@ function buildView(
     bedsNeeded: partySpotTravelers(activeTravelers),
     spotPrices: prices?.spots ?? null,
     roomPrices: prices?.rooms ?? null,
+    roomEstimates: prices?.estimates ?? {},
     splitPreview: (() => {
       // Privacy: a party only gets its own row, so there is nothing to compute without one.
       // Three full re-splits: only the Settings page asks for this.
@@ -679,12 +685,18 @@ function buildView(
   };
 }
 
-function livePrices(raw: RawTrip): { spots: Record<string, number>; rooms: Record<string, number> } {
+function livePrices(
+  raw: RawTrip,
+  minParties: number,
+): { spots: Record<string, number>; rooms: Record<string, number>; estimates: Record<string, { estimate: number; parties: number }> } {
   const lodge = raw.trip.actualLodgingTotal ?? lodgingCents(raw.costs);
   const honoreeParties = new Set(honoreeIdsOf(raw));
-  const occupants = (spotId: string) =>
-    raw.claims.filter((claim) => claim.spotId === spotId && claim.status === "approved" && !honoreeParties.has(claim.userId)).length;
-  return livePriceTable(lodge, raw.spots, occupants);
+  const held = raw.claims.filter((claim) => claim.status === "approved" && !honoreeParties.has(claim.userId));
+  const occupants = (spotId: string) => held.filter((claim) => claim.spotId === spotId).length;
+  const holding = new Set(held.map((claim) => claim.userId)).size;
+  // Once the stay is booked the live price is the real one; no estimate.
+  const estimates = isBooked(raw.trip.status) ? {} : roomEstimates(lodge, raw.spots, occupants, holding, minParties);
+  return { ...livePriceTable(lodge, raw.spots, occupants), estimates };
 }
 
 function joinNames(names: string[]): string {
