@@ -55,16 +55,7 @@ export default async function RoomsPage({
   );
   const names = new Map(rooms.flatMap((room) => [...bedNames(room.spots)]));
   const bedName = (spot: SpotRecord) => names.get(spot.id) ?? bedLabel(spot.bedType);
-  const occupants = (room: Room) => [...new Set(room.spots.flatMap((spot) => holders(spot.id)))];
-  const price = (room: Room) => view.roomPrices?.[room.name] ?? 0;
-  const rank = (room: Room) => {
-    const who = occupants(room);
-    if (who.includes(myParty ?? "")) return 0;
-    if (room.spots.some((spot) => spot.reservedForHonoree) || room.spots.some((spot) => spot.reservedForUserId && spot.reservedForUserId !== myParty)) return 3;
-    if (who.length === 0 || room.spots.some((spot) => openShare(view, spot, holders(spot.id), myParty))) return 1;
-    return 2;
-  };
-  rooms.sort((a, b) => rank(a) - rank(b) || price(b) - price(a));
+  // Rooms stay in house order (01, 02, 03) for everyone, so the list matches the plan and a friend's screen.
 
   const myBeds = view.spots.filter((spot) => holders(spot.id).includes(myParty ?? ""));
   const pending = myParty ? (await listSpotRequests(tripId)).filter((request) => request.status === "pending") : [];
@@ -74,9 +65,7 @@ export default async function RoomsPage({
     const name = view.parties.find((item) => item.payerUserId === id)?.name ?? "";
     return name.replace(/^The\s+/i, "").charAt(0).toUpperCase();
   };
-  const plan: PlanRoom[] = [...rooms]
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((room) => ({
+  const plan: PlanRoom[] = rooms.map((room) => ({
       code: room.code,
       name: room.name,
       anchor: `room-${room.code}`,

@@ -26,6 +26,23 @@ export function sceneFor(...texts: (string | null | undefined)[]): Scene {
   return "lake";
 }
 
+/**
+ * Where a small square thumbnail should look in each scene. The scenes share one sunset palette,
+ * so a centred crop of any of them is the same sky; these point at each one's own subject.
+ */
+const FOCUS: Record<Scene, string> = {
+  lake: "40% 82%",
+  cabin: "30% 72%",
+  beach: "16% 70%",
+  golf: "50% 70%",
+  campfire: "50% 75%",
+};
+
+/** CSS background position and zoom for a scene's thumbnail. */
+export function sceneThumb(scene: Scene): { backgroundPosition: string; backgroundSize: string } {
+  return { backgroundPosition: FOCUS[scene], backgroundSize: "auto 260%" };
+}
+
 /** Day image for a scene. Night is the lake night twin for every scene until more twins exist. */
 export function sceneSrc(scene: Scene) {
   return { day: `/illustrations/${FILES[scene]}.webp`, night: "/illustrations/lake-night.webp" };

@@ -52,7 +52,13 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
           const row = (
             <div key={index} className="grid grid-cols-[1fr_auto] gap-2 [&>*]:min-w-0">
               <Input name={`honoree${index}Name`} placeholder="Name" autoComplete="off" aria-label={`Guest of honor ${index}`} />
-              <select className={`${fieldClass} w-32`} name={`honoree${index}Role`} defaultValue="other" aria-label={`Guest of honor ${index} role`}>
+              <select
+                key={`${subType}-${index}`}
+                className={`${fieldClass} w-32`}
+                name={`honoree${index}Role`}
+                defaultValue={defaultHonoreeRole(subType, index)}
+                aria-label={`Guest of honor ${index} role`}
+              >
                 <option value="bride">Bride</option>
                 <option value="groom">Groom</option>
                 <option value="other">Other</option>
@@ -72,4 +78,12 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
       </fieldset>
     </>
   );
+}
+
+/** Bachelorette starts at Bride, Bachelor at Groom, a joint party at Bride then Groom. */
+export function defaultHonoreeRole(subType: string, index: number): "bride" | "groom" | "other" {
+  if (subType === "bachelorette") return "bride";
+  if (subType === "bachelor") return "groom";
+  if (subType === "joint") return index === 1 ? "bride" : "groom";
+  return "other";
 }

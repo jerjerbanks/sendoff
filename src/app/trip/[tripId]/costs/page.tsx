@@ -280,14 +280,22 @@ export default async function CostsPage({
               <span className="shrink-0 text-right">
                 <span className="ft-amt block">{cents(cost.amountCents)}</span>
                 {(view.isOrganizer || (cost.splitType === "individual" && cost.memberId === viewer?.partyUserId)) && !view.cancelled ? (
-                  <form action={deleteCostAction}>
-                    <input type="hidden" name="tripId" value={view.id} />
-                    <input type="hidden" name="userId" value={viewer?.userId} />
-                    <input type="hidden" name="costId" value={cost.id} />
-                    <button type="submit" className="inline-flex min-h-11 min-w-11 items-center justify-end text-xs font-semibold text-muted underline">
-                      Remove
-                    </button>
-                  </form>
+                  // Two steps, no script: "Remove" opens a confirm that names the line being dropped.
+                  <details className="group">
+                    <summary className="inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-end text-xs font-semibold text-muted underline [&::-webkit-details-marker]:hidden">
+                      <span className="group-open:hidden">Remove</span>
+                      <span className="hidden group-open:inline">Keep it</span>
+                    </summary>
+                    <form action={deleteCostAction} className="mt-1 grid justify-items-end gap-1">
+                      <input type="hidden" name="tripId" value={view.id} />
+                      <input type="hidden" name="userId" value={viewer?.userId} />
+                      <input type="hidden" name="costId" value={cost.id} />
+                      <span className="max-w-[12rem] text-xs text-muted">Drop &ldquo;{cost.label}&rdquo; from the sheet?</span>
+                      <button type="submit" className="inline-flex min-h-11 items-center rounded-lg bg-bad-soft px-3 text-xs font-semibold text-bad">
+                        Yes, remove it
+                      </button>
+                    </form>
+                  </details>
                 ) : null}
               </span>
             </li>
