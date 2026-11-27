@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getThemeMode, isThemeMode, setThemeMode, startThemeSync, subscribeThemeMode } from "@/lib/theme";
 
@@ -93,10 +94,10 @@ const LINKS = [
 
 /**
  * Below 1024px the nav collapses to a "Menu" button that opens a sheet with the same three
- * links plus "Start a trip". The sheet is a modal <dialog>, so focus stays inside it until it
+ * links, "Sign in" (or "Your trips"), and "Start a trip". The sheet is a modal <dialog>, so focus stays inside it until it
  * closes (Escape, the close button, a tap outside, or picking a link).
  */
-export function LandingMenu() {
+export function LandingMenu({ signedIn = false }: { signedIn?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -145,6 +146,15 @@ export function LandingMenu() {
                 {label}
               </a>
             ))}
+            {signedIn ? (
+              <Link href="/trips" onClick={() => dialog.current?.close()}>
+                Your trips
+              </Link>
+            ) : (
+              <Link href="/signin" onClick={() => dialog.current?.close()}>
+                Sign in
+              </Link>
+            )}
           </nav>
           <a className="pill accent" href="/new#start">
             Start a trip

@@ -38,6 +38,8 @@
 .ftl .nav .links a {min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px}
 .ftl .nav .links a:hover {background:var(--nav-glass)}
 .ftl .nav .right {justify-self:end;display:flex;gap:12px;align-items:center}
+.ftl .nav .signin {min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;font:500 15px var(--font-ui);color:var(--hero-ink)}
+.ftl .nav .signin:hover {background:var(--nav-glass)}
 .ftl .nav .menu {display:none}
 .ftl .nav > .wm {justify-self:start;min-height:44px;display:inline-flex;align-items:center}
 .ftl .hero-copy {position:relative;z-index:5;text-align:center;margin-top:44px;display:flex;flex-direction:column;align-items:center;padding:0 24px}
@@ -187,6 +189,7 @@
 @media (max-width:1023px){
 .ftl .nav {grid-template-columns:1fr auto;padding:0 28px}
 .ftl .nav .links,
+.ftl .nav .right .signin,
 .ftl .nav .right .pill {display:none}
 /* Signed in: "Your trips" stays visible on phones too, so "/" never strands anyone. */
 .ftl .nav .right .pill.mine {display:inline-flex;align-items:center;min-height:44px;padding:0 14px;font-size:14px}
