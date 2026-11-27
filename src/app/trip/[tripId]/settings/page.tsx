@@ -6,6 +6,7 @@ import {
   honoreeExclusionAction,
   simulateDeadlineAction,
   splitModeAction,
+  tripThemeAction,
 } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { isDemoTrip } from "@/lib/demo-tour";
@@ -15,7 +16,7 @@ import { ageBandHint, ageBandLabel, splitModeHint, splitModeLabel } from "@/lib/
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
 import { ThemeIcon } from "@/components/theme-icon";
-import { THEME_INFO, TRIP_THEMES, themeForTrip } from "@/lib/trip-theme";
+import { derivedThemeForTrip, THEME_INFO, TRIP_THEMES, themeForTrip } from "@/lib/trip-theme";
 import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 const modes = ["weighted_by_spot", "even_per_traveler", "even_per_party"] as const;
@@ -232,25 +233,32 @@ export default async function SettingsPage({
       </section>
 
       {VIBE_STEP_ON && view.isOrganizer ? (
-        // v7 organizer theme override: UI only. No existing field stores a theme, so it stays
-        // disabled until a trip.theme column is approved (follow-up).
+        // v7 organizer theme override (staging only). Saved on trips.theme (migration 0014).
         <section className="grid gap-3 ft-panel p-4">
           <h3 className="ft-h2">Trip look</h3>
           <p className="flex items-center gap-2 text-sm text-muted">
             <ThemeIcon theme={themeForTrip(view)} className="ft-theme-ink" />
-            Now: {THEME_INFO[themeForTrip(view)].name}, picked from the trip&apos;s name and type.
+            {view.storedTheme
+              ? `Now: ${THEME_INFO[view.storedTheme].name}, picked by you.`
+              : `Now: ${THEME_INFO[derivedThemeForTrip(view)].name}, picked from the trip's name and plans.`}
           </p>
-          <fieldset disabled className="grid gap-2">
-            <legend className="sr-only">Pick a look</legend>
-            <select className="min-h-12 rounded-lg border border-ctl bg-card px-3 text-[16px] text-ink-2" defaultValue={themeForTrip(view)} aria-label="Trip look">
+          <form action={tripThemeAction} className="grid gap-2">
+            {hidden}
+            <select
+              name="theme"
+              className="min-h-12 rounded-lg border border-ctl bg-card px-3 text-[16px] text-ink-2"
+              defaultValue={view.storedTheme ?? "auto"}
+              aria-label="Trip look"
+            >
+              <option value="auto">Automatic ({THEME_INFO[derivedThemeForTrip(view)].vibeLabel})</option>
               {TRIP_THEMES.map((theme) => (
                 <option key={theme} value={theme}>
                   {THEME_INFO[theme].vibeLabel}
                 </option>
               ))}
             </select>
-            <p className="text-sm text-muted">Coming soon</p>
-          </fieldset>
+            <SubmitButton pendingLabel="Saving…">Save look</SubmitButton>
+          </form>
         </section>
       ) : null}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveTripTheme, isTripTheme, themeChipLabel, vibeOrder } from "./trip-theme";
+import { activeTripTheme, deriveTripTheme, derivedThemeForTrip, isTripTheme, themeChipLabel, themeForTrip, vibeOrder } from "./trip-theme";
 
 describe("deriveTripTheme", () => {
   it("gives each theme from its keywords", () => {
@@ -79,5 +79,29 @@ describe("activeTripTheme", () => {
     expect(activeTripTheme("outdoors", "space", true)).toBe("outdoors");
     expect(activeTripTheme("ski", ["city"], true)).toBe("city");
     expect(activeTripTheme("ski", null, true)).toBe("ski");
+  });
+});
+
+describe("themeForTrip with a stored pick (migration 0014)", () => {
+  const base = { tripType: "adult", preWeddingStyle: null, name: "Kohler golf", place: "Kohler" };
+
+  it("uses the organizer's stored pick over the derived look", () => {
+    expect(themeForTrip({ ...base, storedTheme: "beach" })).toBe("beach");
+  });
+
+  it("derives when nothing is stored", () => {
+    expect(themeForTrip({ ...base, storedTheme: null })).toBe("golf");
+    expect(themeForTrip(base)).toBe("golf");
+    expect(derivedThemeForTrip({ ...base })).toBe("golf");
+  });
+
+  it("ignores a stored value that isn't a known theme", () => {
+    expect(themeForTrip({ ...base, storedTheme: "disco" })).toBe("golf");
+    expect(themeForTrip({ ...base, storedTheme: "" })).toBe("golf");
+  });
+
+  it("the QA preview still wins over a stored pick when the flag is on", () => {
+    expect(activeTripTheme(themeForTrip({ ...base, storedTheme: "beach" }), "ski", true)).toBe("ski");
+    expect(activeTripTheme(themeForTrip({ ...base, storedTheme: "beach" }), "ski", false)).toBe("beach");
   });
 });

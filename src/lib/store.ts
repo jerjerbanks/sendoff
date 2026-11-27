@@ -7,6 +7,7 @@ import { isDemoTrip } from "./demo-tour";
 import { getD1, getDb } from "./db";
 import { recordFunnel, type FunnelStep } from "./funnel";
 import { importedRoomSpots, type ImportRoom } from "./listing-import";
+import { isTripTheme, type TripTheme } from "./trip-theme";
 import {
   demoCosts,
   demoMembers,
@@ -212,6 +213,8 @@ export interface RawTrip {
     honoreeExcluded: boolean;
     /** New people wait for the organizer before they're on the trip. */
     approveJoiners: boolean;
+    /** The organizer's chosen look; null = derived. Anything not a known theme reads as null. */
+    theme: TripTheme | null;
     inviteToken: string;
     simulatedNow: string | null;
     bookingConfirmation: string | null;
@@ -453,6 +456,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       bedChangePolicy: trip.bedChangePolicy === "locked" ? "locked" : "member_requests",
       honoreeExcluded: trip.honoreeExcludedFromSplit === 1,
       approveJoiners: trip.approveJoiners === 1,
+      theme: isTripTheme(trip.theme) ? trip.theme : null,
       inviteToken: trip.inviteToken,
       simulatedNow: trip.simulatedNow,
       bookingConfirmation: trip.bookingConfirmation,
@@ -962,6 +966,8 @@ export async function createTrip(input: {
   dateWindow: string;
   /** A signed-in person starting another trip organizes it as themselves, so they keep every trip on this phone. */
   organizerUserId?: string;
+  /** The look the organizer picked on "What's the vibe?"; omitted = derived. */
+  theme?: TripTheme | null;
 }) {
   const db = getDb();
   const tripId = crypto.randomUUID();
@@ -994,6 +1000,7 @@ export async function createTrip(input: {
     simulatedNow: null,
     // New trips start with the organizer approving new people; they can turn it off in Organizer tools.
     approveJoiners: 1,
+    theme: isTripTheme(input.theme) ? input.theme : null,
   });
   await db.insert(tripMembers).values({ tripId, userId: organizerId, role: "organizer", status: "joined", committedAt: null, partyUserId: null });
   await db.insert(parties).values({ tripId, payerUserId: organizerId, name: defaultPartyName(input.organizerName, input.tripType) });
@@ -1262,6 +1269,14 @@ export async function setApproveJoiners(tripId: string, actorId: string, on: boo
   const raw = await requireOrganizer(tripId, actorId);
   if ("ok" in raw) return raw;
   await getDb().update(trips).set({ approveJoiners: on ? 1 : 0 }).where(eq(trips.id, tripId));
+  return { ok: true };
+}
+
+/** Organizer setting: the trip's look. null goes back to deriving it from the type, name and options. */
+export async function setTripTheme(tripId: string, actorId: string, theme: TripTheme | null) {
+  const raw = await requireOrganizer(tripId, actorId);
+  if ("ok" in raw) return raw;
+  await getDb().update(trips).set({ theme: isTripTheme(theme) ? theme : null }).where(eq(trips.id, tripId));
   return { ok: true };
 }
 
