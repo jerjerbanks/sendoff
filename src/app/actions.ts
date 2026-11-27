@@ -1,5 +1,6 @@
 "use server";
 
+import { defaultBedWeight } from "@/lib/bed-weight";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -473,9 +474,14 @@ export async function releaseSpotAction(formData: FormData) {
 export async function addSpotAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const userId = await me();
-  const weight = Number(text(formData, "weight"));
+  const bedType = text(formData, "bedType", 30) || "Bed";
+  const privateBath = text(formData, "privateBath") === "yes";
+  const privateRoom = text(formData, "privateRoom") === "yes";
+  // "auto" (the default) prices the bed from its type and options; a number overrides it.
+  const picked = text(formData, "weight");
+  const weight = !picked || picked === "auto" ? defaultBedWeight(bedType, { privateBath, privateRoom }) : Number(picked);
   if (!text(formData, "roomName") || !Number.isFinite(weight) || weight <= 0 || weight > 10) {
-    fail(`/trip/${tripId}/sleep`, "Name the room and give it a weight between 0 and 10.");
+    fail(`/trip/${tripId}/sleep`, "Name the room and pick a price share between 0 and 10.");
   }
   done(
     tripId,
@@ -483,9 +489,9 @@ export async function addSpotAction(formData: FormData) {
       tripId,
       userId,
       roomName: text(formData, "roomName", 60),
-      bedType: text(formData, "bedType", 30) || "Bed",
-      privateBath: text(formData, "privateBath") === "yes",
-      privateRoom: text(formData, "privateRoom") === "yes",
+      bedType,
+      privateBath,
+      privateRoom,
       weight,
       reservedForHonoree: text(formData, "reserved") === "yes",
       allowSharing: text(formData, "allowSharing") === "yes",

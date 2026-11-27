@@ -1,3 +1,5 @@
+import { livePriceTable } from "./room-prices";
+import { shortNamer } from "./display-names";
 import type { TripTheme } from "./trip-theme";
 import { cache } from "react";
 import { money } from "./format";
@@ -117,6 +119,8 @@ export interface CostView {
 export interface TravelerView {
   id: string;
   name: string;
+  /** First name, or the full name when someone else on the trip shares it. */
+  shortName: string;
   ageBand: AgeBand;
   hasAccount: boolean;
   isPayer: boolean;
@@ -134,6 +138,8 @@ export interface PartyView {
   name: string;
   status: MemberRecord["status"];
   payerName: string;
+  /** First name, or the full name when someone else on the trip shares it. */
+  payerShortName: string;
   isHonoreeOnly: boolean;
   travelers: TravelerView[];
   ageWeight: number;
@@ -170,6 +176,11 @@ export interface TripView {
    * An open share slot is priced at half the spot. Null in even split modes.
    */
   spotPrices: Record<string, number> | null;
+  /**
+   * What a party pays for a whole room, keyed by room name: an empty room priced as one unit.
+   * Null in even split modes.
+   */
+  roomPrices: Record<string, number> | null;
   lodgingTotalCents: number;
   /** Each paying party's all-in under every lodging split mode, for the before/after. */
   splitPreview: { payerUserId: string; name: string; byMode: Record<SplitMode, number> }[];
@@ -185,6 +196,8 @@ export interface TripView {
   bedChangePolicy: "member_requests" | "locked";
   inviteToken: string;
   organizerName: string;
+  /** "Alex", or "Audit Alex" when another person on the trip is also "Audit ...". */
+  organizerShortName: string;
   guestName: string;
   now: string;
   simulated: boolean;
@@ -467,6 +480,7 @@ function buildView(
   }));
 
   const isOrganizerViewer = viewer?.role === "organizer";
+  const shortName = shortNamer([...raw.members.map((member) => member.name), ...raw.travelers.map((traveler) => traveler.name)]);
   const partyViews: PartyView[] = raw.parties.map((party) => {
     const payer = raw.members.find((member) => member.userId === party.payerUserId);
     const mine = travelersOf(raw, party.payerUserId);
@@ -483,10 +497,12 @@ function buildView(
       name: party.name,
       status: payer?.status ?? "joined",
       payerName: payer?.name ?? party.name,
+      payerShortName: shortName(payer?.name ?? party.name),
       isHonoreeOnly: payer?.role === "honoree",
       travelers: mine.map((traveler) => ({
         id: traveler.id,
         name: traveler.name,
+        shortName: shortName(traveler.name),
         ageBand: traveler.ageBand,
         hasAccount: !!traveler.userId,
         isPayer: traveler.userId === party.payerUserId,
@@ -517,11 +533,12 @@ function buildView(
     return payer && payer.status !== "off_trip" && payer.status !== "declined";
   });
   const honorees = raw.travelers.filter((traveler) => traveler.isHonoree);
-  const honoreeNames = honorees.map((traveler) => traveler.name.split(" ")[0] ?? traveler.name);
+  const honoreeNames = honorees.map((traveler) => shortName(traveler.name));
 
   const underMinimum = raw.trip.status === "under_minimum";
   const locked = isBooked(raw.trip.status);
   const notices = buildNotices({ raw, viewer, underMinimum, payerCount, minPayerCount, locked });
+  const prices = raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw) : null;
 
   return {
     id: raw.trip.id,
@@ -537,7 +554,8 @@ function buildView(
     viewerParty: partyViews.find((party) => party.payerUserId === viewerPartyId) ?? null,
     travelerCount: activeTravelers.length,
     bedsNeeded: partySpotTravelers(activeTravelers),
-    spotPrices: raw.trip.splitMode === "weighted_by_spot" ? livePrices(raw) : null,
+    spotPrices: prices?.spots ?? null,
+    roomPrices: prices?.rooms ?? null,
     splitPreview: (() => {
       // Privacy: a party only gets its own row, so there is nothing to compute without one.
       // Three full re-splits: only the Settings page asks for this.
@@ -579,6 +597,7 @@ function buildView(
     bedChangePolicy: raw.trip.bedChangePolicy,
     inviteToken: raw.trip.inviteToken,
     organizerName: raw.members.find((member) => member.role === "organizer")?.name ?? "Organizer",
+    organizerShortName: shortName(raw.members.find((member) => member.role === "organizer")?.name ?? "Organizer"),
     guestName: honoreeNames.length > 0 ? joinNames(honoreeNames) : (raw.members.find((member) => member.userId === raw.trip.guestOfHonorUserId)?.name ?? "the group"),
     now,
     simulated: raw.trip.simulatedNow !== null,
@@ -659,22 +678,12 @@ function buildView(
   };
 }
 
-function livePrices(raw: RawTrip): Record<string, number> {
+function livePrices(raw: RawTrip): { spots: Record<string, number>; rooms: Record<string, number> } {
   const lodge = raw.trip.actualLodgingTotal ?? lodgingCents(raw.costs);
   const honoreeParties = new Set(honoreeIdsOf(raw));
   const occupants = (spotId: string) =>
     raw.claims.filter((claim) => claim.spotId === spotId && claim.status === "approved" && !honoreeParties.has(claim.userId)).length;
-  const occupied = raw.spots.filter((spot) => !spot.reservedForHonoree && occupants(spot.id) > 0);
-  const base = occupied.reduce((sum, spot) => sum + spot.weight, 0);
-  const prices: Record<string, number> = {};
-  for (const spot of raw.spots) {
-    if (spot.reservedForHonoree) continue;
-    const taken = occupants(spot.id);
-    if (taken === 0) prices[spot.id] = Math.round((lodge * spot.weight) / (base + spot.weight));
-    else if (spot.sharingEnabled && taken < (spot.capacity || 2)) prices[spot.id] = Math.round((lodge * spot.weight) / 2 / base);
-    else prices[spot.id] = Math.round((lodge * spot.weight) / taken / base);
-  }
-  return prices;
+  return livePriceTable(lodge, raw.spots, occupants);
 }
 
 function joinNames(names: string[]): string {
@@ -968,7 +977,7 @@ function withNextStep(view: TripView, pendingApprovals: number): TripView {
     .map((poll) => pollLabel(poll.kind));
   const input = {
     viewer: viewer ? { isPayer: viewer.isPayer, role: viewer.role, status: viewer.status, forfeitedCents: viewer.forfeitedCents } : null,
-    payerFirstName: view.viewerParty?.payerName.split(" ")[0] ?? null,
+    payerFirstName: view.viewerParty?.payerShortName ?? null,
     partySize: view.viewerParty?.travelers.length ?? 1,
     tripStatus: view.status,
     hasBudget: view.viewerHasBudget,

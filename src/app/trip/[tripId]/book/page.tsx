@@ -1,3 +1,4 @@
+import { shortNamer } from "@/lib/display-names";
 import { bookStayAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ export default async function BookPage({
           {view.rebase.length > 0 ? (
             <ul className="mt-2 grid gap-1">
               {view.rebase.map((row) => (
-                <li key={row.userId}>{row.name.split(" ")[0]}: {money(row.beforeCents)} was, {money(row.afterCents)} now</li>
+                <li key={row.userId}>{shortNamer(view.members.map((member) => member.name))(row.name)}: {money(row.beforeCents)} was, {money(row.afterCents)} now</li>
               ))}
             </ul>
           ) : null}

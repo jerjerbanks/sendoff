@@ -1,3 +1,4 @@
+import { shortNamer } from "@/lib/display-names";
 import { approveJoinersAction, decideJoinAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { getViewerId } from "@/lib/session";
@@ -23,6 +24,7 @@ export default async function JoinersPage({
   const requests = (await listJoinRequests(tripId, viewerId)) ?? [];
   const waiting = requests.filter((request) => request.status === "pending");
   const declined = requests.filter((request) => request.status === "declined");
+  const shortName = shortNamer([...view.members.map((member) => member.name), ...requests.map((request) => request.name)]);
 
   return (
     <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0">
@@ -47,7 +49,7 @@ export default async function JoinersPage({
             <li key={request.userId} className="ft-panel p-4">
               <Person request={request} />
               <div className="mt-3 flex flex-wrap gap-2">
-                <Decide tripId={view.id} userId={request.userId} approve label={`Let ${firstName(request.name)} in`} />
+                <Decide tripId={view.id} userId={request.userId} approve label={`Let ${shortName(request.name) || "them"} in`} />
                 <Decide tripId={view.id} userId={request.userId} approve={false} label="Not this trip" />
               </div>
             </li>
@@ -109,9 +111,6 @@ function Decide({ tripId, userId, approve, label, secondary }: { tripId: string;
   );
 }
 
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || "them";
-}
 
 function askedWhen(iso: string): string {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));

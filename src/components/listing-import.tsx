@@ -284,7 +284,7 @@ export function ListingImport({ tripId, existingRooms }: { tripId: string; exist
 
       <p className="ft-meta">
         Sofa beds and air mattresses are added as cheap spots (0.6 and 0.5); remove them if nobody will use them. Bunks count as two spots. You can set
-        private baths, holds and weights on each room after.
+        private baths, holds and price shares on each room after.
       </p>
 
       {!check.ok && rooms.length > 0 ? <p className="text-sm text-bad">{check.error}</p> : null}
