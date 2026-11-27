@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: { params: Promise<{ step: 
   const step = tourStep(Number(raw));
   if (!step) redirect("/demo/1");
   await ensureDemoSeed();
-  await prepareTourStep(step.n);
+  await prepareTourStep(step.stage);
   // A demo person only. The demo trips are the only place anyone can be someone else.
   await startSession(step.userId, { demo: true });
   const jar = await cookies();

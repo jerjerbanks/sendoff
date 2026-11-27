@@ -6,12 +6,10 @@ import {
   demoOptions,
   demoPayments,
   demoPolls,
-  demoAirports,
   demoBudgets,
   demoClaims,
-  demoQuotes,
+  demoParticipants,
   demoSpots,
-  demoTeeParticipants,
   demoTrip,
   demoUsers,
   demoVotes,
@@ -24,7 +22,7 @@ function sql(value: string | number | null): string {
 }
 
 const lines: string[] = [
-  "-- Idempotent demo seed for Alex's bachelor party.",
+  "-- Idempotent demo seed for the Scottsdale Golf Weekend. The app also seeds itself on /demo.",
   "-- Run after migrations: wrangler d1 execute sendoff --local|--remote --file=./seed/demo.sql",
   "",
 ];
@@ -36,7 +34,7 @@ for (const user of demoUsers) {
 }
 
 lines.push(
-  `INSERT OR IGNORE INTO trips (id, name, trip_type, organizer_id, guest_of_honor_user_id, date_window, status, buy_in_amount, buy_in_deadline, min_headcount, max_headcount, bed_change_policy, honoree_excluded_from_split, invite_token, simulated_now) VALUES (${sql(demoTrip.id)}, ${sql(demoTrip.name)}, ${sql(demoTrip.tripType)}, ${sql(demoTrip.organizerId)}, ${sql(demoTrip.guestOfHonorUserId)}, ${sql(demoTrip.dateWindow)}, ${sql(demoTrip.status)}, ${sql(demoTrip.buyInAmount)}, ${sql(demoTrip.buyInDeadline)}, ${sql(demoTrip.minHeadcount)}, ${sql(demoTrip.maxHeadcount)}, ${sql(demoTrip.bedChangePolicy)}, ${sql(demoTrip.honoreeExcludedFromSplit)}, ${sql(demoTrip.inviteToken)}, NULL);`,
+  `INSERT OR IGNORE INTO trips (id, name, trip_type, organizer_id, guest_of_honor_user_id, date_window, status, buy_in_amount, buy_in_deadline, min_headcount, max_headcount, bed_change_policy, honoree_excluded_from_split, invite_token, simulated_now, theme) VALUES (${sql(demoTrip.id)}, ${sql(demoTrip.name)}, ${sql(demoTrip.tripType)}, ${sql(demoTrip.organizerId)}, ${sql(demoTrip.guestOfHonorUserId)}, ${sql(demoTrip.dateWindow)}, ${sql(demoTrip.status)}, ${sql(demoTrip.buyInAmount)}, ${sql(demoTrip.buyInDeadline)}, ${sql(demoTrip.minHeadcount)}, ${sql(demoTrip.maxHeadcount)}, ${sql(demoTrip.bedChangePolicy)}, ${sql(demoTrip.honoreeExcludedFromSplit)}, ${sql(demoTrip.inviteToken)}, NULL, ${sql(demoTrip.theme)});`,
 );
 
 for (const member of demoMembers) {
@@ -47,13 +45,13 @@ for (const member of demoMembers) {
 
 for (const poll of demoPolls) {
   lines.push(
-    `INSERT OR IGNORE INTO polls (id, trip_id, kind, deadline, locked_option_id) VALUES (${sql(poll.id)}, ${sql(demoTrip.id)}, ${sql(poll.kind)}, ${sql(poll.deadline)}, NULL);`,
+    `INSERT OR IGNORE INTO polls (id, trip_id, kind, deadline, locked_option_id) VALUES (${sql(poll.id)}, ${sql(demoTrip.id)}, ${sql(poll.kind)}, ${sql(poll.deadline)}, ${sql(poll.lockedOptionId)});`,
   );
 }
 
 for (const option of demoOptions) {
   lines.push(
-    `INSERT OR IGNORE INTO poll_options (id, poll_id, label, est_cost, link, sort_order, lodging_estimate, hidden_by_organizer) VALUES (${sql(option.id)}, ${sql(option.pollId)}, ${sql(option.label)}, ${sql(option.estCost)}, ${sql(option.link)}, ${sql(option.sortOrder)}, ${sql(option.lodgingEstimate)}, ${sql(option.hiddenByOrganizer)});`,
+    `INSERT OR IGNORE INTO poll_options (id, poll_id, label, est_cost, link, sort_order, lodging_estimate, hidden_by_organizer, per_person_cents) VALUES (${sql(option.id)}, ${sql(option.pollId)}, ${sql(option.label)}, ${sql(option.estCost)}, ${sql(option.link)}, ${sql(option.sortOrder)}, ${sql(option.lodgingEstimate)}, ${sql(option.hiddenByOrganizer)}, ${sql(option.perPersonCents)});`,
   );
 }
 
@@ -65,14 +63,14 @@ for (const vote of demoVotes) {
 
 for (const cost of demoCosts) {
   lines.push(
-    `INSERT OR IGNORE INTO cost_items (id, trip_id, label, category, split_type, amount, member_id, is_lodging, home_airport, low_estimate, high_estimate) VALUES (${sql(cost.id)}, ${sql(demoTrip.id)}, ${sql(cost.label)}, ${sql(cost.category)}, ${sql(cost.splitType)}, ${sql(cost.amount)}, ${sql(cost.memberId)}, ${sql(cost.isLodging)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].airport || null : null)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].low : null)}, ${sql(cost.memberId && demoAirports[cost.memberId] && cost.splitType === "individual" ? demoAirports[cost.memberId].high : null)});`,
+    `INSERT OR IGNORE INTO cost_items (id, trip_id, label, category, split_type, amount, member_id, is_lodging) VALUES (${sql(cost.id)}, ${sql(demoTrip.id)}, ${sql(cost.label)}, ${sql(cost.category)}, ${sql(cost.splitType)}, ${sql(cost.amount)}, ${sql(cost.memberId)}, ${sql(cost.isLodging)});`,
   );
 }
 
-for (const userId of demoTeeParticipants) {
-  lines.push(
-    `INSERT OR IGNORE INTO cost_item_participants (cost_item_id, user_id) VALUES ('cost_tee', ${sql(userId)});`,
-  );
+for (const [costItemId, userIds] of Object.entries(demoParticipants)) {
+  for (const userId of userIds) {
+    lines.push(`INSERT OR IGNORE INTO cost_item_participants (cost_item_id, user_id) VALUES (${sql(costItemId)}, ${sql(userId)});`);
+  }
 }
 
 for (const milestone of demoMilestones) {
@@ -95,13 +93,7 @@ for (const claim of demoClaims) {
 
 for (const budget of demoBudgets) {
   lines.push(
-    `INSERT OR IGNORE INTO private_budgets (trip_id, user_id, max_all_in, flex_note, must_haves, updated_at) VALUES (${sql(demoTrip.id)}, ${sql(budget.userId)}, ${sql(budget.maxAllIn)}, ${sql(budget.flexNote)}, ${sql(budget.mustHaves)}, '2026-11-20T16:00:00.000Z');`,
-  );
-}
-
-for (const [userId, optionId, highCents] of demoQuotes) {
-  lines.push(
-    `INSERT OR IGNORE INTO flight_quotes (user_id, option_id, high_cents) VALUES (${sql(userId)}, ${sql(optionId)}, ${sql(highCents)});`,
+    `INSERT OR IGNORE INTO private_budgets (trip_id, user_id, max_all_in, flex_note, must_haves, updated_at) VALUES (${sql(demoTrip.id)}, ${sql(budget.userId)}, ${sql(budget.maxAllIn)}, ${sql(budget.flexNote)}, ${sql(budget.mustHaves)}, '2026-11-21T17:00:00.000Z');`,
   );
 }
 

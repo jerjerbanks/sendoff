@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
+import { extraPriceLine } from "@/lib/extra-price";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
 import { optionScenes, sceneSrc, sceneThumb } from "@/lib/scene";
@@ -35,6 +36,8 @@ export default async function VotePage({
   const poll = view.polls.find((item) => item.kind === q) ?? view.polls.find((item) => !item.lockedLabel && !item.closed) ?? view.polls[0];
   const voters = view.members.filter((member) => member.status !== "off_trip" && member.status !== "declined" && member.status !== "invited").length;
   const destination = view.polls.find((item) => item.kind === "destination");
+  // Voters see what each extra costs a person before anything is locked in.
+  const extras = view.costs.filter((cost) => cost.splitType === "optional");
 
   return (
     <div className="grid grid-cols-1 gap-6 [&>*]:min-w-0">
@@ -136,6 +139,7 @@ export default async function VotePage({
                             {[
                               poll.kind === "destination" && option.estCost > 0 ? `house ~${money(option.estCost).replace(/\.00$/, "")}` : null,
                               poll.kind !== "destination" && poll.kind !== "dates" && option.estCost > 0 ? `about ${money(option.estCost).replace(/\.00$/, "")}` : null,
+                              option.perPersonCents != null ? `${money(option.perPersonCents).replace(/\.00$/, "")} a person${view.isDemo ? " · demo estimate" : ""}` : null,
                               option.hidden ? "hidden from members" : null,
                             ]
                               .filter(Boolean)
@@ -187,6 +191,24 @@ export default async function VotePage({
                 );
               })}
             </ul>
+            {poll.kind === "activity" && extras.length > 0 ? (
+              <div className="mt-6">
+                <h2 className="ft-lbl">Optional extras · only who&apos;s in pays</h2>
+                <ul className="ft-rule mt-2">
+                  {extras.map((cost) => (
+                    <li key={cost.id} className="flex items-baseline justify-between gap-3 border-b border-line py-3">
+                      <span className="min-w-0 text-[16px] font-semibold leading-snug">{cost.label}</span>
+                      <span className="ft-meta shrink-0 text-right">
+                        {extraPriceLine({ amountCents: cost.amountCents, agePrices: cost.agePrices, goingCount: cost.optInTravelerIds.length })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href={`/trip/${view.id}/costs`} className="ft-link mt-2 inline-block text-[15px]">
+                  Opt in on Costs
+                </Link>
+              </div>
+            ) : null}
             {view.isOrganizer ? (
               <details
                 className="mt-3 rounded-2xl border border-dashed border-line-strong"

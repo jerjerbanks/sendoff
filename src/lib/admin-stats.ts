@@ -1,4 +1,4 @@
-import { DEMO_TRIP_ID, LAKE_TRIP_ID } from "./constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID, RETIRED_DEMO_TRIP_ID } from "./constants";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnel";
 
 /**
@@ -20,7 +20,7 @@ export interface StatsDb {
   prepare(sql: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }> } };
 }
 
-const NOT_DEMO = `trip_id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}')`;
+const NOT_DEMO = `trip_id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}', '${RETIRED_DEMO_TRIP_ID}')`;
 
 export async function usageStats(db: StatsDb, now = new Date()): Promise<UsageStats> {
   const nowIso = now.toISOString();
@@ -31,7 +31,7 @@ export async function usageStats(db: StatsDb, now = new Date()): Promise<UsageSt
       .bind(weekAgo)
       .all<{ step: string; total: number; last7: number }>(),
     db
-      .prepare(`SELECT CASE WHEN deleted_at IS NOT NULL THEN 'deleted' ELSE status END AS status, COUNT(*) AS count FROM trips WHERE id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}') GROUP BY 1`)
+      .prepare(`SELECT CASE WHEN deleted_at IS NOT NULL THEN 'deleted' ELSE status END AS status, COUNT(*) AS count FROM trips WHERE id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}', '${RETIRED_DEMO_TRIP_ID}') GROUP BY 1`)
       .bind()
       .all<{ status: string; count: number }>(),
     db
@@ -44,7 +44,7 @@ export async function usageStats(db: StatsDb, now = new Date()): Promise<UsageSt
            (SELECT COUNT(*) FROM trip_members m WHERE m.trip_id = t.id AND m.status != 'off_trip') AS members,
            (SELECT COUNT(*) FROM trip_members m WHERE m.trip_id = t.id AND m.status = 'committed') AS committed,
            COALESCE((SELECT MAX(e.at) FROM trip_events e WHERE e.trip_id = t.id), (SELECT MAX(f.at) FROM funnel_events f WHERE f.trip_id = t.id)) AS lastActive
-         FROM trips t WHERE t.id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}')
+         FROM trips t WHERE t.id NOT IN ('${DEMO_TRIP_ID}', '${LAKE_TRIP_ID}', '${RETIRED_DEMO_TRIP_ID}')
          ORDER BY lastActive IS NULL, lastActive DESC LIMIT 50`,
       )
       .bind()

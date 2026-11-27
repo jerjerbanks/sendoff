@@ -44,18 +44,16 @@ export default async function JoinPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ error?: string; tour?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { token } = await params;
-  const { error, tour } = await searchParams;
+  const { error } = await searchParams;
   await ensureDemoSeed();
   const tripId = await tripIdForToken(token);
   const view = tripId ? await loadTripView(tripId, null) : null;
-  // The tour's step 2 pre-fills Taylor; a real invite never pre-fills anyone.
-  const onTour = tour === "2" && isDemoTrip(tripId);
   const closed = !!view && (view.lockedIn || view.underMinimum || view.cancelled);
   // Already on this trip on this phone: no second sign-up, just the way in.
-  const viewer = tripId && !onTour ? await getViewer() : null;
+  const viewer = tripId ? await getViewer() : null;
   const viewerId = viewer?.userId ?? null;
   const alreadyIn = !!viewerId && !!tripId && (await isMemberOf(tripId, viewerId));
   // Asked to join a trip where the organizer lets people in: waiting, or turned away.
@@ -67,7 +65,7 @@ export default async function JoinPage({
     <main className={`mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10 ${isDemoTrip(tripId) && tripId ? "pt-16 md:pt-64" : ""}`}>
       {isDemoTrip(tripId) && tripId ? (
         <div className="fixed inset-x-0 top-0 z-30 mx-auto max-w-lg">
-          <DemoBanner view={null} tripId={tripId} viewerName={onTour ? "Taylor" : null} />
+          <DemoBanner view={null} tripId={tripId} viewerName={null} />
         </div>
       ) : null}
       <Wordmark />
@@ -153,11 +151,11 @@ export default async function JoinPage({
               </form>
               <details className="mt-3 text-sm">
                 <summary className="min-h-11 cursor-pointer py-2 font-semibold text-accent-ink">Not {self.name}? Join as someone else</summary>
-                <JoinForm token={token} error={null} onTour={false} approval={view.approveJoiners} />
+                <JoinForm token={token} error={null} approval={view.approveJoiners} />
               </details>
             </>
           ) : (
-            <JoinForm token={token} error={error ?? null} onTour={onTour} approval={view.approveJoiners} />
+            <JoinForm token={token} error={error ?? null} approval={view.approveJoiners} />
           )}
         </>
       ) : (
@@ -175,7 +173,7 @@ export default async function JoinPage({
 }
 
 /** Name and phone or email: a new sign-in on this phone. */
-function JoinForm({ token, error, onTour, approval }: { token: string; error: string | null; onTour: boolean; approval: boolean }) {
+function JoinForm({ token, error, approval }: { token: string; error: string | null; approval: boolean }) {
   return (
     <form action={joinTripAction} className="mt-6 grid gap-3 ft-panel p-4">
       <input type="hidden" name="token" value={token} />
@@ -190,7 +188,6 @@ function JoinForm({ token, error, onTour, approval }: { token: string; error: st
           autoComplete="name"
           autoCapitalize="words"
           enterKeyHint="next"
-          defaultValue={onTour ? "Taylor Nguyen" : undefined}
         />
       </label>
       <label className="text-sm font-medium">
@@ -208,7 +205,6 @@ function JoinForm({ token, error, onTour, approval }: { token: string; error: st
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="go"
-          defaultValue={onTour ? "taylor@example.com" : undefined}
         />
       </label>
       <Turnstile siteKey={turnstileSiteKey()} />

@@ -58,7 +58,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
         thumb={sceneUrl(sceneForPage("home", theme))}
       />
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
-        {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} /> : null}
+        {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name ?? null} /> : null}
         <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} isOrganizer={view.isOrganizer} share={share} />
         <TripScene tripId={view.id} theme={theme} flagOn={THEME_PREVIEW_ON} />
         {demo ? (

@@ -1,10 +1,10 @@
 import { distinctPartyNames } from "./display-names";
 import crypto from "node:crypto";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME } from "./constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID, APP_NAME, RETIRED_DEMO_TRIP_ID } from "./constants";
 import { RULES } from "./rules";
 import { contactKey } from "./tokens";
-import { isDemoTrip } from "./demo-tour";
+import { isDemoTrip, type TourStage } from "./demo-tour";
 import { getD1, getDb } from "./db";
 import { recordFunnel, type FunnelStep } from "./funnel";
 import { importedRoomSpots, type ImportRoom } from "./listing-import";
@@ -16,12 +16,10 @@ import {
   demoOptions,
   demoPayments,
   demoPolls,
-  demoAirports,
   demoBudgets,
   demoClaims,
-  demoQuotes,
+  demoParticipants,
   demoSpots,
-  demoTeeParticipants,
   demoTrip,
   demoUsers,
   demoVotes,
@@ -232,7 +230,7 @@ export interface RawTrip {
   parties: PartyRecord[];
   travelers: TravelerRecord[];
   polls: { id: string; kind: string; deadline: string; lockedOptionId: string | null }[];
-  options: { id: string; pollId: string; label: string; estCost: number; link: string; sortOrder: number; lodgingEstimate: number | null; hidden: boolean }[];
+  options: { id: string; pollId: string; label: string; estCost: number; link: string; sortOrder: number; lodgingEstimate: number | null; hidden: boolean; perPersonCents: number | null }[];
   votes: { pollOptionId: string; userId: string }[];
   costs: CostRecord[];
   costLabels: { id: string; label: string }[];
@@ -518,6 +516,7 @@ export async function readRaw(tripId: string): Promise<RawTrip | null> {
       sortOrder: option.sortOrder,
       lodgingEstimate: option.lodgingEstimate,
       hidden: option.hiddenByOrganizer === 1,
+      perPersonCents: option.perPersonCents ?? null,
     })),
     votes: voteRows.map((vote) => ({ pollOptionId: vote.pollOptionId, userId: vote.userId })),
     costs: costList,
@@ -822,57 +821,45 @@ export async function loadTrip(tripId: string) {
   return await persistMath(tripId, raw);
 }
 
-/** Bump when a fixture changes shape. A stale demo trip is reset to the new seed. */
-const SEED_MARK = "bachelor";
+/**
+ * Bump when a fixture changes shape. A stale demo trip is reset to the new seed.
+ * The mark lives in date_window, which both fixtures set and nobody edits on a demo trip.
+ */
+const SEED_MARKS: Record<string, string> = { [DEMO_TRIP_ID]: demoTrip.dateWindow, [LAKE_TRIP_ID]: lakeTrip.dateWindow };
+const LAKE_SEED_OPTION = "lake_opt_icecream";
 
 export async function ensureDemoSeed() {
   const db = getDb();
-  const existing = (await db.select().from(trips).where(eq(trips.id, DEMO_TRIP_ID)))[0];
-  if (!existing) await seedPreWedding();
-  else if (existing.preWeddingStyle !== SEED_MARK) await resetDemoTrip();
-  const lake = (await db.select({ id: trips.id }).from(trips).where(eq(trips.id, LAKE_TRIP_ID)))[0];
-  if (!lake) await seedLake();
+  const retired = (await db.select({ id: trips.id }).from(trips).where(eq(trips.id, RETIRED_DEMO_TRIP_ID)))[0];
+  const golf = (await db.select().from(trips).where(eq(trips.id, DEMO_TRIP_ID)))[0];
+  const lake = (await db.select().from(trips).where(eq(trips.id, LAKE_TRIP_ID)))[0];
+  // The lake fixture changed in place (Mini golf night became Town ice cream night; theme stored).
+  const lakeCurrent = !!lake && lake.theme === lakeTrip.theme &&
+    !!(await db.select({ id: pollOptions.id }).from(pollOptions).where(eq(pollOptions.id, LAKE_SEED_OPTION)))[0];
+  if (retired || !golf || golf.dateWindow !== SEED_MARKS[DEMO_TRIP_ID] || !lake || !lakeCurrent) await resetDemoTrip();
 }
 
-async function seedPreWedding() {
+async function seedGolf() {
   const db = getDb();
+  const tripId = DEMO_TRIP_ID;
   for (const user of demoUsers) await db.insert(users).values({ ...user }).onConflictDoNothing();
   await db.insert(trips).values({ ...demoTrip }).onConflictDoNothing();
-  for (const member of demoMembers) await db.insert(tripMembers).values({ tripId: DEMO_TRIP_ID, ...member }).onConflictDoNothing();
-  for (const poll of demoPolls) await db.insert(polls).values({ tripId: DEMO_TRIP_ID, ...poll }).onConflictDoNothing();
+  for (const member of demoMembers) await db.insert(tripMembers).values({ tripId, ...member }).onConflictDoNothing();
+  for (const poll of demoPolls) await db.insert(polls).values({ tripId, ...poll }).onConflictDoNothing();
   for (const option of demoOptions) await db.insert(pollOptions).values({ ...option }).onConflictDoNothing();
   for (const vote of demoVotes) {
     await db.insert(votes).values({ pollOptionId: vote.optionId, userId: vote.userId }).onConflictDoNothing();
   }
-  for (const cost of demoCosts) {
-    const airport = demoAirports[cost.memberId ?? ""];
-    await db.insert(costItems).values({
-      tripId: DEMO_TRIP_ID,
-      ...cost,
-      homeAirport: airport?.airport || null,
-      lowEstimate: airport && cost.splitType === "individual" ? airport.low : null,
-      highEstimate: airport && cost.splitType === "individual" ? airport.high : null,
-    }).onConflictDoNothing();
+  for (const cost of demoCosts) await db.insert(costItems).values({ tripId, ...cost }).onConflictDoNothing();
+  for (const [costItemId, userIds] of Object.entries(demoParticipants)) {
+    for (const userId of userIds) await db.insert(costItemParticipants).values({ costItemId, userId }).onConflictDoNothing();
   }
-  for (const userId of demoTeeParticipants) {
-    await db.insert(costItemParticipants).values({ costItemId: "cost_tee", userId }).onConflictDoNothing();
-  }
-  for (const milestone of demoMilestones) await db.insert(milestones).values({ tripId: DEMO_TRIP_ID, ...milestone }).onConflictDoNothing();
+  for (const milestone of demoMilestones) await db.insert(milestones).values({ tripId, ...milestone }).onConflictDoNothing();
   for (const payment of demoPayments) await db.insert(payments).values({ ...payment }).onConflictDoNothing();
-  for (const spot of demoSpots) await db.insert(sleepSpots).values({ tripId: DEMO_TRIP_ID, ...spot }).onConflictDoNothing();
+  for (const spot of demoSpots) await db.insert(sleepSpots).values({ tripId, ...spot }).onConflictDoNothing();
   for (const claim of demoClaims) await db.insert(spotClaims).values(claim).onConflictDoNothing();
   for (const budget of demoBudgets) {
-    await db.insert(privateBudgets).values({
-      tripId: DEMO_TRIP_ID,
-      userId: budget.userId,
-      maxAllIn: budget.maxAllIn,
-      flexNote: budget.flexNote,
-      mustHaves: budget.mustHaves,
-      updatedAt: "2026-11-20T16:00:00.000Z",
-    }).onConflictDoNothing();
-  }
-  for (const [userId, optionId, highCents] of demoQuotes) {
-    await db.insert(flightQuotes).values({ userId, optionId, highCents }).onConflictDoNothing();
+    await db.insert(privateBudgets).values({ tripId, ...budget, updatedAt: "2026-11-21T17:00:00.000Z" }).onConflictDoNothing();
   }
 }
 
@@ -912,7 +899,10 @@ async function wipeTrip(tripId: string) {
   const costIds = (await db.select().from(costItems).where(eq(costItems.tripId, tripId))).map((cost) => cost.id);
   const milestoneIds = (await db.select().from(milestones).where(eq(milestones.tripId, tripId))).map((item) => item.id);
   const spotIds = (await db.select().from(sleepSpots).where(eq(sleepSpots.tripId, tripId))).map((spot) => spot.id);
-  if (optionIds.length) await db.delete(votes).where(inArray(votes.pollOptionId, optionIds));
+  if (optionIds.length) {
+    await db.delete(votes).where(inArray(votes.pollOptionId, optionIds));
+    await db.delete(flightQuotes).where(inArray(flightQuotes.optionId, optionIds));
+  }
   if (pollIds.length) await db.delete(pollOptions).where(inArray(pollOptions.pollId, pollIds));
   await db.delete(polls).where(eq(polls.tripId, tripId));
   if (costIds.length) {
@@ -942,11 +932,10 @@ async function wipeTrip(tripId: string) {
 
 /** Restores both seeded fixtures. Trips people created are untouched. */
 export async function resetDemoTrip() {
-  const db = getDb();
+  await wipeTrip(RETIRED_DEMO_TRIP_ID);
   await wipeTrip(DEMO_TRIP_ID);
   await wipeTrip(LAKE_TRIP_ID);
-  await db.delete(flightQuotes).where(inArray(flightQuotes.userId, demoUsers.map((user) => user.id)));
-  await seedPreWedding();
+  await seedGolf();
   await seedLake();
   return { ok: true };
 }
@@ -2610,29 +2599,24 @@ export async function isMemberOf(tripId: string, userId: string): Promise<boolea
  * Put the seeded demo trip in the state a tour step expects, so Back and Next
  * never strand someone. Only ever touches the demo trips.
  */
-export async function prepareTourStep(step: number) {
-  if (step === 1) {
+export async function prepareTourStep(stage: TourStage) {
+  if (stage === "seed") {
     await resetDemoTrip();
     return;
   }
-  if (step < 5) return;
-  if (step > 6) return;
+  if (stage === "as_is") return;
   const tripId = DEMO_TRIP_ID;
   let raw = await loadTrip(tripId);
   if (!raw) return;
-  // Steps 5 and 6 tell the story from after Taylor commits and takes the sofa.
-  const taylor = raw.members.find((member) => member.userId === "user_taylor");
+  // From step 7 the golf story is told from after Chris Delgado pays: six of the six needed.
+  const chris = raw.members.find((member) => member.userId === "user_chrisd");
   const buyIn = raw.milestones.find((milestone) => milestone.kind === "buy_in");
-  if (taylor?.status === "joined" && buyIn && (raw.trip.status === "buy_in_open" || raw.trip.status === "booking_ready")) {
-    await payMilestone(tripId, "user_taylor", buyIn.id);
+  if (chris?.status === "joined" && buyIn && (raw.trip.status === "buy_in_open" || raw.trip.status === "booking_ready")) {
+    await payMilestone(tripId, "user_chrisd", buyIn.id);
     raw = await loadTrip(tripId);
   }
-  if (raw && !raw.claims.some((claim) => claim.userId === "user_taylor" && claim.status === "approved")) {
-    const loftFree = !raw.claims.some((claim) => claim.spotId === "spot_loft" && claim.status === "approved");
-    if (loftFree) await claimSpot(tripId, "user_taylor", "spot_loft");
-  }
-  if (step === 6) {
-    raw = await loadTrip(tripId);
-    if (raw?.trip.status === "buy_in_open") await simulateDeadline(tripId);
+  if (stage === "deadline_run" && (raw?.trip.status === "buy_in_open" || raw?.trip.status === "booking_ready")) {
+    const pending = raw.members.some((member) => member.status === "joined" || member.status === "invited");
+    if (pending) await simulateDeadline(tripId);
   }
 }

@@ -186,6 +186,8 @@ export const pollOptions = sqliteTable("poll_options", {
   sortOrder: integer("sort_order").notNull(),
   lodgingEstimate: integer("lodging_estimate"),
   hiddenByOrganizer: integer("hidden_by_organizer").notNull().default(0),
+  /** A price each person pays if this option wins, e.g. a green fee (migration 0015). NULL = none shown. */
+  perPersonCents: integer("per_person_cents"),
 });
 
 export const votes = sqliteTable(
