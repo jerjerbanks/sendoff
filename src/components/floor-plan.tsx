@@ -53,11 +53,15 @@ const bedSize: Record<string, [number, number, number]> = {
   air_mattress: [46, 34, 1],
 };
 
-/** "Family bedroom" → FAMILY, "Ground-floor suite" → SUITE, "Bedroom 2" → BEDROOM 2. */
-function tag(name: string): string {
+/**
+ * The room's own name when it fits ("Audit Master" → AUDIT MASTER), so the plan and the list match.
+ * Too long, it falls back to the last word: "Ground-floor guest suite" → SUITE, "Bedroom 2" → BEDROOM 2.
+ */
+function tag(name: string, room: number): string {
+  if (name.trim().length <= room) return name.trim().toUpperCase();
   const words = name.split(/\s+/).filter((word) => !/^(bed)?room$/i.test(word));
   const pick = words.length && !/^\d+$/.test(words[words.length - 1] ?? "") ? words[words.length - 1] : name;
-  return (pick ?? name).toUpperCase();
+  return (pick ?? name).toUpperCase().slice(0, room);
 }
 
 function Bed({ bed, x, y }: { bed: PlanBed; x: number; y: number }) {
@@ -179,7 +183,7 @@ function Level({
                 <text x={rx + 12} y={ry + 24} className="ft-svg-mono" fontSize="14" fontWeight="500" letterSpacing="0.84">
                   <tspan style={{ fill: "var(--accent-ink)" }}>{room.code}</tspan>
                   <tspan dx="7" style={{ fill: "var(--ink-1)" }}>
-                    {tag(room.name).slice(0, alone ? 18 : 10)}
+                    {tag(room.name, alone ? 18 : 12)}
                   </tspan>
                 </text>
                 <g transform={`translate(0, ${ry + 44})`}>

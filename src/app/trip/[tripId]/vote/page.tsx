@@ -7,7 +7,7 @@ import { fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
-import { optionScenes, sceneSrc } from "@/lib/scene";
+import { optionScenes, sceneSrc, sceneThumb } from "@/lib/scene";
 import { ThemeIcon } from "@/components/theme-icon";
 import { activeTripTheme, THEME_INFO, themeForTrip } from "@/lib/trip-theme";
 import { THEME_PREVIEW_ON } from "@/lib/vibe-flag";
@@ -52,6 +52,10 @@ export default async function VotePage({
       {poll ? (() => {
         const visible = poll.options.filter((option) => view.isOrganizer || !option.hidden);
         const leaderVotes = Math.max(0, ...visible.map((option) => option.votes));
+        // LEADING needs a real lead: at least 2 votes, half the voters, and no tie at the top.
+        const tiedAtTop = visible.filter((option) => option.votes === leaderVotes).length > 1;
+        const leadIsReal = !tiedAtTop && leaderVotes >= Math.max(2, Math.ceil(voters / 2));
+        const staggered = new Set(view.polls.filter((item) => !item.closed && !item.lockedOptionId).map((item) => item.deadline.slice(0, 10))).size > 1;
         const thumbs = poll.kind === "destination" ? optionScenes(visible.map((option) => option.label)) : [];
         const [one, two] = title(poll.kind);
         return (
@@ -72,6 +76,7 @@ export default async function VotePage({
               {!poll.lockedLabel && !poll.closed ? (
                 <>
                   Closes <span className="ft-mono text-[15px] uppercase">{formatDay(poll.deadline)}</span>.
+                  {staggered ? " Where closes first, then when, then what we'll do, so each vote can build on the last." : null}
                 </>
               ) : null}
             </p>
@@ -96,7 +101,7 @@ export default async function VotePage({
               {visible.map((option, index) => {
                 const won = poll.lockedOptionId === option.id;
                 const on = option.votedByMe;
-                const leading = !poll.lockedOptionId && option.votes > 0 && option.votes === leaderVotes;
+                const leading = !poll.lockedOptionId && leadIsReal && option.votes === leaderVotes;
                 const disabled = !canVote || poll.closed;
                 const filled = voters > 0 ? Math.round((Math.min(option.votes, voters) / voters) * 10) : 0;
                 return (
@@ -119,7 +124,7 @@ export default async function VotePage({
                           // Decorative: an illustrated thumbnail so places are easy to tell apart (v6.1). The label names the place.
                           <span
                             className={`ft-vthumb ${on || won ? "on" : ""}`}
-                            style={{ backgroundImage: `url(${sceneSrc(thumbs[index] ?? "lake").day})` }}
+                            style={{ backgroundImage: `url(${sceneSrc(thumbs[index] ?? "lake").day})`, ...sceneThumb(thumbs[index] ?? "lake") }}
                             aria-hidden
                           />
                         ) : (
@@ -130,6 +135,7 @@ export default async function VotePage({
                           <span className="ft-meta mt-0.5 block">
                             {[
                               poll.kind === "destination" && option.estCost > 0 ? `house ~${money(option.estCost).replace(/\.00$/, "")}` : null,
+                              poll.kind !== "destination" && poll.kind !== "dates" && option.estCost > 0 ? `about ${money(option.estCost).replace(/\.00$/, "")}` : null,
                               option.hidden ? "hidden from members" : null,
                             ]
                               .filter(Boolean)

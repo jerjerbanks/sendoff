@@ -84,7 +84,7 @@ export default async function NewTripPage({
           <h2 className="ft-h1">
             Start a <i>trip.</i>
           </h2>
-          <p className="mt-1 text-sm text-muted">Takes a minute. Places, dates and costs come next, and you can change any of it later.</p>
+          <p className="mt-1 text-sm text-muted">Takes a minute. Every field here is required. Places, dates and costs come next, and you can change any of it later.</p>
         </div>
         {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
         <Field label="Trip name" name="name" placeholder="Jamie & Sam's weekend" />
@@ -104,7 +104,12 @@ export default async function NewTripPage({
             </div>
           )}
         </TripKindFields>
-        <Field label="Rough date window" name="dateWindow" placeholder="A long weekend in April or May 2027" />
+        <Field
+          label="Rough date window"
+          name="dateWindow"
+          placeholder="A long weekend in April or May 2027"
+          hint="Required. A guess is fine: the group votes on exact dates next."
+        />
         <Turnstile siteKey={turnstileSiteKey()} />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>
       </form>
@@ -114,11 +119,12 @@ export default async function NewTripPage({
   );
 }
 
-function Field({ label, name, placeholder }: { label: string; name: string; placeholder: string }) {
+function Field({ label, name, placeholder, hint }: { label: string; name: string; placeholder: string; hint?: string }) {
   return (
     <label className="block text-sm font-medium">
       {label}
-      <Input className="mt-1.5" name={name} placeholder={placeholder} required />
+      <Input className="mt-1.5" name={name} placeholder={placeholder} required aria-required="true" />
+      {hint ? <span className="mt-1 block text-xs font-normal text-muted">{hint}</span> : null}
     </label>
   );
 }

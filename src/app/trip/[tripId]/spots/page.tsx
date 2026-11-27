@@ -55,16 +55,7 @@ export default async function RoomsPage({
   );
   const names = new Map(rooms.flatMap((room) => [...bedNames(room.spots)]));
   const bedName = (spot: SpotRecord) => names.get(spot.id) ?? bedLabel(spot.bedType);
-  const occupants = (room: Room) => [...new Set(room.spots.flatMap((spot) => holders(spot.id)))];
-  const price = (room: Room) => view.roomPrices?.[room.name] ?? 0;
-  const rank = (room: Room) => {
-    const who = occupants(room);
-    if (who.includes(myParty ?? "")) return 0;
-    if (room.spots.some((spot) => spot.reservedForHonoree) || room.spots.some((spot) => spot.reservedForUserId && spot.reservedForUserId !== myParty)) return 3;
-    if (who.length === 0 || room.spots.some((spot) => openShare(view, spot, holders(spot.id), myParty))) return 1;
-    return 2;
-  };
-  rooms.sort((a, b) => rank(a) - rank(b) || price(b) - price(a));
+  // Rooms stay in house order (01, 02, 03) for everyone, so the list matches the plan and a friend's screen.
 
   const myBeds = view.spots.filter((spot) => holders(spot.id).includes(myParty ?? ""));
   const pending = myParty ? (await listSpotRequests(tripId)).filter((request) => request.status === "pending") : [];
@@ -74,9 +65,7 @@ export default async function RoomsPage({
     const name = view.parties.find((item) => item.payerUserId === id)?.name ?? "";
     return name.replace(/^The\s+/i, "").charAt(0).toUpperCase();
   };
-  const plan: PlanRoom[] = [...rooms]
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((room) => ({
+  const plan: PlanRoom[] = rooms.map((room) => ({
       code: room.code,
       name: room.name,
       anchor: `room-${room.code}`,
@@ -145,7 +134,9 @@ export default async function RoomsPage({
               ? "Your room is reserved."
               : "Commit first, then pick. Parties choose in the order they bought in."}{" "}
           {view.spotPrices
-            ? `Each price is your share of the ${whole(view.lodgingTotalCents)} lodging if you take that room now. It drops as more parties pick. A private bath costs more, a couch less.`
+            ? Object.keys(view.roomEstimates).length > 0
+              ? `Each price is your likely share of the ${whole(view.lodgingTotalCents)} lodging once enough parties are in to book, with the most you'd pay if no one else books. A private bath costs more, a couch less.`
+              : `Each price is your share of the ${whole(view.lodgingTotalCents)} lodging if you take that room now. It drops as more parties pick. A private bath costs more, a couch less.`
             : `Every room costs the same here (${splitModeLabel(view.splitMode).toLowerCase()}).`}
         </p>
       </section>
@@ -363,7 +354,9 @@ function RoomCard({
   const share = hasBed ? undefined : room.spots.find((spot) => openShare(view, spot, holders(spot.id), myParty));
   const prices = view.spotPrices;
   const roomPrice = prices ? (view.roomPrices?.[room.name] ?? 0) : null;
-  const shown = share && prices ? prices[share.id] : roomPrice;
+  // Before the trip reaches its minimum, an empty room shows the likely share at that minimum; the live price is the "up to".
+  const estimate = vacant && !share && !honoree && !heldForOther ? view.roomEstimates[room.name] : undefined;
+  const shown = share && prices ? prices[share.id] : (estimate?.estimate ?? roomPrice);
   const features = [
     room.spots.map((spot) => bedName(spot)).join(" + "),
     first?.privateBath ? "private bath" : null,
@@ -420,10 +413,19 @@ function RoomCard({
           ) : null}
         </div>
         {shown != null && !honoree ? (
-          <p className="text-right">
+          <p className="max-w-[9.5rem] text-right">
             <span className={`ft-mono block text-[18px] font-semibold ${mine ? "text-accent-ink" : ""}`}>{money(shown).replace(/\.\d\d$/, "")}</span>
-            <span className="ft-meta block">{mine ? "your share" : vacant || share ? "your share" : "their share"}</span>
-            {!mine && (vacant || share) ? <span className="ft-meta block">{share ? "if you join" : "if you take it"}</span> : null}
+            {estimate ? (
+              <>
+                <span className="ft-meta block">est. at {estimate.parties} parties</span>
+                <span className="ft-meta block">up to {money(roomPrice ?? 0).replace(/\.\d\d$/, "")} if no one else books</span>
+              </>
+            ) : (
+              <>
+                <span className="ft-meta block">{mine ? "your share" : vacant || share ? "your share" : "their share"}</span>
+                {!mine && (vacant || share) ? <span className="ft-meta block">{share ? "if you join" : "if you take it"}</span> : null}
+              </>
+            )}
           </p>
         ) : null}
       </div>

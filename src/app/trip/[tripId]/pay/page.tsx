@@ -42,6 +42,13 @@ export default async function PayPage({
   // v6 celebration: every party still on the trip has committed (honoree-only parties don't pay).
   const payingParties = view.parties.filter((item) => !item.isHonoreeOnly && item.status !== "off_trip" && item.status !== "declined");
   const everyoneIn = payingParties.length >= 2 && payingParties.every((item) => item.status === "committed");
+  // Before the buy-in opens, don't start the organizer at 5 parties on a 2-party trip.
+  const minPartiesDefault = view.buyInOpen ? view.minHeadcount : Math.min(view.minHeadcount, Math.max(2, payingParties.length));
+  const unsettled = [
+    view.polls.some((poll) => poll.kind === "destination" && !poll.lockedOptionId) ? "The place" : null,
+    view.polls.some((poll) => poll.kind === "dates" && !poll.lockedOptionId) ? "the dates" : null,
+  ].filter((item): item is string => !!item);
+  if (unsettled[0] === "the dates") unsettled[0] = "The dates";
 
   return (
     <div className="grid grid-cols-1 gap-8 [&>*]:min-w-0">
@@ -106,7 +113,7 @@ export default async function PayPage({
           </h1>
           <p className="ft-lead mt-4">
             {view.isOrganizer
-              ? "Open it below once the place and dates are set and the house is on the cost sheet. Everyone then commits with a refundable test buy-in."
+              ? "Open it below when you're ready. It works best once the group has picked the place and dates and the house is on the cost sheet. Everyone then commits with a refundable test buy-in."
               : `${view.organizerShortName || "The organizer"} opens it once the place and dates are set. Until then, vote and check your number on Costs.`}
           </p>
         </section>
@@ -321,6 +328,12 @@ export default async function PayPage({
           <div className="grid gap-4 px-4 pb-4">
             {!view.termsLocked && !view.cancelled && view.status !== "under_minimum" && view.status !== "booked" ? (
               <form action={openBuyInAction} className="grid gap-3">
+                {unsettled.length > 0 && !view.buyInOpen ? (
+                  <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">
+                    {unsettled.join(" and ")} {unsettled.length === 1 ? "is" : "are"} still being voted on. If you open now, parties commit before they know{" "}
+                    {unsettled.length === 2 ? "where or when" : unsettled[0] === "The place" ? "where" : "when"}.
+                  </p>
+                ) : null}
                 <p className="text-sm text-muted">
                   {view.suggestedBuyInCents > 0
                     ? `Suggested from lodging: ${whole(view.suggestedBuyInCents)}.`
@@ -342,7 +355,10 @@ export default async function PayPage({
                 </label>
                 <label className="text-sm font-medium">
                   Paying parties needed to book
-                  <Input className="mt-1.5" name="minHeadcount" type="number" min={1} defaultValue={view.minHeadcount} required />
+                  <Input className="mt-1.5" name="minHeadcount" type="number" min={1} defaultValue={minPartiesDefault} required />
+                  <span className="mt-1 block text-xs font-normal text-muted">
+                    {payingParties.length} {payingParties.length === 1 ? "party is" : "parties are"} on the trip now. Set this to the fewest that still makes the house affordable.
+                  </span>
                 </label>
                 <label className="text-sm font-medium">
                   Deadline (US Central)
