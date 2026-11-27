@@ -78,6 +78,8 @@ export const travelers = sqliteTable("travelers", {
   isHonoree: integer("is_honoree").notNull().default(0),
   honoreeRole: text("honoree_role"),
   coSleepSpotId: text("co_sleep_spot_id"),
+  /** The bed this traveler sleeps in, picked by their party (0012). Ignored unless the party still holds it. */
+  bedSpotId: text("bed_spot_id"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

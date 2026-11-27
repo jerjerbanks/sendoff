@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { claimRoomAction, claimSpotAction, coSleepAction, optInShareAction, releaseSpotAction, requestSpotAction } from "@/app/actions";
+import { assignBedAction, claimRoomAction, claimSpotAction, coSleepAction, optInShareAction, releaseSpotAction, requestSpotAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { FloorPlan, type BedState, type PlanRoom } from "@/components/floor-plan";
 import { HeadcountMeter, Toast } from "@/components/motion";
@@ -11,6 +11,7 @@ import { getViewerId } from "@/lib/session";
 import { listSpotRequests, type SpotRecord } from "@/lib/store";
 import { loadMemberView, type TripView } from "@/lib/view";
 import { APP_NAME } from "@/lib/constants";
+import { bedNames, personInitials, sleepersByBed, type Sleeper } from "@/lib/bed-sleepers";
 
 type Room = { name: string; spots: SpotRecord[]; code: string };
 
@@ -44,6 +45,16 @@ export default async function RoomsPage({
     if (room) room.spots.push(spot);
     else rooms.push({ name: key, spots: [spot], code: String(rooms.length + 1).padStart(2, "0") });
   }
+  // Who sleeps in which bed, and a name for every bed that never repeats inside a room ("Queen 1", "Queen 2").
+  const spotOrder = new Map(rooms.flatMap((room) => room.spots).map((spot, index) => [spot.id, index]));
+  const sleepers = sleepersByBed(view.parties, (partyId) =>
+    view.spots
+      .filter((spot) => holders(spot.id).includes(partyId))
+      .sort((a, b) => (spotOrder.get(a.id) ?? 0) - (spotOrder.get(b.id) ?? 0))
+      .map((spot) => spot.id),
+  );
+  const names = new Map(rooms.flatMap((room) => [...bedNames(room.spots)]));
+  const bedName = (spot: SpotRecord) => names.get(spot.id) ?? bedLabel(spot.bedType);
   const occupants = (room: Room) => [...new Set(room.spots.flatMap((spot) => holders(spot.id)))];
   const price = (room: Room) => room.spots.reduce((sum, spot) => sum + (view.spotPrices?.[spot.id] ?? 0), 0);
   const rank = (room: Room) => {
@@ -82,7 +93,15 @@ export default async function RoomsPage({
               : spot.reservedForHonoree || (spot.reservedForUserId && spot.reservedForUserId !== myParty)
                 ? "held"
                 : "open";
-        return { id: spot.id, bedType: spot.bedType ?? "", state, label: who.map(initials).join("+") };
+        const repeated = /\s\d+$/.test(bedName(spot));
+        return {
+          id: spot.id,
+          bedType: spot.bedType ?? "",
+          state,
+          label: who.map(initials).join("+"),
+          people: (sleepers.get(spot.id) ?? []).map((sleeper) => personInitials(sleeper.name)),
+          number: repeated ? bedName(spot).split(" ").pop() : undefined,
+        };
       }),
     }));
 
@@ -178,9 +197,53 @@ export default async function RoomsPage({
             hasBed={myBeds.length > 0}
             holders={holders}
             partyName={partyName}
+            bedName={bedName}
+            sleepers={sleepers}
           />
         ))}
       </ul>
+
+      {canPick && party && myBeds.length > 1 && many ? (
+        <details className="ft-panel" open>
+          <summary className="ft-summary px-4 py-2 text-[17px] font-semibold">Who sleeps where</summary>
+          <div className="px-5 pb-5">
+            <p className="text-sm text-muted">Put each person in one of your beds. Their initials show on the plan. This never changes what you pay.</p>
+            <ul className="mt-3 grid gap-2">
+              {party.travelers
+                .filter((traveler) => traveler.ageBand !== "infant" && !traveler.coSleepSpotId)
+                .map((traveler) => {
+                  const now = myBeds.find((spot) => (sleepers.get(spot.id) ?? []).some((sleeper) => sleeper.travelerId === traveler.id));
+                  return (
+                    <li key={traveler.id}>
+                      <form action={assignBedAction} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="tripId" value={view.id} />
+                        <input type="hidden" name="userId" value={viewer?.userId} />
+                        <input type="hidden" name="travelerId" value={traveler.id} />
+                        <span className="min-w-20 text-sm font-semibold">{traveler.name.split(" ")[0]}</span>
+                        {/* Keyed by the current bed so a move made for someone else resets this uncontrolled select. */}
+                        <select
+                          key={now?.id ?? "none"}
+                          className={`${fieldClass} w-auto min-w-0 flex-1`}
+                          name="spotId"
+                          defaultValue={now?.id ?? ""}
+                          aria-label={`Which bed ${traveler.name} sleeps in`}
+                        >
+                          {now ? null : <option value="">Not placed yet</option>}
+                          {myBeds.map((spot) => (
+                            <option key={spot.id} value={spot.id}>
+                              {bedName(spot)} · {spot.roomName}
+                            </option>
+                          ))}
+                        </select>
+                        <SubmitButton variant="outline">Save</SubmitButton>
+                      </form>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        </details>
+      ) : null}
 
       {canPick && party && myBeds.length > 0 && many ? (
         <details className="ft-panel">
@@ -206,7 +269,7 @@ export default async function RoomsPage({
                           .filter((spot) => spot.coSleepAllowed)
                           .map((spot) => (
                             <option key={spot.id} value={spot.id}>
-                              In the {spot.roomName} {bedLabel(spot.bedType).toLowerCase()}
+                              Shares the {bedName(spot)} · {spot.roomName}
                             </option>
                           ))}
                       </select>
@@ -245,7 +308,11 @@ function RoomCard({
   hasBed,
   holders,
   partyName,
+  bedName,
+  sleepers,
 }: {
+  bedName: (spot: SpotRecord) => string;
+  sleepers: Map<string, Sleeper[]>;
   view: TripView;
   room: Room;
   myParty: string | null;
@@ -275,7 +342,7 @@ function RoomCard({
   const roomPrice = prices ? room.spots.reduce((sum, spot) => sum + (prices[spot.id] ?? 0), 0) : null;
   const shown = share && prices ? prices[share.id] : roomPrice;
   const features = [
-    room.spots.map((spot) => bedLabel(spot.bedType)).join(" + "),
+    room.spots.map((spot) => bedName(spot)).join(" + "),
     first?.privateBath ? "private bath" : null,
     first?.groundFloor ? "ground floor" : null,
     first?.noStairs ? "no stairs" : null,
@@ -308,6 +375,26 @@ function RoomCard({
           </h3>
           <p className="ft-meta">{features.join(" · ")}</p>
           <p className={`mt-1 font-mono text-[14px] uppercase tracking-[0.06em] ${mine ? "text-accent-ink" : vacant && !honoree && !heldForOther ? "text-pine" : "text-muted"}`}>{status}</p>
+          {who.length > 0 ? (
+            <ul className="mt-1.5 grid gap-0.5 text-[15px]" aria-label={`Who sleeps where in ${room.name}`}>
+              {room.spots
+                .filter((spot) => holders(spot.id).length > 0)
+                .map((spot) => {
+                  const here = sleepers.get(spot.id) ?? [];
+                  return (
+                    <li key={spot.id}>
+                      <span className="font-semibold">{bedName(spot)}</span>
+                      <span className="text-ink-2">
+                        {" · "}
+                        {here.length
+                          ? here.map((sleeper) => `${sleeper.name.split(" ")[0]}${sleeper.coSleeping ? " (sharing)" : ""}`).join(", ")
+                          : holders(spot.id).map(partyName).join(" + ")}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          ) : null}
         </div>
         {shown != null && !honoree ? (
           <p className="text-right">
@@ -335,7 +422,7 @@ function RoomCard({
                         {hidden}
                         <input type="hidden" name="spotId" value={spot.id} />
                         <SubmitButton variant="outline">
-                          {bedLabel(spot.bedType)} · {money(prices?.[spot.id] ?? 0).replace(/\.\d\d$/, "")}
+                          {bedName(spot)} · {money(prices?.[spot.id] ?? 0).replace(/\.\d\d$/, "")}
                         </SubmitButton>
                       </form>
                     ))}
@@ -369,7 +456,9 @@ function RoomCard({
             <form action={claimSpotAction}>
               {hidden}
               <input type="hidden" name="spotId" value={share.id} />
-              <SubmitButton variant="secondary">Share it with {who.map(partyName).join(" + ")}</SubmitButton>
+              <SubmitButton variant="secondary">
+                Share the {bedName(share)} with {who.map(partyName).join(" + ")}
+              </SubmitButton>
             </form>
           ) : null}
           {!vacant && !mine && !share && view.bedChangePolicy === "member_requests" ? (
@@ -391,7 +480,7 @@ function RoomCard({
                   .map((spot) => (
                     <li key={spot.id} className="flex items-center justify-between gap-3 text-sm">
                       <span>
-                        {bedLabel(spot.bedType)}
+                        {bedName(spot)}
                         {prices?.[spot.id] != null ? <span className="text-muted"> · {money(prices[spot.id] ?? 0)}</span> : null}
                       </span>
                       <form action={releaseSpotAction}>

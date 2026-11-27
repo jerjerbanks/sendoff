@@ -120,6 +120,8 @@ export interface TravelerView {
   isHonoree: boolean;
   honoreeRole: string | null;
   coSleepSpotId: string | null;
+  /** The bed this traveler's party put them in, if it picked one. Resolve with sleepersByBed. */
+  bedSpotId: string | null;
   needsNotes: string | null;
 }
 
@@ -482,6 +484,7 @@ function buildView(
         isHonoree: traveler.isHonoree,
         honoreeRole: traveler.honoreeRole,
         coSleepSpotId: traveler.coSleepSpotId,
+        bedSpotId: traveler.bedSpotId,
         // Organizer-only. A payer also sees their own party's notes; nobody else does.
         needsNotes: isOrganizerViewer || viewerPartyId === party.payerUserId ? traveler.needsNotes : null,
       })),
