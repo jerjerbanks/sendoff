@@ -26,3 +26,10 @@ test("the sign-in page loads and only redirects to our own pages @smoke", async 
   expect(response?.status()).toBe(200);
   await expect(page.locator('input[name="next"]')).toHaveValue("/trips");
 });
+
+test("the landing page links to sign in for people who aren't signed in @smoke", async ({ page }) => {
+  await page.goto("/");
+  const links = page.locator('a[href="/signin"]');
+  await expect(links.first()).toBeAttached();
+  await expect(links.filter({ hasText: "Sign in" }).first()).toBeAttached();
+});

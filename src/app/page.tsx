@@ -82,11 +82,17 @@ export default async function LandingPage() {
                 Your trips
               </Link>
             ) : (
-              <a className="pill dark" href="/new#start">
-                Start a trip
-              </a>
+              <>
+                {/* Back on a new phone or a cleared browser: sign in with an emailed code. */}
+                <Link className="signin" href="/signin">
+                  Sign in
+                </Link>
+                <a className="pill dark" href="/new#start">
+                  Start a trip
+                </a>
+              </>
             )}
-            <LandingMenu />
+            <LandingMenu signedIn={signedIn} />
           </div>
         </nav>
         <div className="collage-copy">
