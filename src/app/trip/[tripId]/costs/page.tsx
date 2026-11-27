@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { addCostAction, deleteCostAction, travelerOptAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { ForecastSlider } from "@/components/forecast-slider";
@@ -7,7 +8,7 @@ import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandLabel, categoryLabel, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
-import { loadMemberView } from "@/lib/view";
+import { lodgingBedless, loadMemberView } from "@/lib/view";
 
 const categories = ["lodging", "flights", "activities", "tee_times", "other"];
 
@@ -123,7 +124,23 @@ export default async function CostsPage({
         </section>
       ) : null}
 
-      {!bill && (view.currentShareCents ?? view.ifYouCommitCents) != null && viewer?.role !== "honoree" ? (
+      {!bill && view.costs.length === 0 && viewer?.role !== "honoree" ? (
+        <section>
+          <p className="ft-lbl">{party ? `${party.name} · ${party.travelers.length} ${party.travelers.length === 1 ? "person" : "people"}` : "Your share"}</p>
+          <h1 className="ft-display mt-3">
+            No costs
+            <br />
+            <i>yet.</i>
+          </h1>
+          <p className="ft-lead mt-4">
+            {view.isOrganizer
+              ? "Start with the house: add its total as Lodging below (an estimate is fine). Everyone then sees their own share before anyone commits."
+              : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added the house or shared costs yet. Your number shows here once they do.`}
+          </p>
+        </section>
+      ) : null}
+
+      {!bill && view.costs.length > 0 && (view.currentShareCents ?? view.ifYouCommitCents) != null && viewer?.role !== "honoree" ? (
         <section>
           <p className="ft-lbl">
             {party ? `${party.name} · ${party.travelers.length} ${party.travelers.length === 1 ? "person" : "people"} · ` : ""}
@@ -139,6 +156,27 @@ export default async function CostsPage({
             </span>
             <span className="ft-meta">The line-by-line breakdown shows once you commit.</span>
           </p>
+          {preview && view.payerCount === 0 && !lodgingBedless(view) ? (
+            <p className="ft-meta mt-3">
+              Nobody has committed yet, so this is the cost as if your party went alone. It drops as each party commits, and the stay only
+              books once {view.minPayerCount} {view.minPayerCount === 1 ? "party is" : "parties are"} in.
+            </p>
+          ) : null}
+          {lodgingBedless(view) ? (
+            <p role="note" className="ft-notice mt-4">
+              <span>
+                <strong className="font-semibold">The house isn&apos;t in this number yet.</strong> Lodging splits by the bed each party picks, and
+                there are no beds yet.{" "}
+                {view.isOrganizer ? (
+                  <Link href={`/trip/${view.id}/sleep`} className="ft-link">
+                    Add rooms and beds
+                  </Link>
+                ) : (
+                  `${view.organizerName.split(" ")[0] || "The organizer"} adds them next.`
+                )}
+              </span>
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -232,6 +270,7 @@ export default async function CostsPage({
           <span className="ft-h2">The whole trip</span>
         </h2>
         <ul className="mt-3 divide-y divide-line ft-panel">
+          {fixed.length === 0 ? <li className="px-4 py-3 text-sm text-muted">Nothing on the cost sheet yet.</li> : null}
           {fixed.map((cost) => (
             <li key={cost.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <span className="min-w-0">
@@ -275,7 +314,10 @@ export default async function CostsPage({
       </section>
 
       {viewer && viewer.isPayer && viewer.status !== "off_trip" && !view.cancelled ? (
-        <details className={`rounded-2xl ${view.isOrganizer ? "border border-dashed" : "border"} border-line`}>
+        <details
+          className={`rounded-2xl ${view.isOrganizer ? "border border-dashed" : "border"} border-line`}
+          open={(view.isOrganizer && view.costs.length === 0) || undefined}
+        >
           <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">
             {view.isOrganizer ? "Organizer: add a cost" : "Add a cost only your party pays"}
           </summary>
@@ -286,7 +328,12 @@ export default async function CostsPage({
             {!view.isOrganizer ? <input type="hidden" name="memberId" value={viewer.partyUserId} /> : null}
             <label className="text-sm font-medium">
               What
-              <Input className="mt-1.5" name="label" placeholder={view.isOrganizer ? "Boat rental" : "Flight home"} required />
+              <Input
+                className="mt-1.5"
+                name="label"
+                placeholder={view.isOrganizer ? (view.costs.length === 0 ? "The house (Airbnb total)" : "Boat rental") : "Flight home"}
+                required
+              />
             </label>
             <label className="text-sm font-medium">
               Amount
@@ -294,7 +341,7 @@ export default async function CostsPage({
             </label>
             <label className="text-sm font-medium">
               Category
-              <select className={`${fieldClass} mt-1.5`} name="category" defaultValue={view.isOrganizer ? "activities" : "flights"}>
+              <select className={`${fieldClass} mt-1.5`} name="category" defaultValue={view.isOrganizer ? (view.costs.some((cost) => cost.category === "lodging") ? "activities" : "lodging") : "flights"}>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {categoryLabel(category)}

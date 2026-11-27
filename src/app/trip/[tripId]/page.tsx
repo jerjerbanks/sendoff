@@ -46,7 +46,7 @@ export default async function DashboardPage({
       <PlanCard view={view} theme={theme} />
       {view.isOrganizer ? <OrganizerCard view={view} /> : null}
       {!view.cancelled && !view.lockedIn ? (
-        <section className="ft-panel">
+        <section id="invite" className="ft-panel scroll-mt-20">
           <div className="ft-panel-h">
             <span className="ft-lbl ink">Bring people in</span>
             <span className="ft-kbd">{view.inviteToken}</span>
@@ -66,7 +66,7 @@ export default async function DashboardPage({
               }}
             />
             <details className="mt-2 border-t border-line">
-              <summary className="ft-summary text-[15px] font-medium text-ink-2">Copy the link</summary>
+              <summary className="ft-summary text-[15px] font-medium text-ink-2">Show the link</summary>
               <div className="pb-1">
                 <CopyLink path={`/join/${view.inviteToken}`} />
               </div>
@@ -253,7 +253,7 @@ function WhoCard({ view }: { view: TripView }) {
           cells={meterCells(view)}
           need={need}
           unit="households"
-          sub={meterSub(tripMeter(view), "households", `${view.travelerCount} people`)}
+          sub={meterSub(tripMeter(view), "households", `${view.travelerCount} ${view.travelerCount === 1 ? "person" : "people"}`)}
           booked={view.lockedIn || view.status === "booked"}
         />
       </div>

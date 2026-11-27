@@ -96,6 +96,22 @@ export default async function PayPage({
         </section>
       ) : null}
 
+      {viewer?.isPayer && viewer.role !== "honoree" && viewer.status === "joined" && !canCommit && !view.cancelled && (view.status === "planning" || view.status === "voting") ? (
+        <section>
+          <p className="ft-lbl">{party?.name ?? viewer.name}</p>
+          <h1 className="ft-display mt-3">
+            Buy-in isn&apos;t
+            <br />
+            <i>open yet.</i>
+          </h1>
+          <p className="ft-lead mt-4">
+            {view.isOrganizer
+              ? "Open it below once the place and dates are set and the house is on the cost sheet. Everyone then commits with a refundable test buy-in."
+              : `${view.organizerName.split(" ")[0] || "The organizer"} opens it once the place and dates are set. Until then, vote and check your number on Costs.`}
+          </p>
+        </section>
+      ) : null}
+
       {canCommit && buyIn ? (
         <>
           <section>
@@ -305,12 +321,24 @@ export default async function PayPage({
           <div className="grid gap-4 px-4 pb-4">
             {!view.termsLocked && !view.cancelled && view.status !== "under_minimum" && view.status !== "booked" ? (
               <form action={openBuyInAction} className="grid gap-3">
-                <p className="text-sm text-muted">Suggested from lodging: {whole(view.suggestedBuyInCents)}. Amount and deadline lock after the first commit.</p>
+                <p className="text-sm text-muted">
+                  {view.suggestedBuyInCents > 0
+                    ? `Suggested from lodging: ${whole(view.suggestedBuyInCents)}.`
+                    : "Add the house on the Costs page first and we'll suggest an amount."}{" "}
+                  Amount and deadline lock after the first commit.
+                </p>
                 <input type="hidden" name="tripId" value={view.id} />
                 <input type="hidden" name="userId" value={viewer?.userId} />
                 <label className="text-sm font-medium">
                   Buy-in per party
-                  <Input className="mt-1.5" name="amount" inputMode="decimal" defaultValue={(view.suggestedBuyInCents / 100).toFixed(2)} required />
+                  <Input
+                    className="mt-1.5"
+                    name="amount"
+                    inputMode="decimal"
+                    defaultValue={view.suggestedBuyInCents > 0 ? (view.suggestedBuyInCents / 100).toFixed(2) : undefined}
+                    placeholder="150"
+                    required
+                  />
                 </label>
                 <label className="text-sm font-medium">
                   Paying parties needed to book

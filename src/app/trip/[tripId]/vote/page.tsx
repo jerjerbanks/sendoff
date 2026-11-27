@@ -86,6 +86,11 @@ export default async function VotePage({
                 <li className="py-6 text-center">
                   <Spot name="empty-tent" className="w-[180px]" />
                   <p className="ft-h2 mt-3">{poll.kind === "destination" ? THEME_INFO[theme].empty : "No options yet."}</p>
+                  <p className="ft-meta mt-1.5">
+                    {view.isOrganizer
+                      ? `Add ${poll.kind === "destination" ? "two or three places" : poll.kind === "dates" ? "two or three date ranges" : "a few things to do"} below. Your group taps every one they'd do.`
+                      : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added any yet. Check back soon.`}
+                  </p>
                 </li>
               ) : null}
               {visible.map((option, index) => {
@@ -177,7 +182,10 @@ export default async function VotePage({
               })}
             </ul>
             {view.isOrganizer ? (
-              <details className="mt-3 rounded-2xl border border-dashed border-line-strong">
+              <details
+                className="mt-3 rounded-2xl border border-dashed border-line-strong"
+                open={(!poll.lockedOptionId && visible.length < 3 && (view.status === "planning" || view.status === "voting")) || undefined}
+              >
                 <summary className="ft-summary px-4 text-[15px] font-medium text-ink-2">Organizer: manage this poll</summary>
                 <div className="grid grid-cols-1 gap-4 px-4 pb-4 [&>*]:min-w-0">
                   {poll.lockedOptionId ? (
@@ -217,18 +225,35 @@ export default async function VotePage({
                     <input type="hidden" name="tripId" value={view.id} />
                     <input type="hidden" name="userId" value={viewer?.userId} />
                     <input type="hidden" name="pollId" value={poll.id} />
-                    <Input name="label" placeholder="Add an option" required />
-                    <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
-                      <Input name="estCost" inputMode="decimal" placeholder="Estimate $" />
-                      <Input name="link" placeholder="https://…" />
-                    </div>
+                    <label className="text-sm font-medium">
+                      {poll.kind === "destination" ? "A place" : poll.kind === "dates" ? "A date range" : "Something to do"}
+                      <Input
+                        className="mt-1.5"
+                        name="label"
+                        placeholder={poll.kind === "destination" ? "Lake Geneva, WI" : poll.kind === "dates" ? "Jun 12–15, 2027" : "Boat day"}
+                        required
+                      />
+                    </label>
+                    {poll.kind !== "dates" ? (
+                      <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
+                        <label className="text-sm font-medium">
+                          {poll.kind === "destination" ? "House total (optional)" : "Cost (optional)"}
+                          <Input className="mt-1.5" name="estCost" inputMode="decimal" placeholder="$" />
+                        </label>
+                        <label className="text-sm font-medium">
+                          Link (optional)
+                          <Input className="mt-1.5" name="link" placeholder="https://…" />
+                        </label>
+                      </div>
+                    ) : null}
                     <SubmitButton variant="outline">Add option</SubmitButton>
                   </form>
-                  <form action={pollDeadlineAction} className="flex gap-2 [&>*]:min-w-0">
+                  <p className="text-sm font-medium">Voting closes (US Central)</p>
+                  <form action={pollDeadlineAction} className="-mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <input type="hidden" name="tripId" value={view.id} />
                     <input type="hidden" name="userId" value={viewer?.userId} />
                     <input type="hidden" name="pollId" value={poll.id} />
-                    <input className={`${fieldClass} min-w-0 flex-1`} type="datetime-local" name="deadline" defaultValue={utcToZonedInput(poll.deadline)} required aria-label="Voting closes" />
+                    <input className={`${fieldClass} min-w-0`} type="datetime-local" name="deadline" defaultValue={utcToZonedInput(poll.deadline)} required aria-label="Voting closes" />
                     <SubmitButton variant="secondary">Set</SubmitButton>
                   </form>
                 </div>

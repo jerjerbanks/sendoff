@@ -146,7 +146,7 @@ export function LandingMenu() {
               </a>
             ))}
           </nav>
-          <a className="pill accent" href="/new">
+          <a className="pill accent" href="/new#start">
             Start a trip
           </a>
         </div>

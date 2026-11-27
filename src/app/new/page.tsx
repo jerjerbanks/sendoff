@@ -83,7 +83,7 @@ export default async function NewTripPage({
           <h2 className="ft-h1">
             Start a <i>trip.</i>
           </h2>
-          <p className="mt-1 text-sm text-muted">Friends and golf templates are coming next.</p>
+          <p className="mt-1 text-sm text-muted">Takes a minute. Places, dates and costs come next, and you can change any of it later.</p>
         </div>
         {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
         <Field label="Trip name" name="name" placeholder="Jamie & Sam's weekend" />

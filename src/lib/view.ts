@@ -4,6 +4,7 @@ import { money } from "./format";
 import { DEMO_TRIP_ID } from "./constants";
 import { LAKE_TRIP_ID } from "./constants";
 import { formatDay } from "./format";
+import { suggestedBuyIn } from "./buy-in";
 import { journey as journeyFor, nextStep as nextStepFor, type JourneyStep, type NextStep } from "./next-step";
 import { fitForOption, medianWeight, privateFit, type BedOption } from "./budgets";
 import {
@@ -597,7 +598,7 @@ function buildView(
     payerCount,
     potentialPayerCount: potential.length,
     minPayerCount,
-    suggestedBuyInCents: lodgingCents(raw.costs),
+    suggestedBuyInCents: suggestedBuyIn(lodgingCents(raw.costs), minPayerCount),
     sharedCents: sharedEvenCents(raw.costs, honoreeIdsOf(raw)),
     forfeitedPotCents: forfeitedCents(raw.payments),
     roundingCents: Math.max(
@@ -951,13 +952,20 @@ function flightBand(raw: RawTrip, bills: PersonBill[], viewerId: string | null, 
   return bill.totalCents - flight.amountCents + (end === "low" ? flight.lowEstimate : flight.highEstimate);
 }
 
+/** Lodging is on the sheet, splits by bed, and there are no beds: every lodging share is $0. */
+export function lodgingBedless(view: Pick<TripView, "splitMode" | "spots" | "costs">): boolean {
+  return view.splitMode === "weighted_by_spot" && view.spots.length === 0 && view.costs.some((cost) => cost.category === "lodging" && cost.splitType === "shared");
+}
+
+const pollLabel = (kind: string) => (kind === "destination" ? "Where" : kind === "dates" ? "When" : "What we'll do");
+
 /** Adds the viewer's next step and journey. Kept separate so the logic stays pure and testable. */
 function withNextStep(view: TripView, pendingApprovals: number): TripView {
   const viewer = view.viewer;
   const unvotedPolls = view.polls
     .filter((poll) => !poll.closed && poll.options.some((option) => !option.hidden))
     .filter((poll) => !poll.options.some((option) => option.votedByMe))
-    .map((poll) => (poll.kind === "destination" ? "Where" : poll.kind === "dates" ? "When" : "What we'll do"));
+    .map((poll) => pollLabel(poll.kind));
   const input = {
     viewer: viewer ? { isPayer: viewer.isPayer, role: viewer.role, status: viewer.status, forfeitedCents: viewer.forfeitedCents } : null,
     payerFirstName: view.viewerParty?.payerName.split(" ")[0] ?? null,
@@ -976,6 +984,15 @@ function withNextStep(view: TripView, pendingApprovals: number): TripView {
     joinersWaiting: view.joinersWaiting,
     payerCount: view.payerCount,
     minPayers: view.minPayerCount,
+    setup: {
+      emptyPolls: view.polls.filter((poll) => !poll.options.some((option) => !option.hidden)).map((poll) => pollLabel(poll.kind)),
+      votablePolls: view.polls.filter((poll) => poll.options.some((option) => !option.hidden)).length,
+      otherParties: view.parties.filter(
+        (party) => party.payerUserId !== view.viewerParty?.payerUserId && party.status !== "off_trip" && party.status !== "declined",
+      ).length,
+      hasCosts: view.costs.length > 0,
+      needsBeds: lodgingBedless(view),
+    },
   };
   return { ...view, pendingApprovals, nextStep: nextStepFor(input), journey: journeyFor(input) };
 }

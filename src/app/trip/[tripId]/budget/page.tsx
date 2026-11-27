@@ -33,6 +33,8 @@ export default async function BudgetPage({
   const own = await ownBudget(tripId, view.viewer.userId);
   const size = view.viewerParty?.travelers.length ?? 1;
   const locked = view.viewer.status === "committed" || view.viewer.status === "off_trip";
+  // A brand-new trip has nothing to vote on yet: send people to the trip page, which says what's next.
+  const nothingToVote = !view.polls.some((poll) => poll.options.some((option) => !option.hidden));
   return (
     <div className="grid gap-4">
       <div>
@@ -47,7 +49,7 @@ export default async function BudgetPage({
       <form action={saveBudgetAction} className="grid gap-4">
         <input type="hidden" name="tripId" value={view.id} />
         <input type="hidden" name="userId" value={view.viewer.userId} />
-        {welcome ? <input type="hidden" name="welcome" value="1" /> : null}
+        {welcome ? <input type="hidden" name="welcome" value={nothingToVote ? "home" : "1"} /> : null}
         <label className="block">
           <span className="text-sm text-muted">{size > 1 ? `All-in for all ${size} of you, travel included` : "All-in, flights included"}</span>
           <span className="mt-2 flex items-center gap-2 ft-panel px-5">
@@ -105,7 +107,9 @@ export default async function BudgetPage({
           </>
         )}
       </form>
-      <Link href={`/trip/${view.id}/vote`} className="text-sm font-semibold text-accent-ink">{welcome ? "Skip — I'd rather not say" : "Continue to the polls"}</Link>
+      <Link href={`/trip/${view.id}${nothingToVote ? "" : "/vote"}`} className="text-sm font-semibold text-accent-ink">
+        {welcome ? "Skip — I'd rather not say" : nothingToVote ? "Back to the trip" : "Continue to the polls"}
+      </Link>
     </div>
   );
 }

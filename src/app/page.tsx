@@ -82,7 +82,7 @@ export default async function LandingPage() {
                 Your trips
               </Link>
             ) : (
-              <a className="pill dark" href="/new">
+              <a className="pill dark" href="/new#start">
                 Start a trip
               </a>
             )}

@@ -149,6 +149,23 @@ export default async function RoomsPage({
       </section>
       {error ? <p className="ft-panel border-bad/40 bg-bad-soft px-4 py-3 text-[15px] text-bad">{error}</p> : null}
 
+      {rooms.length === 0 ? (
+        <section className="ft-panel p-5">
+          <h2 className="ft-h2">No beds yet.</h2>
+          <p className="ft-lead mt-1.5">
+            {view.isOrganizer
+              ? "Add the rooms and beds, or paste the Airbnb link and we'll read them for you. Then parties can pick."
+              : `${view.organizerName.split(" ")[0] || "The organizer"} hasn't added the rooms yet. You'll pick here after you commit.`}
+          </p>
+          {view.isOrganizer ? (
+            <Link href={`/trip/${view.id}/sleep`} className="ft-btn mt-5">
+              <span>Add rooms and beds</span>
+              <span aria-hidden>→</span>
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
+
       {plan.length > 0 && !listOnly ? (
         <section>
           <div className="mb-3 flex justify-end">

@@ -81,3 +81,46 @@ describe("journey strip", () => {
     expect(steps.map((step) => step.state)).toEqual(["done", "skipped", "done", "done", "current"]);
   });
 });
+
+describe("organizer first run", () => {
+  const fresh: NextStepInput = {
+    ...base,
+    viewer: { isPayer: true, role: "organizer", status: "joined", forfeitedCents: 0 },
+    isOrganizer: true,
+    tripStatus: "planning",
+    hasBudget: false,
+    payerCount: 0,
+    setup: { emptyPolls: ["Where", "When", "What we'll do"], votablePolls: 0, otherParties: 0, hasCosts: false },
+  };
+
+  it("walks a brand-new organizer through places, dates, invite, costs, beds, then the buy-in", () => {
+    expect(nextStep(fresh)).toMatchObject({ title: "Add places and dates to vote on", href: "/vote?q=destination" });
+    const placesIn = { ...fresh, setup: { ...fresh.setup!, emptyPolls: ["When", "What we'll do"], votablePolls: 1 } };
+    expect(nextStep(placesIn)).toMatchObject({ title: "Add dates to vote on", href: "/vote?q=dates" });
+    const optionsIn = { ...placesIn, setup: { ...placesIn.setup!, emptyPolls: ["What we'll do"], votablePolls: 2 } };
+    expect(nextStep(optionsIn)).toMatchObject({ title: "Invite your group", href: "#invite" });
+    // Once someone joined, the organizer's own budget and votes come before the rest of setup.
+    const joined = { ...optionsIn, unvotedPolls: ["Where"], setup: { ...optionsIn.setup!, otherParties: 1 } };
+    expect(nextStep(joined).href).toBe("/budget");
+    const voted = { ...joined, unvotedPolls: [], hasBudget: true };
+    expect(nextStep(voted)).toMatchObject({ title: "Add the house and shared costs", href: "/costs" });
+    const costed = { ...voted, setup: { ...voted.setup!, hasCosts: true, needsBeds: true } };
+    expect(nextStep(costed)).toMatchObject({ title: "Add the rooms and beds", href: "/sleep" });
+    expect(nextStep({ ...costed, setup: { ...costed.setup!, needsBeds: false } }).href).toBe("/pay");
+  });
+
+  it("an activities poll with no options never blocks setup", () => {
+    const step = nextStep({ ...fresh, setup: { ...fresh.setup!, emptyPolls: ["What we'll do"], votablePolls: 2, otherParties: 2, hasCosts: true } });
+    expect(step.href).toBe("/pay");
+  });
+
+  it("setup steps stop once the buy-in is open", () => {
+    expect(nextStep({ ...fresh, tripStatus: "buy_in_open", hasBudget: true }).href).toBe("/pay");
+  });
+
+  it("a member of a trip with nothing to vote on is told the organizer is setting up, and Vote isn't ticked", () => {
+    const member = { ...fresh, isOrganizer: false, viewer: { ...fresh.viewer!, role: "member" as const }, hasBudget: true };
+    expect(nextStep(member).body).toMatch(/still adding places and dates/);
+    expect(journey(member).find((step) => step.key === "vote")?.state).not.toBe("done");
+  });
+});
