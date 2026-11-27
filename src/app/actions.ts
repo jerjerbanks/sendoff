@@ -9,7 +9,7 @@ import { zonedToUtc } from "@/lib/format";
 import { createSignInLink, endSession, getViewer, getViewerId, redeemSignInLink, startSession } from "@/lib/session";
 import { inviteTokenFrom } from "@/lib/invite-code";
 import { isDemoTrip } from "@/lib/demo-tour";
-import { isContact } from "@/lib/tokens";
+import { isContact, newToken, plausibleToken } from "@/lib/tokens";
 import { parseTripKind } from "@/lib/trip-kind";
 import { withinLimit } from "@/lib/limit-check";
 import { passesTurnstile } from "@/lib/turnstile";
@@ -75,7 +75,10 @@ import {
   updateTraveler,
   type HonoreeRole,
 } from "@/lib/store";
-import { DEMO_TRIP_ID, LAKE_TRIP_ID, SIGN_IN_LINK_COOKIE } from "@/lib/constants";
+import { DEMO_TRIP_ID, LAKE_TRIP_ID, SIGN_IN_LINK_COOKIE, SIGN_IN_TICKET_COOKIE } from "@/lib/constants";
+import { getD1 } from "@/lib/db";
+import { sendSignInCode } from "@/lib/email";
+import { CODE_MINUTES, d1CodeDb, redeemCode, requestCode, safeNext, signInEmail } from "@/lib/sign-in-code";
 import { cleanImportRooms } from "@/lib/listing-import";
 
 /** The person acting is whoever this browser is signed in as. Never trust an id sent in the form. */
@@ -768,4 +771,57 @@ export async function redeemSignInLinkAction(formData: FormData) {
   if (!result) redirect(`/signin/${encodeURIComponent(token)}?expired=1`);
   await startSession(result.userId);
   redirect(`/trip/${result.tripId}`);
+}
+
+/** Back to the sign-in page, keeping where to go afterwards. */
+function signInPath(next: string, extra: Record<string, string> = {}): string {
+  const query = new URLSearchParams({ ...(next !== "/trips" ? { next } : {}), ...extra }).toString();
+  return `/signin${query ? `?${query}` : ""}`;
+}
+
+/**
+ * Step 1 of email sign-in: email a 6-digit code. The page that follows is the same whether
+ * or not the email is on a trip, so nobody can use this to find out who is.
+ */
+export async function requestSignInCodeAction(formData: FormData) {
+  const next = safeNext(text(formData, "next", 100));
+  if (!(await withinLimit("signin"))) redirect(signInPath(next, { error: TOO_MANY }));
+  if (!(await passesTurnstile(formData, "signin"))) redirect(signInPath(next, { error: NOT_CHECKED }));
+  const email = signInEmail(text(formData, "email", 120));
+  if (!email) redirect(signInPath(next, { error: "Type the email address you joined with." }));
+  // A fresh ticket every time: the code only works in this browser.
+  const ticket = newToken();
+  const result = await requestCode(d1CodeDb(getD1()), ticket, email, new Date());
+  if (result.send) await sendSignInCode(email, result.code);
+  else console.log(JSON.stringify({ event: "sign_in_code", outcome: result.reason }));
+  (await cookies()).set(SIGN_IN_TICKET_COOKIE, ticket, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/signin",
+    maxAge: CODE_MINUTES * 60,
+  });
+  redirect(signInPath(next, { step: "code" }));
+}
+
+/** Step 2: the code from the email signs this browser in. */
+export async function verifySignInCodeAction(formData: FormData) {
+  const next = safeNext(text(formData, "next", 100));
+  if (!(await withinLimit("signin"))) redirect(signInPath(next, { step: "code", error: TOO_MANY }));
+  const jar = await cookies();
+  const ticket = jar.get(SIGN_IN_TICKET_COOKIE)?.value;
+  if (!plausibleToken(ticket)) redirect(signInPath(next, { error: "That code has expired. Ask for a new one." }));
+  const result = await redeemCode(d1CodeDb(getD1()), ticket, text(formData, "code", 20), new Date());
+  console.log(JSON.stringify({ event: "sign_in_code_check", outcome: result.ok ? "ok" : result.reason }));
+  if (!result.ok) {
+    if (result.reason === "expired") {
+      jar.delete({ name: SIGN_IN_TICKET_COOKIE, path: "/signin" });
+      redirect(signInPath(next, { error: "That code has expired or had too many tries. Ask for a new one." }));
+    }
+    redirect(signInPath(next, { step: "code", error: "That code didn't work. Check the email and try again." }));
+  }
+  jar.delete({ name: SIGN_IN_TICKET_COOKIE, path: "/signin" });
+  await startSession(result.userId);
+  revalidatePath("/trips");
+  redirect(next);
 }

@@ -44,8 +44,12 @@ export default async function SignInPage({
         <>
           <h1 className="mt-2 font-serif text-4xl leading-tight">This link has been used or has expired.</h1>
           <p className="mt-3 text-base text-muted">
-            On the phone where you&apos;re signed in, open the trip, go to Your party, and make a new one.
+            On the phone where you&apos;re signed in, open the trip, go to Your party, and make a new one. Joined with email? Sign in with a
+            code instead.
           </p>
+          <Link href="/signin" className="ft-btn mt-6 self-start">
+            Sign in with email
+          </Link>
         </>
       )}
       <Link href="/" className="mt-4 inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent">

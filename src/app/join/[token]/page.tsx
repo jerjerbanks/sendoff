@@ -210,9 +210,11 @@ function JoinForm({ token, error, approval }: { token: string; error: string | n
       <Turnstile siteKey={turnstileSiteKey()} />
       <SubmitButton>{approval ? "Ask to join" : "Join the trip"}</SubmitButton>
       <p className="text-center text-xs text-muted">
-        No app to install and no password. This phone stays signed in. To use another phone later, you&apos;ll make a sign-in link from
-        this one.
+        No app to install and no password. This phone stays signed in. Joined with email? You can sign in anywhere with a code.
       </p>
+      <Link href={`/signin?next=${encodeURIComponent(`/join/${token}`)}`} className="ft-link justify-self-center text-sm">
+        Already joined? Sign in with email
+      </Link>
     </form>
   );
 }
