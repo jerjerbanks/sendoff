@@ -1,207 +1,177 @@
 import { DEMO_INVITE_TOKEN, DEMO_TRIP_ID, LAKE_INVITE_TOKEN, LAKE_TRIP_ID } from "./constants";
 
 /**
- * Fixture A, spec 2.0.1 section 7.1.1. Each single adult is their own party of
- * one adult traveler; travelers are read from the payer when no rows exist.
- * Seed from spec v1.2 section 7.1.
- * Lodging $2,400 by bed weight. Equal-shared pool $890 (activities $600 + Alex's
- * flight $290). Tee times $480 optional for Chris, Sam, Jordan, and Drew.
- * Flights are individual. min 5, max 8. Bedroom 3's queen can be shared.
+ * Fixture A: "Scottsdale Golf Weekend" (Demo Narratives v1, Nov 27, 2026).
+ * Eight guys, each his own party of one adult. Place, dates and course are locked,
+ * so the buy-in is open. Seeded just before the climax: five of the six needed have
+ * paid; Chris Delgado has joined and holds the couch but hasn't paid; Ben Walsh and
+ * Kyle Brennan never claim a bed or pay, and the deadline moves them off the trip.
+ *
+ * Settled (6 paid): house $3,600 by bed weight ($600 per 1.0), every extra split
+ * among who's in. Evan $1,350 · Jamal $925 · Chris $705 · Marcus $1,165 ·
+ * Owen $1,170 · Theo $985 = $6,300 = every line item. All prices are demo estimates.
  */
-export const BUY_IN_CENTS = 15_000;
-export const CHRIS_FLIGHT_CENTS = 28_000;
-export const TEE_TIME_CENTS = 48_000;
-export const BASE_POOL_CENTS = 329_000;
+export const BUY_IN_CENTS = 20_000;
 
 export const demoUsers = [
-  { id: "user_chris", name: "Chris Hale", contact: "chris@example.com" },
-  { id: "user_alex", name: "Alex Mora", contact: "alex@example.com" },
-  { id: "user_sam", name: "Sam Okonkwo", contact: "sam@example.com" },
-  { id: "user_jordan", name: "Jordan Ellis", contact: "jordan@example.com" },
-  { id: "user_drew", name: "Drew Patel", contact: "drew@example.com" },
-  { id: "user_taylor", name: "Taylor Nguyen", contact: "taylor@example.com" },
-  { id: "user_riley", name: "Riley Chen", contact: "riley@example.com" },
-  { id: "user_morgan", name: "Morgan Blake", contact: "morgan@example.com" },
-  { id: "user_casey", name: "Casey Brooks", contact: "casey@example.com" },
-  { id: "user_pat", name: "Pat Alvarez", contact: "pat@example.com" },
+  { id: "user_marcus", name: "Marcus Hale", contact: "marcus.hale@example.com" },
+  { id: "user_evan", name: "Evan Brooks", contact: "evan.brooks@example.com" },
+  { id: "user_owen", name: "Owen Park", contact: "owen.park@example.com" },
+  { id: "user_jamal", name: "Jamal Wright", contact: "jamal.wright@example.com" },
+  { id: "user_theo", name: "Theo Nguyen", contact: "theo.nguyen@example.com" },
+  { id: "user_chrisd", name: "Chris Delgado", contact: "chris.delgado@example.com" },
+  { id: "user_ben", name: "Ben Walsh", contact: "ben.walsh@example.com" },
+  { id: "user_kyle", name: "Kyle Brennan", contact: "kyle.brennan@example.com" },
 ] as const;
 
 export const demoTrip = {
   id: DEMO_TRIP_ID,
-  name: "Alex's Bachelor Party",
-  tripType: "pre_wedding",
-  preWeddingStyle: "bachelor",
-  organizerId: "user_chris",
-  guestOfHonorUserId: "user_alex",
-  dateWindow: "A long weekend in May 2027",
+  name: "Scottsdale Golf Weekend",
+  tripType: "adult",
+  preWeddingStyle: null as string | null,
+  organizerId: "user_marcus",
+  guestOfHonorUserId: "",
+  dateWindow: "Scottsdale, AZ · March 11–14, 2027 (3 nights)",
   status: "buy_in_open",
   buyInAmount: BUY_IN_CENTS,
-  buyInDeadline: "2026-12-16T05:59:00.000Z",
-  minHeadcount: 5,
-  /** Travelers: 8 paying adults + 1 honoree. */
-  maxHeadcount: 9,
+  // Jan 15, 2027, 11:59 PM CT.
+  buyInDeadline: "2027-01-16T05:59:00.000Z",
+  minHeadcount: 6,
+  maxHeadcount: 8,
   bedChangePolicy: "member_requests",
-  honoreeExcludedFromSplit: 1,
+  honoreeExcludedFromSplit: 0,
   inviteToken: DEMO_INVITE_TOKEN,
   simulatedNow: null as string | null,
+  theme: "golf",
 };
 
 export const demoMembers = [
-  { userId: "user_chris", role: "organizer", status: "committed", committedAt: "2026-11-18T18:00:00.000Z" },
-  { userId: "user_alex", role: "honoree", status: "committed", committedAt: "2026-11-18T18:00:00.000Z" },
-  { userId: "user_sam", role: "member", status: "committed", committedAt: "2026-11-19T15:00:00.000Z" },
-  { userId: "user_jordan", role: "member", status: "committed", committedAt: "2026-11-19T20:00:00.000Z" },
-  { userId: "user_drew", role: "member", status: "committed", committedAt: "2026-11-20T16:00:00.000Z" },
-  { userId: "user_taylor", role: "member", status: "joined", committedAt: null },
-  { userId: "user_riley", role: "member", status: "joined", committedAt: null },
-  { userId: "user_casey", role: "member", status: "invited", committedAt: null },
-  { userId: "user_morgan", role: "member", status: "declined", committedAt: null },
+  { userId: "user_marcus", role: "organizer", status: "committed", committedAt: "2026-11-18T18:00:00.000Z" },
+  { userId: "user_evan", role: "member", status: "committed", committedAt: "2026-11-19T15:00:00.000Z" },
+  { userId: "user_owen", role: "member", status: "committed", committedAt: "2026-11-19T20:00:00.000Z" },
+  { userId: "user_jamal", role: "member", status: "committed", committedAt: "2026-11-20T16:00:00.000Z" },
+  { userId: "user_theo", role: "member", status: "committed", committedAt: "2026-11-21T17:00:00.000Z" },
+  { userId: "user_chrisd", role: "member", status: "joined", committedAt: null },
+  { userId: "user_ben", role: "member", status: "joined", committedAt: null },
+  { userId: "user_kyle", role: "member", status: "joined", committedAt: null },
 ] as const;
 
 export const demoPolls = [
-  { id: "poll_destination", kind: "destination", deadline: "2026-12-09T05:59:00.000Z", lockedOptionId: null },
-  { id: "poll_dates", kind: "dates", deadline: "2026-12-11T05:59:00.000Z", lockedOptionId: null },
-  { id: "poll_activity", kind: "activity", deadline: "2026-12-13T05:59:00.000Z", lockedOptionId: null },
+  { id: "golf_poll_destination", kind: "destination", deadline: "2026-11-20T05:59:00.000Z", lockedOptionId: "golf_opt_scottsdale" },
+  { id: "golf_poll_dates", kind: "dates", deadline: "2026-11-20T05:59:00.000Z", lockedOptionId: "golf_opt_mar11" },
+  { id: "golf_poll_activity", kind: "activity", deadline: "2026-11-22T05:59:00.000Z", lockedOptionId: "golf_opt_wekopa" },
 ] as const;
 
+/** Courses carry a per-person green fee so voters see the price before they tap. */
 export const demoOptions = [
-  { id: "opt_nash", pollId: "poll_destination", label: "Nashville", estCost: 240000, link: "https://www.visitmusiccity.com", sortOrder: 0, lodgingEstimate: 240000, hiddenByOrganizer: 0 },
-  { id: "opt_austin", pollId: "poll_destination", label: "Austin", estCost: 220000, link: "https://www.austintexas.org", sortOrder: 1, lodgingEstimate: 220000, hiddenByOrganizer: 0 },
-  { id: "opt_scotts", pollId: "poll_destination", label: "Scottsdale", estCost: 200000, link: "https://www.experiencescottsdale.com", sortOrder: 2, lodgingEstimate: 200000, hiddenByOrganizer: 0 },
-  { id: "opt_cabo", pollId: "poll_destination", label: "Cabo", estCost: 420000, link: "https://www.visitloscabos.travel", sortOrder: 3, lodgingEstimate: 420000, hiddenByOrganizer: 0 },
-  { id: "opt_may14", pollId: "poll_dates", label: "May 14–17, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "opt_may21", pollId: "poll_dates", label: "May 21–24, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "opt_brew", pollId: "poll_activity", label: "Brewery day", estCost: 60000, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "opt_tee", pollId: "poll_activity", label: "Golf / tee times", estCost: 48000, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "opt_show", pollId: "poll_activity", label: "Dinner and a show", estCost: 80000, link: "", sortOrder: 2, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "golf_opt_scottsdale", pollId: "golf_poll_destination", label: "Scottsdale, AZ", estCost: 360000, link: "", sortOrder: 0, lodgingEstimate: 360000, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "golf_opt_palm", pollId: "golf_poll_destination", label: "Palm Springs, CA", estCost: 420000, link: "", sortOrder: 1, lodgingEstimate: 420000, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "golf_opt_mar11", pollId: "golf_poll_dates", label: "March 11–14, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "golf_opt_mar18", pollId: "golf_poll_dates", label: "March 18–21, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "golf_opt_tpc", pollId: "golf_poll_activity", label: "TPC Scottsdale — Stadium Course", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: 45_000 },
+  { id: "golf_opt_wekopa", pollId: "golf_poll_activity", label: "We-Ko-Pa — Cholla Course, Fountain Hills", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: 25_000 },
+  { id: "golf_opt_grayhawk", pollId: "golf_poll_activity", label: "Grayhawk — Talon Course, Scottsdale", estCost: 0, link: "", sortOrder: 2, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: 19_000 },
+  { id: "golf_opt_papago", pollId: "golf_poll_activity", label: "Papago Golf Club, Phoenix", estCost: 0, link: "", sortOrder: 3, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: 9_000 },
 ] as const;
-
-export const demoBudgets = [
-  { userId: "user_chris", maxAllIn: 200000, flexNote: null, mustHaves: "" },
-  { userId: "user_sam", maxAllIn: 180000, flexNote: null, mustHaves: "" },
-  { userId: "user_jordan", maxAllIn: 150000, flexNote: null, mustHaves: "golf" },
-  { userId: "user_drew", maxAllIn: 140000, flexNote: null, mustHaves: "" },
-  { userId: "user_taylor", maxAllIn: 130000, flexNote: null, mustHaves: "" },
-  { userId: "user_riley", maxAllIn: 160000, flexNote: null, mustHaves: "" },
-] as const;
-
-/** Destination highs that differ from the Nashville trip-level high. */
-export const demoQuotes = [
-  ["user_chris", "opt_scotts", 31000],
-  ["user_sam", "opt_scotts", 35000],
-  ["user_jordan", "opt_scotts", 29000],
-  ["user_drew", "opt_scotts", 32000],
-  ["user_taylor", "opt_scotts", 28000],
-  ["user_riley", "opt_scotts", 33000],
-  ["user_casey", "opt_scotts", 32000],
-  ["user_pat", "opt_scotts", 32000],
-  ["user_alex", "opt_scotts", 33000],
-  // Austin highs: spec 2.0 adds these (the v1.3 gap). Austin badge = Fits everyone.
-  ["user_chris", "opt_austin", 33000],
-  ["user_sam", "opt_austin", 28000],
-  ["user_jordan", "opt_austin", 30000],
-  ["user_drew", "opt_austin", 35000],
-  ["user_taylor", "opt_austin", 20000],
-  ["user_riley", "opt_austin", 34000],
-  ["user_casey", "opt_austin", 33000],
-  ["user_pat", "opt_austin", 36000],
-  ["user_alex", "opt_austin", 34000],
-  ["user_chris", "opt_cabo", 70000],
-  ["user_sam", "opt_cabo", 72000],
-  ["user_jordan", "opt_cabo", 58000],
-  ["user_drew", "opt_cabo", 65000],
-  ["user_taylor", "opt_cabo", 36000],
-  ["user_riley", "opt_cabo", 64000],
-  ["user_casey", "opt_cabo", 60000],
-  ["user_pat", "opt_cabo", 62000],
-  ["user_alex", "opt_cabo", 65000],
-] as const;
-
-export const demoAirports: Record<string, { airport: string; low: number; high: number }> = {
-  user_chris: { airport: "ORD", low: 25000, high: 31000 },
-  user_sam: { airport: "DEN", low: 27000, high: 35000 },
-  user_jordan: { airport: "ATL", low: 21000, high: 29000 },
-  user_drew: { airport: "DTW", low: 25000, high: 34000 },
-  user_taylor: { airport: "IAH", low: 23000, high: 31000 },
-  user_riley: { airport: "CLT", low: 26000, high: 34000 },
-  user_casey: { airport: "MSP", low: 25000, high: 32000 },
-  user_pat: { airport: "PHL", low: 24000, high: 32000 },
-  user_alex: { airport: "", low: 25000, high: 33000 },
-};
 
 const votePairs: [string, string][] = [
-  ["opt_nash", "user_chris"],
-  ["opt_nash", "user_sam"],
-  ["opt_nash", "user_jordan"],
-  ["opt_austin", "user_drew"],
-  ["opt_nash", "user_taylor"],
-  ["opt_scotts", "user_riley"],
-  ["opt_austin", "user_alex"],
-  ["opt_may14", "user_chris"],
-  ["opt_may14", "user_sam"],
-  ["opt_may14", "user_jordan"],
-  ["opt_may21", "user_drew"],
-  ["opt_may14", "user_taylor"],
-  ["opt_may21", "user_riley"],
-  ["opt_may14", "user_alex"],
-  ["opt_brew", "user_chris"],
-  ["opt_tee", "user_sam"],
-  ["opt_brew", "user_jordan"],
-  ["opt_tee", "user_drew"],
-  ["opt_show", "user_taylor"],
-  ["opt_brew", "user_riley"],
-  ["opt_brew", "user_alex"],
+  ["golf_opt_scottsdale", "user_marcus"],
+  ["golf_opt_scottsdale", "user_evan"],
+  ["golf_opt_scottsdale", "user_owen"],
+  ["golf_opt_scottsdale", "user_jamal"],
+  ["golf_opt_scottsdale", "user_theo"],
+  ["golf_opt_scottsdale", "user_chrisd"],
+  ["golf_opt_scottsdale", "user_ben"],
+  ["golf_opt_palm", "user_kyle"],
+  ["golf_opt_mar11", "user_marcus"],
+  ["golf_opt_mar11", "user_evan"],
+  ["golf_opt_mar11", "user_owen"],
+  ["golf_opt_mar11", "user_jamal"],
+  ["golf_opt_mar11", "user_theo"],
+  ["golf_opt_mar11", "user_chrisd"],
+  ["golf_opt_mar18", "user_ben"],
+  ["golf_opt_mar18", "user_kyle"],
+  ["golf_opt_tpc", "user_evan"],
+  ["golf_opt_tpc", "user_owen"],
+  ["golf_opt_wekopa", "user_marcus"],
+  ["golf_opt_wekopa", "user_jamal"],
+  ["golf_opt_wekopa", "user_theo"],
+  ["golf_opt_wekopa", "user_chrisd"],
+  ["golf_opt_grayhawk", "user_ben"],
+  ["golf_opt_papago", "user_kyle"],
 ];
 
 export const demoVotes = votePairs.map(([optionId, userId]) => ({ optionId, userId }));
 
+/** Flights stay with each person and are not in this split. */
 export const demoCosts = [
-  { id: "cost_lodge", label: "Airbnb — 4 nights", category: "lodging", splitType: "shared", amount: 240_000, memberId: null, isLodging: 1 },
-  { id: "cost_activities", label: "House activities fund", category: "activities", splitType: "shared", amount: 60_000, memberId: null, isLodging: 0 },
-  { id: "cost_alex_flight", label: "Alex's flight (group covers)", category: "flights", splitType: "individual", amount: 29_000, memberId: "user_alex", isLodging: 0 },
-  { id: "cost_tee", label: "Tee times", category: "tee_times", splitType: "optional", amount: TEE_TIME_CENTS, memberId: null, isLodging: 0 },
-  { id: "cost_chris_flight", label: "Chris's flight", category: "flights", splitType: "individual", amount: 28_000, memberId: "user_chris", isLodging: 0 },
-  { id: "cost_sam_flight", label: "Sam's flight", category: "flights", splitType: "individual", amount: 31_000, memberId: "user_sam", isLodging: 0 },
-  { id: "cost_jordan_flight", label: "Jordan's flight", category: "flights", splitType: "individual", amount: 25_000, memberId: "user_jordan", isLodging: 0 },
-  { id: "cost_drew_flight", label: "Drew's flight", category: "flights", splitType: "individual", amount: 29_500, memberId: "user_drew", isLodging: 0 },
-  { id: "cost_taylor_flight", label: "Taylor's flight", category: "flights", splitType: "individual", amount: 27_000, memberId: "user_taylor", isLodging: 0 },
-  { id: "cost_riley_flight", label: "Riley's flight", category: "flights", splitType: "individual", amount: 30_000, memberId: "user_riley", isLodging: 0 },
-  { id: "cost_casey_flight", label: "Casey's flight", category: "flights", splitType: "individual", amount: 28_500, memberId: "user_casey", isLodging: 0 },
-  { id: "cost_pat_flight", label: "Pat's flight estimate", category: "flights", splitType: "individual", amount: 28_000, memberId: "user_pat", isLodging: 0 },
+  { id: "golf_cost_house", label: "Vista Ridge House — 3 nights", category: "lodging", splitType: "shared", amount: 360_000, memberId: null, isLodging: 1 },
+  { id: "golf_cost_greens", label: "Green fees — We-Ko-Pa Cholla ($250 a person)", category: "activities", splitType: "shared", amount: 150_000, memberId: null, isLodging: 0 },
+  { id: "golf_cost_topgolf", label: "Topgolf Scottsdale — range night", category: "activities", splitType: "optional", amount: 22_500, memberId: null, isLodging: 0 },
+  { id: "golf_cost_steak", label: "Saturday steak dinner", category: "food", splitType: "optional", amount: 57_000, memberId: null, isLodging: 0 },
+  { id: "golf_cost_cabana", label: "Pool day and cabana", category: "activities", splitType: "optional", amount: 24_000, memberId: null, isLodging: 0 },
+  { id: "golf_cost_spring", label: "Cactus League Spring Training game", category: "activities", splitType: "optional", amount: 16_500, memberId: null, isLodging: 0 },
+  { id: "golf_cost_hike", label: "Camelback Mountain hike", category: "activities", splitType: "optional", amount: 0, memberId: null, isLodging: 0 },
 ] as const;
 
+const SIX = ["user_marcus", "user_evan", "user_owen", "user_jamal", "user_theo", "user_chrisd"];
+
+/** Who is in on each extra, by payer. Every extra divides evenly among them. Everyone plays the locked course. */
+export const demoParticipants: Record<string, readonly string[]> = {
+  golf_cost_topgolf: ["user_marcus", "user_evan", "user_owen", "user_jamal", "user_theo"],
+  golf_cost_steak: SIX,
+  golf_cost_cabana: ["user_evan", "user_owen", "user_theo", "user_chrisd"],
+  golf_cost_spring: ["user_marcus", "user_jamal", "user_theo"],
+  golf_cost_hike: ["user_marcus", "user_jamal", "user_chrisd"],
+};
+
+/** Weights follow bed type: king with a private bath 1.5, queen 1.2, bunk 0.8, couch 0.5. */
 export const demoSpots = [
-  { id: "spot_master", roomName: "Master suite", bedType: "king", privateBath: 1, privateRoom: 1, weight: 1500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 1, sortOrder: 1 },
-  { id: "spot_bed2", roomName: "Bedroom 2", bedType: "queen", privateBath: 1, privateRoom: 1, weight: 1500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 2 },
-  { id: "spot_bed3", roomName: "Bedroom 3", bedType: "queen", privateBath: 0, privateRoom: 1, weight: 1250, capacity: 2, sharingEnabled: 1, reservedForHonoree: 0, sortOrder: 3 },
-  { id: "spot_bed4", roomName: "Bedroom 4", bedType: "full", privateBath: 0, privateRoom: 1, weight: 1000, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 4 },
-  { id: "spot_bunk", roomName: "Bunk room", bedType: "bunk", privateBath: 0, privateRoom: 0, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 5 },
-  { id: "spot_loft", roomName: "Loft", bedType: "sofa_bed", privateBath: 0, privateRoom: 0, weight: 600, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 6 },
-  { id: "spot_couch", roomName: "Living room couch", bedType: "couch", privateBath: 0, privateRoom: 0, weight: 500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 7 },
-  { id: "spot_air", roomName: "Living room air mattress", bedType: "air_mattress", privateBath: 0, privateRoom: 0, weight: 500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 8 },
+  { id: "golf_spot_master", roomName: "Master suite", bedType: "king", privateBath: 1, privateRoom: 1, weight: 1500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 1 },
+  { id: "golf_spot_bed2", roomName: "Bedroom 2", bedType: "queen", privateBath: 0, privateRoom: 1, weight: 1200, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 2 },
+  { id: "golf_spot_bed3", roomName: "Bedroom 3", bedType: "queen", privateBath: 0, privateRoom: 1, weight: 1200, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 3 },
+  { id: "golf_spot_bed4", roomName: "Bedroom 4", bedType: "queen", privateBath: 0, privateRoom: 1, weight: 1200, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 4 },
+  { id: "golf_spot_bunk1", roomName: "Bunk room", bedType: "bunk", privateBath: 0, privateRoom: 0, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 5 },
+  { id: "golf_spot_bunk2", roomName: "Bunk room", bedType: "bunk", privateBath: 0, privateRoom: 0, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 6 },
+  { id: "golf_spot_bunk3", roomName: "Bunk room", bedType: "bunk", privateBath: 0, privateRoom: 0, weight: 800, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 7 },
+  { id: "golf_spot_couch", roomName: "Den couch", bedType: "couch", privateBath: 0, privateRoom: 0, weight: 500, capacity: 1, sharingEnabled: 0, reservedForHonoree: 0, sortOrder: 8 },
 ] as const;
 
 export const demoClaims = [
-  { spotId: "spot_master", userId: "user_alex", status: "approved" },
-  { spotId: "spot_bed2", userId: "user_chris", status: "approved" },
-  { spotId: "spot_bed3", userId: "user_sam", status: "approved" },
-  { spotId: "spot_bed4", userId: "user_jordan", status: "approved" },
-  { spotId: "spot_bunk", userId: "user_drew", status: "approved" },
+  { spotId: "golf_spot_master", userId: "user_evan", status: "approved" },
+  { spotId: "golf_spot_bed2", userId: "user_marcus", status: "approved" },
+  { spotId: "golf_spot_bed3", userId: "user_owen", status: "approved" },
+  { spotId: "golf_spot_bunk1", userId: "user_jamal", status: "approved" },
+  { spotId: "golf_spot_bunk2", userId: "user_theo", status: "approved" },
+  { spotId: "golf_spot_couch", userId: "user_chrisd", status: "approved" },
 ] as const;
 
-export const demoTeeParticipants = ["user_chris", "user_sam", "user_jordan", "user_drew"] as const;
-
+/** Lodging share is 50% of each person's house share only; the balance absorbs the rest. */
 export const demoMilestones = [
-  { id: "ms_buyin", name: "Buy-in", dueDate: "2026-12-16T05:59:00.000Z", kind: "buy_in", amountRule: "fixed", amount: BUY_IN_CENTS, sortOrder: 0 },
-  { id: "ms_second", name: "Lodging", dueDate: "2027-01-15T06:00:00.000Z", kind: "installment", amountRule: "fixed", amount: 40_000, sortOrder: 1 },
-  { id: "ms_final", name: "Balance", dueDate: "2027-04-01T05:00:00.000Z", kind: "final", amountRule: "fixed", amount: 0, sortOrder: 2 },
+  { id: "golf_ms_buyin", name: "Buy-in", dueDate: "2027-01-16T05:59:00.000Z", kind: "buy_in", amountRule: "fixed", amount: BUY_IN_CENTS, sortOrder: 0 },
+  { id: "golf_ms_lodging", name: "Lodging share", dueDate: "2027-02-13T05:59:00.000Z", kind: "installment", amountRule: "pct_of_lodging", amount: 50, sortOrder: 1 },
+  { id: "golf_ms_final", name: "Balance", dueDate: "2027-02-27T05:59:00.000Z", kind: "final", amountRule: "fixed", amount: 0, sortOrder: 2 },
 ] as const;
 
 export const demoPayments = [
-  { id: "pay_chris", milestoneId: "ms_buyin", userId: "user_chris", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-18T18:00:00.000Z" },
-  { id: "pay_sam", milestoneId: "ms_buyin", userId: "user_sam", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T15:00:00.000Z" },
-  { id: "pay_jordan", milestoneId: "ms_buyin", userId: "user_jordan", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T20:00:00.000Z" },
-  { id: "pay_drew", milestoneId: "ms_buyin", userId: "user_drew", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-20T16:00:00.000Z" },
+  { id: "golf_pay_marcus", milestoneId: "golf_ms_buyin", userId: "user_marcus", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-18T18:00:00.000Z" },
+  { id: "golf_pay_evan", milestoneId: "golf_ms_buyin", userId: "user_evan", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T15:00:00.000Z" },
+  { id: "golf_pay_owen", milestoneId: "golf_ms_buyin", userId: "user_owen", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-19T20:00:00.000Z" },
+  { id: "golf_pay_jamal", milestoneId: "golf_ms_buyin", userId: "user_jamal", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-20T16:00:00.000Z" },
+  { id: "golf_pay_theo", milestoneId: "golf_ms_buyin", userId: "user_theo", amount: BUY_IN_CENTS, status: "paid", paidAt: "2026-11-21T17:00:00.000Z" },
+] as const;
+
+/**
+ * Private. Evan set $1,250 and his all-in is $1,350: only Evan ever sees "$100 over".
+ * Marcus, the organizer, never sees it or Evan's $1,250.
+ */
+export const demoBudgets = [
+  { userId: "user_marcus", maxAllIn: 150000, flexNote: null, mustHaves: "" },
+  { userId: "user_evan", maxAllIn: 125000, flexNote: null, mustHaves: "" },
+  { userId: "user_owen", maxAllIn: 140000, flexNote: null, mustHaves: "" },
+  { userId: "user_jamal", maxAllIn: 110000, flexNote: null, mustHaves: "" },
+  { userId: "user_theo", maxAllIn: 110000, flexNote: null, mustHaves: "" },
+  { userId: "user_chrisd", maxAllIn: 90000, flexNote: null, mustHaves: "" },
 ] as const;
 
 /**
@@ -237,6 +207,8 @@ export const lakeTrip = {
   honoreeExcludedFromSplit: 0,
   inviteToken: LAKE_INVITE_TOKEN,
   simulatedNow: null as string | null,
+  /** Lake & cabin. Stored so no option title can ever turn this into a golf trip. */
+  theme: "outdoors",
 };
 
 /** Payers have partyUserId null. Other account-holders point at their payer. */
@@ -276,12 +248,12 @@ export const lakePolls = [
 ] as const;
 
 export const lakeOptions = [
-  { id: "lake_opt_geneva", pollId: "lake_poll_destination", label: "Lake Geneva, WI", estCost: 320000, link: "", sortOrder: 0, lodgingEstimate: 320000, hiddenByOrganizer: 0 },
-  { id: "lake_opt_door", pollId: "lake_poll_destination", label: "Door County, WI", estCost: 380000, link: "", sortOrder: 1, lodgingEstimate: 380000, hiddenByOrganizer: 0 },
-  { id: "lake_opt_july1", pollId: "lake_poll_dates", label: "July 1–5, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "lake_opt_aug", pollId: "lake_poll_dates", label: "August 5–9, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "lake_opt_boat", pollId: "lake_poll_activity", label: "Lake boat day", estCost: 51000, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0 },
-  { id: "lake_opt_golf", pollId: "lake_poll_activity", label: "Mini golf night", estCost: 12000, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0 },
+  { id: "lake_opt_geneva", pollId: "lake_poll_destination", label: "Lake Geneva, WI", estCost: 320000, link: "", sortOrder: 0, lodgingEstimate: 320000, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "lake_opt_door", pollId: "lake_poll_destination", label: "Door County, WI", estCost: 380000, link: "", sortOrder: 1, lodgingEstimate: 380000, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "lake_opt_july1", pollId: "lake_poll_dates", label: "July 1–5, 2027", estCost: 0, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "lake_opt_aug", pollId: "lake_poll_dates", label: "August 5–9, 2027", estCost: 0, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "lake_opt_boat", pollId: "lake_poll_activity", label: "Lake boat day", estCost: 51000, link: "", sortOrder: 0, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
+  { id: "lake_opt_icecream", pollId: "lake_poll_activity", label: "Town ice cream night", estCost: 12000, link: "", sortOrder: 1, lodgingEstimate: null, hiddenByOrganizer: 0, perPersonCents: null },
 ] as const;
 
 const lakeVotePairs: [string, string][] = [
@@ -298,7 +270,7 @@ const lakeVotePairs: [string, string][] = [
   ["lake_opt_boat", "user_maya"],
   ["lake_opt_boat", "user_priya"],
   ["lake_opt_boat", "user_helen"],
-  ["lake_opt_golf", "user_noah"],
+  ["lake_opt_icecream", "user_noah"],
 ];
 
 export const lakeVotes = lakeVotePairs.map(([optionId, userId]) => ({ optionId, userId }));

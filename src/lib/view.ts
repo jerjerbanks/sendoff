@@ -89,6 +89,8 @@ export interface PollOptionView {
   countLabel: string | null;
   privateLine: string | null;
   hidden: boolean;
+  /** What each person pays if this option wins, e.g. a green fee. */
+  perPersonCents: number | null;
 }
 
 export interface PollView {
@@ -456,6 +458,7 @@ function buildView(
             countLabel: fit?.countLabel ?? null,
             privateLine: line,
             hidden: option.hidden,
+            perPersonCents: option.perPersonCents,
           };
         });
       return {
@@ -944,10 +947,9 @@ function computeFeasibilityBasis(raw: RawTrip) {
       committedAt: member.committedAt,
       tripHigh: raw.costs.find((cost) => cost.splitType === "individual" && cost.memberId === member.userId)?.highEstimate ?? null,
     }));
-  const order = ["user_chris", "user_sam", "user_jordan", "user_drew", "user_taylor", "user_riley", "user_casey", "user_pat"];
-  const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
+  // Earliest commits first; people who haven't committed fill in after them, in join order.
   const ids = [...people]
-    .sort((a, b) => rank(a.userId) - rank(b.userId) || (a.committedAt ?? "~").localeCompare(b.committedAt ?? "~"))
+    .sort((a, b) => (a.committedAt ?? "~").localeCompare(b.committedAt ?? "~"))
     .slice(0, raw.trip.minHeadcount)
     .map((person) => person.userId);
   if (ids.length < raw.trip.minHeadcount) return null;

@@ -7,6 +7,7 @@ import { ownBudget } from "@/lib/store";
 import { Input, fieldClass } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { ageBandLabel, categoryLabel, splitModeLabel } from "@/lib/labels";
+import { extraPriceLine } from "@/lib/extra-price";
 import { getViewerId } from "@/lib/session";
 import { lodgingBedless, loadMemberView } from "@/lib/view";
 
@@ -214,13 +215,7 @@ export default async function CostsPage({
           </p>
           <ul className="mt-3 grid gap-2">
             {optional.map((cost) => {
-              const prices = cost.agePrices;
-              const priceLine = prices
-                ? (["adult", "teen", "child", "infant"] as const)
-                    .filter((band) => prices[band] != null)
-                    .map((band) => `${ageBandLabel(band)} ${whole(prices[band] ?? 0)}`)
-                    .join(" · ")
-                : `${whole(cost.amountCents)} split among who's in`;
+              const priceLine = extraPriceLine({ amountCents: cost.amountCents, agePrices: cost.agePrices, goingCount: cost.optInTravelerIds.length });
               return (
                 <li key={cost.id} className="ft-panel p-4">
                   <div className="flex items-baseline justify-between gap-3">

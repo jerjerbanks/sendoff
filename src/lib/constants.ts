@@ -2,8 +2,11 @@
  * Infrastructure keeps the old name (Worker, D1 database, URL) so the live link holds. */
 export const APP_NAME = "Field Trip";
 export const ZONE = "America/Chicago";
-export const DEMO_TRIP_ID = "trip_demo";
-export const DEMO_INVITE_TOKEN = "ALEX2027";
+/** The default demo: Scottsdale Golf Weekend (Demo Narratives v1). */
+export const DEMO_TRIP_ID = "trip_golf";
+export const DEMO_INVITE_TOKEN = "GOLF2027";
+/** The retired bachelor demo. Wiped wherever it is still stored; never seeded again. */
+export const RETIRED_DEMO_TRIP_ID = "trip_demo";
 /** Holds a random session token, never a user id. __Host- means: this site only, HTTPS only, whole site. */
 export const SESSION_COOKIE = "__Host-ft_session";
 export const LAKE_TRIP_ID = "trip_lake";

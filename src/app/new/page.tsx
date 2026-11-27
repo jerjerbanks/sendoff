@@ -57,12 +57,12 @@ export default async function NewTripPage({
         </a>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
         <a href="/demo" className="ft-panel flex min-h-14 flex-col justify-center px-4 py-3 font-semibold">
-          Take the 2-minute tour
-          <span className="text-xs font-normal text-muted">7 steps through a sample bachelor party</span>
+          Take the 90-second tour
+          <span className="text-xs font-normal text-muted">A guys’ golf weekend in Scottsdale, start to buy-in</span>
         </a>
       </div>
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
-      <a href="/demo/7" className="ft-link mt-2">
+      <a href="/demo/10" className="ft-link mt-2">
         Or see a family trip: four households, kids, and grandparents
       </a>
       <ol className="mt-8 grid gap-3 md:grid-cols-3">

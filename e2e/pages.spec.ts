@@ -37,7 +37,8 @@ test("/new: Adult or Family, an occasion for Adult only, and guests of honor onl
 
 test("the buy-in says no real money moves before you commit @smoke", async ({ page }) => {
   await freshDemo(page);
-  await tourStep(page, 4);
+  // Chris Delgado's commit screen, before he pays.
+  await tourStep(page, 5);
   await expect(page.getByText(/test mode: no real money moves/i).filter({ visible: true }).first()).toBeVisible();
 });
 

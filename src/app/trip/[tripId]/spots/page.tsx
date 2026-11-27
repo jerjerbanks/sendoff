@@ -356,7 +356,16 @@ function RoomCard({
   const roomPrice = prices ? (view.roomPrices?.[room.name] ?? 0) : null;
   // Before the trip reaches its minimum, an empty room shows the likely share at that minimum; the live price is the "up to".
   const estimate = vacant && !share && !honoree && !heldForOther ? view.roomEstimates[room.name] : undefined;
-  const shown = share && prices ? prices[share.id] : (estimate?.estimate ?? roomPrice);
+  // A held room shows only the beds that are held: yours if you're in it, else its holders'. A bunk
+  // room two parties share must not show both bunks (or its open bunk) as one party's share.
+  const heldSum = (held: (spot: SpotRecord) => boolean) =>
+    prices ? room.spots.filter(held).reduce((sum, spot) => sum + (prices[spot.id] ?? 0), 0) : null;
+  const heldPrice = mine
+    ? heldSum((spot) => holders(spot.id).includes(myParty ?? ""))
+    : !vacant
+      ? heldSum((spot) => holders(spot.id).length > 0)
+      : null;
+  const shown = share && prices ? prices[share.id] : (estimate?.estimate ?? heldPrice ?? roomPrice);
   const features = [
     room.spots.map((spot) => bedName(spot)).join(" + "),
     first?.privateBath ? "private bath" : null,

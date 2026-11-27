@@ -27,7 +27,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
     !!view &&
     (view.status === "buy_in_open" || view.status === "booking_ready") &&
     view.parties.some((party) => party.status === "joined" || party.status === "invited");
-  const runDeadline = step?.n === 5 && deadlinePending;
+  const runDeadline = !!step?.runDeadline && deadlinePending;
   return (
     <>
       <PhoneDemoBar view={view} step={step} total={total} who={who} runDeadline={runDeadline} tripId={tripId} />
@@ -69,7 +69,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
           </>
         ) : (
           <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
+            <p className="text-sm text-muted">This is a sample trip. The tour walks you through it step by step.</p>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /demo/{n} is a redirect that sets cookies; it must be a full navigation */}
             <a href="/demo/1" className="inline-flex h-10 shrink-0 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg">
               Start the tour
@@ -78,7 +78,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
         )}
         {view ? (
           <details className="mt-2">
-            <summary className="ft-summary text-[15px] font-medium text-ink-2">Demo controls · viewing as {view.viewer?.name.split(" ")[0] ?? "nobody"}</summary>
+            <summary className="ft-summary text-[15px] font-medium text-ink-2">Demo controls · viewing as {view.viewer?.name ?? "nobody"}</summary>
             <div className="mt-2 rounded-md border border-line bg-card p-3">
               <DemoControls view={view} />
             </div>
@@ -163,7 +163,7 @@ function PhoneDemoBar({
                 <p className="mt-1 text-sm text-muted">{step.why}</p>
               </div>
             ) : (
-              <p className="text-sm text-muted">This is a sample trip. The tour walks you through it in 7 steps.</p>
+              <p className="text-sm text-muted">This is a sample trip. The tour walks you through it step by step.</p>
             )}
             {view ? <DemoControls view={view} /> : null}
             <Link href="/" className="ft-link justify-self-start text-sm">
