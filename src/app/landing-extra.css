@@ -34,3 +34,18 @@
 .ftl .nav .right .sheet .pill { display: inline-flex; margin-top: 12px; width: 100%; }
 @media (min-width: 1024px) { .ftl .sheet { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ftl .aud { scroll-behavior: auto; } }
+
+/* ---------- v7 landing collage hero (replaces the v5 photo hero) ---------- */
+.ftl .hero.collage {height:auto;overflow:visible;padding-bottom:48px;background:linear-gradient(180deg,var(--theme-wash) 0,var(--bg-canvas) 100%)}
+.ftl .collage-copy {position:relative;z-index:5;max-width:720px;margin:0 auto;padding:24px 20px 0}
+.ftl .collage-copy h1 {font:400 64px/.96 var(--font-display);letter-spacing:-.03em;margin-top:12px;color:var(--fg);text-wrap:balance}
+.ftl .collage-copy h1 em {font-style:italic}
+.ftl .collage-copy .sub {margin-top:14px;max-width:560px;font-size:17px;line-height:1.5;color:var(--fg2)}
+.ftl .collage-copy .ft-tiles {list-style:none;padding:0}
+.ftl .collage-ctas {display:grid;gap:12px;margin-top:20px}
+.ftl .collage-copy .note {text-align:center;color:var(--fg2)}
+[data-theme="dark"] .ftl .hero.collage::after {display:none}
+@media (min-width: 48rem) { .ftl .collage-ctas {grid-template-columns:1fr 1fr} .ftl .collage-copy {padding-top:40px} }
+@media (max-width: 40rem) { .ftl .collage-copy h1 {font-size:46px} }
+.ftl .collage-ctas .ft-btn {color:var(--accent-fg)}
+.ftl .collage-ctas .ft-btn-sec {color:var(--clay-ink)}

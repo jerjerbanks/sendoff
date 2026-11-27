@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 /**
  * v6.1 buttons. Primary is a lake-blue pill with an inner highlight, a 1px ring and a soft
  * shadow (hover deepens to --accent-hover); `joy` is the sun-gold celebration-only variant.
+ * v6.5: `secondary` is transparent with a clay-ink label and 1.5px border and a clay tint on hover,
+ * at the primary's height, radius and lake focus ring.
  * Everything presses to .97 on the micro spring. 52px tall pills.
  */
 const buttonVariants = cva(
@@ -15,7 +17,7 @@ const buttonVariants = cva(
       variant: {
         default: "ft-btn justify-center",
         joy: "ft-btn joy justify-center",
-        secondary: "ft-btn2 w-full",
+        secondary: "ft-btn-sec ft-btn-sec-full",
         outline: "ft-btn2",
         ghost: "min-h-12 px-3 text-[15px] font-medium text-ink-2 hover:bg-chip",
         destructive:

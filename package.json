@@ -19,7 +19,7 @@
     "build:vinext": "vite build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
     "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
-    "build:staging": "CLOUDFLARE_ENV=staging vite build",
+    "build:staging": "CLOUDFLARE_ENV=staging NEXT_PUBLIC_FT_VIBE_STEP=1 vite build",
     "deploy:staging": "npm run build:staging && wrangler deploy --config dist/server/wrangler.json",
     "db:migrate:staging": "wrangler d1 migrations apply sendoff-staging --env staging --remote",
     "db:migrate:list": "wrangler d1 migrations list sendoff --remote",

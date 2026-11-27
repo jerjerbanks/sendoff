@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Input, fieldClass } from "@/components/ui/input";
 import { SUB_TYPES, isWeddingSubType } from "@/lib/trip-kind";
+import { VibeStep } from "@/components/vibe-step";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 /**
  * Adult or Family, a sub-type for either, and guests of honor only for the wedding sub-types.
@@ -12,6 +14,7 @@ import { SUB_TYPES, isWeddingSubType } from "@/lib/trip-kind";
  */
 export function TripKindFields({ children }: { children?: React.ReactNode }) {
   const [subType, setSubType] = useState<string>("none");
+  const [kind, setKind] = useState<string>("adult");
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const wedding = isWeddingSubType(subType);
@@ -22,11 +25,11 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
         <legend className="font-medium">What kind of trip</legend>
         <div className="grid grid-cols-2 gap-2">
           <label className={option}>
-            <input type="radio" name="tripKind" value="adult" defaultChecked />
+            <input type="radio" name="tripKind" value="adult" defaultChecked onChange={() => setKind("adult")} />
             Adult
           </label>
           <label className={option}>
-            <input type="radio" name="tripKind" value="family" />
+            <input type="radio" name="tripKind" value="family" onChange={() => setKind("family")} />
             Family
           </label>
         </div>
@@ -41,6 +44,7 @@ export function TripKindFields({ children }: { children?: React.ReactNode }) {
           </select>
         </label>
       </fieldset>
+      {VIBE_STEP_ON ? <VibeStep kind={kind} subType={subType} /> : null}
       {children}
       <fieldset className="ft-honorees grid gap-3" disabled={hydrated && !wedding} hidden={hydrated && !wedding}>
         <legend className="text-sm font-medium">Guests of honor (optional — leave blank for none)</legend>

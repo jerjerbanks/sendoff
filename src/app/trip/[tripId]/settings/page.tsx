@@ -14,6 +14,9 @@ import { money } from "@/lib/format";
 import { ageBandHint, ageBandLabel, splitModeHint, splitModeLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
+import { ThemeIcon } from "@/components/theme-icon";
+import { THEME_INFO, TRIP_THEMES, themeForTrip } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 const modes = ["weighted_by_spot", "even_per_traveler", "even_per_party"] as const;
 
@@ -227,6 +230,29 @@ export default async function SettingsPage({
           <p className="text-sm">Bed changes are {view.bedChangePolicy === "locked" ? "locked to the organizer" : "requested, then approved"}.</p>
         )}
       </section>
+
+      {VIBE_STEP_ON && view.isOrganizer ? (
+        // v7 organizer theme override: UI only. No existing field stores a theme, so it stays
+        // disabled until a trip.theme column is approved (follow-up).
+        <section className="grid gap-3 ft-panel p-4">
+          <h3 className="ft-h2">Trip look</h3>
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <ThemeIcon theme={themeForTrip(view)} className="ft-theme-ink" />
+            Now: {THEME_INFO[themeForTrip(view)].name}, picked from the trip&apos;s name and type.
+          </p>
+          <fieldset disabled className="grid gap-2">
+            <legend className="sr-only">Pick a look</legend>
+            <select className="min-h-12 rounded-lg border border-ctl bg-card px-3 text-[16px] text-ink-2" defaultValue={themeForTrip(view)} aria-label="Trip look">
+              {TRIP_THEMES.map((theme) => (
+                <option key={theme} value={theme}>
+                  {THEME_INFO[theme].vibeLabel}
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-muted">Coming soon</p>
+          </fieldset>
+        </section>
+      ) : null}
 
       {view.isOrganizer && isDemoTrip(view.id) ? (
         <form action={simulateDeadlineAction} className="ft-panel p-4">

@@ -52,10 +52,12 @@ export default async function CostsPage({
 
       {bill ? (
         <section>
+          {/* v6.5 money card: the clay tint, ink text. */}
+          <div className="ft-money-card">
           <p className="ft-lbl">
             {party?.name} · {party?.travelers.length} {party?.travelers.length === 1 ? "person" : "people"} · if {view.payerCount} {view.payerCount === 1 ? "party goes" : "parties go"}
           </p>
-          <div className="ft-glow -mx-5 mt-1 px-5 py-1">
+          <div className="mt-1 py-1">
             <p className="ft-money text-[76px]">{whole(bill.totalCents)}</p>
           </div>
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -72,6 +74,7 @@ export default async function CostsPage({
             )}
             <span className="ft-meta">{fits != null ? "Only you see your budget" : preview ? "If you commit now" : `What ${many ? "your party pays" : "you pay"} in all`}</span>
           </p>
+          </div>
 
           <div className="ft-panel mt-6">
             <div className="ft-panel-h">
@@ -242,7 +245,7 @@ export default async function CostsPage({
                     <input type="hidden" name="tripId" value={view.id} />
                     <input type="hidden" name="userId" value={viewer?.userId} />
                     <input type="hidden" name="costId" value={cost.id} />
-                    <button type="submit" className="text-xs font-semibold text-muted underline">
+                    <button type="submit" className="inline-flex min-h-11 min-w-11 items-center justify-end text-xs font-semibold text-muted underline">
                       Remove
                     </button>
                   </form>

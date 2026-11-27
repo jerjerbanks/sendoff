@@ -252,7 +252,7 @@ export function ForecastSlider({
         }}
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={`Share by party count, from ${dollars(rows[0].totalCents)} to ${dollars(rows[rows.length - 1].totalCents)}`}>
-          <path d={area} fill="var(--lake)" opacity="0.06" />
+          <path d={area} fill="var(--theme-meter)" opacity="0.08" />
           {drawBudget && budgetCents != null ? (
             <g>
               <line x1={padX - 8} x2={W - padX + 8} y1={y(budgetCents)} y2={y(budgetCents)} stroke="var(--error)" strokeWidth="1" strokeDasharray="4 4" />
@@ -261,10 +261,10 @@ export function ForecastSlider({
               </text>
             </g>
           ) : null}
-          <path d={line} fill="none" stroke="var(--lake)" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d={line} fill="none" stroke="var(--theme-meter)" strokeWidth="1.5" strokeLinejoin="round" />
           <line ref={guide} x1={x(startIndex)} x2={x(startIndex)} y1={y(rows[startIndex]?.totalCents ?? 0)} y2={H - bottom} stroke="var(--accent)" strokeWidth="1" strokeDasharray="2 3" />
           {rows.map((item, i) => (
-            <rect key={item.payers} x={x(i) - 3.5} y={y(item.totalCents) - 3.5} width="7" height="7" fill="var(--lake)" stroke="var(--bg-surface)" strokeWidth="1" />
+            <rect key={item.payers} x={x(i) - 3.5} y={y(item.totalCents) - 3.5} width="7" height="7" fill="var(--theme-meter)" stroke="var(--bg-surface)" strokeWidth="1" />
           ))}
           <circle
             ref={dot}

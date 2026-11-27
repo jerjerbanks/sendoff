@@ -1,4 +1,5 @@
 @import "../styles/tokens.css";
+@import "../styles/themes.css";
 @import "tailwindcss";
 
 /*
@@ -44,6 +45,15 @@
   --color-warn-soft: var(--tint-sun);
   --color-bad: var(--error);
   --color-bad-soft: color-mix(in srgb, var(--error) 9%, var(--bg-surface));
+  /* v6.5 clay: fills use clay, text uses clay-ink. Never use the clay fill colour for text. */
+  --color-clay: var(--clay);
+  --color-clay-ink: var(--clay-ink);
+  --color-clay-tint: var(--clay-tint);
+  /* v7 trip theme (src/styles/themes.css) */
+  --color-theme-wash: var(--theme-wash);
+  --color-theme-tint: var(--theme-tint);
+  --color-theme-ink: var(--theme-ink);
+  --color-theme-meter: var(--theme-meter);
 
   /* Radii: 4 chips/cells, 8 controls, 12 panels. No pills. */
   --radius-sm: var(--r-xs);
@@ -278,7 +288,7 @@ body {
   .ft-chip.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-tint); }
   .ft-chip.pine { border-color: color-mix(in srgb, var(--pine) 40%, transparent); color: var(--pine); background: var(--tint-pine); }
   .ft-chip.sun { border-color: color-mix(in srgb, var(--joy-meter) 45%, transparent); color: var(--joy-ink); background: var(--joy-tint); }
-  .ft-chip.lake { border-color: color-mix(in srgb, var(--lake) 35%, transparent); color: var(--lake); background: var(--tint-lake); }
+  .ft-chip.lake { border-color: color-mix(in srgb, var(--lake) 35%, transparent); color: var(--lake); background: color-mix(in srgb, var(--lake) 10%, var(--bg-surface)); }
   .ft-chip.bad { border-color: color-mix(in srgb, var(--error) 40%, transparent); color: var(--error); background: var(--color-bad-soft); }
   .ft-chip.warn { border-color: color-mix(in srgb, var(--warning) 40%, transparent); color: var(--warning); background: var(--tint-sun); }
   .ft-kbd {
@@ -309,7 +319,7 @@ body {
   .ft-seg > * {
     display: grid;
     place-items: center;
-    min-height: 42px;
+    min-height: 44px;
     border-radius: 6px;
     font: 500 15px var(--font-ui);
     color: var(--ink-2);
@@ -354,6 +364,8 @@ body {
   }
   .ft-dotgrid { background: var(--dot-grid), var(--bg-surface); }
   .ft-glow { background: var(--glow-accent); }
+  .ft-money-card { padding: 20px 20px 18px; border-radius: var(--r-lg); background: var(--tint-lake); color: var(--ink-1); }
+  .ft-money-card .ft-meta, .ft-money-card .ft-lbl { color: var(--ink-2); }
 
   /* ---------- rows ---------- */
   .ft-kv {
@@ -432,6 +444,28 @@ body {
     transition: transform var(--dur-micro) var(--spring-micro);
   }
   .ft-btn2:active:not(:disabled) { transform: scale(0.97); }
+  /* v6.5 secondary: transparent, clay-ink label and 1.5px border, clay tint on hover. Same height,
+     radius and lake focus ring as the primary. */
+  .ft-btn-sec {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2);
+    min-height: var(--btn-h);
+    padding: 0 var(--s-6);
+    border: 1.5px solid var(--clay-ink);
+    border-radius: var(--r-pill);
+    background: transparent;
+    font: 600 16px var(--font-ui);
+    letter-spacing: -0.01em;
+    color: var(--clay-ink);
+    text-decoration: none;
+    transition: transform var(--dur-micro) var(--spring-micro), background-color var(--dur-fade) var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (hover: hover) { .ft-btn-sec:not(:disabled):hover { background: var(--clay-tint); } }
+  .ft-btn-sec:active:not(:disabled) { transform: scale(0.97); }
+  .ft-btn-sec.ft-btn-sec-full { display: flex; width: 100%; }
   .ft-link {
     display: inline-flex;
     align-items: center;
@@ -587,15 +621,15 @@ body {
   /* ---------- v6 spot illustrations: transparent, no box ---------- */
   .ft-spot { display: block; width: 220px; max-width: 70%; height: auto; margin: 0 auto; }
 
-  /* ---------- v6.1 progress trail: sun-gold is progress ---------- */
+  /* ---------- v6.5 progress trail: clay is "where we are" ---------- */
   .ft-trail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .ft-trail li { display: grid; gap: 6px; }
   .ft-trail i { display: block; height: 10px; border-radius: var(--r-pill); background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
-  .ft-trail .done i { background: var(--joy-meter); box-shadow: none; }
-  .ft-trail .now i { background: var(--joy-tint); box-shadow: inset 0 0 0 2px var(--joy-meter); }
+  .ft-trail .done i { background: var(--clay); box-shadow: none; }
+  .ft-trail .now i { background: var(--clay-tint); box-shadow: inset 0 0 0 2px var(--clay); }
   .ft-trail span { font: 500 14px var(--font-ui); color: var(--ink-3); }
   .ft-trail .done span { color: var(--ink-2); }
-  .ft-trail .now span { color: var(--joy-ink); font-weight: 600; }
+  .ft-trail .now span { color: var(--clay-ink); font-weight: 600; }
 
   /* ---------- v6 tinted notice cards: sun for notices, pine for "fits", lake for money ---------- */
   .ft-notice { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; background: var(--tint-sun); color: var(--ink-2); font-size: 15px; line-height: 1.45; }
@@ -627,7 +661,7 @@ body {
   /* ---------- vote bars: 10 segments ---------- */
   .ft-vbar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 4px; }
   .ft-vbar > i { border-radius: 1px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
-  .ft-vbar > i.on { background: var(--lake-60); box-shadow: none; }
+  .ft-vbar > i.on { background: var(--theme-meter); box-shadow: none; }
   .ft-vbar.mine > i.on { background: var(--accent); }
 
   /* ---------- toast ---------- */
@@ -749,4 +783,31 @@ body {
 /* Start a trip: guests of honor show only for a wedding sub-type. Works before hydration and without JS. */
 form:has(select[name="subType"] option[value="none"]:checked) .ft-honorees {
   display: none;
+}
+
+/* ---------- v7 trip-type theme surfaces (tokens in src/styles/themes.css) ---------- */
+@layer components {
+  /* The theme wash behind the header, fading into the page. The header ridge takes the wash. */
+  .ft-theme-band { background: linear-gradient(180deg, var(--theme-wash) 240px, var(--bg-canvas) 760px); }
+  .ft-theme-band .ft-ridge { color: var(--theme-wash); }
+  .ft-chip.ft-chip-theme { border-color: transparent; background: var(--theme-tint); color: var(--theme-ink); font-family: var(--font-ui); border-radius: var(--r-pill); min-height: 32px; padding: 0 12px; }
+  .ft-chip.ft-chip-theme svg { width: 16px; height: 16px; flex: none; }
+  .ft-card-theme { border-radius: var(--r-lg); background-color: var(--theme-wash); background-image: var(--theme-pattern); background-size: 40px 40px; box-shadow: 0 0 0 1px var(--line); }
+  .ft-theme-ink { color: var(--theme-ink); }
+  .ft-notice.ft-notice-theme { background: var(--theme-tint); color: var(--ink-2); }
+  .ft-notice.ft-notice-theme::before { display: none; }
+  .ft-notice.ft-notice-theme svg { flex: none; width: 20px; height: 20px; color: var(--theme-ink); }
+  .ft-theme-icon { display: inline-block; width: 24px; height: 24px; flex: none; }
+
+  /* Landing collage and the vibe picker: scene tiles with a theme chip. */
+  .ft-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ft-tile { position: relative; display: block; overflow: hidden; height: 118px; border-radius: 16px; background: var(--bg-sunken) center / cover no-repeat; box-shadow: var(--elev-card); }
+  .ft-tile .ft-chip, .ft-vibe .ft-chip-theme { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; }
+  @media (min-width: 48rem) { .ft-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ft-tile { height: 150px; } }
+  .ft-vibe { position: relative; display: block; min-height: 118px; border-radius: 16px; cursor: pointer; }
+  .ft-vibe input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .ft-vibe .ft-tile { height: 118px; }
+  .ft-vibe:has(input:checked) .ft-tile { box-shadow: 0 0 0 3px var(--accent), var(--elev-card); }
+  .ft-vibe:has(input:focus-visible) .ft-tile { box-shadow: var(--ring-focus), var(--elev-card); }
+  .ft-vibe .tag { position: absolute; right: 8px; top: 8px; }
 }

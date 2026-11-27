@@ -1,5 +1,7 @@
 import { Wordmark } from "@/components/wordmark";
 import { SceneHeader } from "@/components/scene";
+import { sceneForPage } from "@/lib/scenes";
+import { themeForTrip } from "@/lib/trip-theme";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -70,7 +72,7 @@ export default async function JoinPage({
       {view ? (
         <>
           <div className="-mx-5 mt-4">
-            <SceneHeader scene="campfire" size="sm" />
+            <SceneHeader scene={sceneForPage("join", themeForTrip(view))} size="sm" />
           </div>
           <p className="ft-lbl accent mt-2">Invitation · from {view.organizerName}</p>
           <h1 className="ft-display mt-3">
