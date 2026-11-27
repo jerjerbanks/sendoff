@@ -781,7 +781,9 @@ body {
 }
 
 /* Start a trip: guests of honor show only for a wedding sub-type. Works before hydration and without JS. */
-form:has(select[name="subType"] option[value="none"]:checked) .ft-honorees {
+form:has(select[name="subType"] option[value="none"]:checked) .ft-honorees,
+form:has(input[name="tripKind"][value="family"]:checked) .ft-honorees,
+form:has(input[name="tripKind"][value="family"]:checked) .ft-occasion {
   display: none;
 }
 
