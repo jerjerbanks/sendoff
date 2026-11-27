@@ -1,8 +1,9 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { usePathname } from "next/navigation";
-import { sceneSrc, type Scene } from "@/lib/scene";
+import type { CSSProperties, ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { NIGHT_SCENE, sceneForPage, sceneUrl, type SceneName } from "@/lib/scenes";
+import { activeTripTheme, type TripTheme } from "@/lib/trip-theme";
 
 /**
  * v6 illustration layer. Everything here is decorative and presentational: it reads
@@ -28,11 +29,10 @@ export function Ridge({ className = "" }: { className?: string }) {
 
 /**
  * Illustrated header. The scene is a CSS background so only the current theme's image
- * downloads (day in light, the night twin in dark). Decorative, so it has no alt text.
+ * downloads (day in light, lake-night in dark). Decorative, so it has no alt text.
  */
-export function SceneHeader({ scene, size = "lg" }: { scene: Scene; size?: "lg" | "sm" }) {
-  const src = sceneSrc(scene);
-  const style = { "--scene-day": `url(${src.day})`, "--scene-night": `url(${src.night})` } as CSSProperties;
+export function SceneHeader({ scene, size = "lg" }: { scene: SceneName; size?: "lg" | "sm" }) {
+  const style = { "--scene-day": `url(${sceneUrl(scene)})`, "--scene-night": `url(${sceneUrl(NIGHT_SCENE)})` } as CSSProperties;
   return (
     <div className={`ft-scene ${size}`} style={style} aria-hidden>
       <Ridge />
@@ -40,12 +40,33 @@ export function SceneHeader({ scene, size = "lg" }: { scene: Scene; size?: "lg" 
   );
 }
 
-/** Trip shell header: big on trip home, short on Vote / Costs / Commit, hidden on tool screens. */
-export function TripScene({ tripId, scene }: { tripId: string; scene: Scene }) {
+/** The derived theme, or the staging-only ?ft-theme= preview when the flag is on. */
+export function useTripTheme(derived: TripTheme, flagOn: boolean): TripTheme {
+  const params = useSearchParams();
+  return activeTripTheme(derived, flagOn ? params?.get("ft-theme") : null, flagOn);
+}
+
+/**
+ * v7: sets data-trip-theme on the trip shell's wrapper (never <html>, so it doesn't fight the
+ * light/dark data-theme script). The theme is derived on the server from data the page already
+ * loaded; this only applies the staging QA override.
+ */
+export function TripThemeRoot({ derived, flagOn, className, children }: { derived: TripTheme; flagOn: boolean; className?: string; children: ReactNode }) {
+  const theme = useTripTheme(derived, flagOn);
+  return (
+    <div data-trip-theme={theme} className={className}>
+      {children}
+    </div>
+  );
+}
+
+/** Trip shell header: big on trip home, short on Vote / Costs / Commit, hidden on tool screens. Scene from the v6.5 page map + theme. */
+export function TripScene({ tripId, theme: derived, flagOn }: { tripId: string; theme: TripTheme; flagOn: boolean }) {
   const pathname = usePathname();
+  const theme = useTripTheme(derived, flagOn);
   const base = `/trip/${tripId}`;
   const segment = pathname.startsWith(base) ? (pathname.slice(base.length).split("/")[1] ?? "") : "";
-  if (segment === "") return <SceneHeader scene={scene} size="lg" />;
-  if (segment === "vote" || segment === "costs" || segment === "pay") return <SceneHeader scene={scene} size="sm" />;
+  if (segment === "") return <SceneHeader scene={sceneForPage("home", theme)} size="lg" />;
+  if (segment === "vote" || segment === "costs" || segment === "pay") return <SceneHeader scene={sceneForPage(segment, theme)} size="sm" />;
   return null;
 }
