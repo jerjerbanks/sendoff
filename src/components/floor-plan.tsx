@@ -203,7 +203,7 @@ function Level({
         </g>
         {water ? (
           <g aria-hidden transform={`translate(0, ${top + H + 2 + (entry !== null ? ENTRY : 0)})`}>
-            <rect x="0" y="0" width={W} height={WATER - 2} style={{ fill: "var(--tint-lake)" }} />
+            <rect x="0" y="0" width={W} height={WATER - 2} style={{ fill: "color-mix(in srgb, var(--lake) 12%, var(--bg-surface))" }} />
             <line x1="0" x2={W} y1="0" y2="0" strokeWidth="1" style={{ stroke: "var(--lake)" }} />
             <path d={`M6 ${WATER / 2} ${"q8 -3 16 0 ".repeat(1)}${"t16 0 ".repeat(20)}`} strokeWidth="0.75" style={{ fill: "none", stroke: "var(--lake-60)" }} />
           </g>

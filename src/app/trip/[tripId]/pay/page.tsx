@@ -9,18 +9,21 @@ import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { paymentStatusLabel } from "@/lib/labels";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
+import { activeTripTheme, THEME_INFO, themeForTrip } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 export default async function PayPage({
   params,
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string; opened?: string }>;
+  searchParams: Promise<{ error?: string; opened?: string; "ft-theme"?: string }>;
 }) {
   const { tripId } = await params;
-  const { error, opened } = await searchParams;
+  const { error, opened, "ft-theme": themePreview } = await searchParams;
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
+  const theme = activeTripTheme(themeForTrip(view), themePreview, VIBE_STEP_ON);
   const viewer = view.viewer;
   const buyIn = view.milestones.find((milestone) => milestone.kind === "buy_in");
   const owed = viewer?.isPayer ? viewer.lines.filter((line) => line.canPay) : [];
@@ -63,6 +66,7 @@ export default async function PayPage({
             <br />
             <i>the group chat.</i>
           </h2>
+          <p className="ft-lead mt-2 ft-theme-ink">{THEME_INFO[theme].done}</p>
         </section>
       ) : null}
 
@@ -179,9 +183,9 @@ export default async function PayPage({
                 </dd>
               </div>
             </dl>
-            <details className="mt-1">
-              <summary className="ft-summary text-[15px] font-medium text-ink-2">How refunds work</summary>
-              <ul className="ft-meta grid gap-2 pb-2">
+            <details className="mt-3">
+              <summary className="ft-btn-sec ft-btn-sec-full cursor-pointer list-none [&::-webkit-details-marker]:hidden">How refunds work</summary>
+              <ul className="ft-meta mt-3 grid gap-2 pb-2">
                 <li>You get it back if the group misses the minimum of {view.minPayerCount} paying parties, or the organizer cancels before booking.</li>
                 <li>A drop after booking pays down everyone else&apos;s lodging first.</li>
                 <li>Miss the deadline and your party is off the trip, with no way back.</li>

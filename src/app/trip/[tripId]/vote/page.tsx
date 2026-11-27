@@ -8,18 +8,22 @@ import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
 import { optionScenes, sceneSrc } from "@/lib/scene";
+import { ThemeIcon } from "@/components/theme-icon";
+import { activeTripTheme, THEME_INFO, themeForTrip } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 export default async function VotePage({
   params,
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string; q?: string }>;
+  searchParams: Promise<{ error?: string; q?: string; "ft-theme"?: string }>;
 }) {
   const { tripId } = await params;
-  const { error, q } = await searchParams;
+  const { error, q, "ft-theme": themePreview } = await searchParams;
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
+  const theme = activeTripTheme(themeForTrip(view), themePreview, VIBE_STEP_ON);
   const viewer = view.viewer;
   const canVote = !!viewer && viewer.status !== "off_trip" && viewer.status !== "invited" && !view.cancelled;
 
@@ -72,11 +76,16 @@ export default async function VotePage({
               ) : null}
             </p>
             {anyBadge ? <p className="ft-meta mt-2">Your budget stays private. Tags only say whether an option fits the group.</p> : null}
+            {/* v7 theme notice: flavour line only, in the trip theme's tint with its icon. */}
+            <p className="ft-notice ft-notice-theme mt-4">
+              <ThemeIcon theme={theme} />
+              <span>{THEME_INFO[theme].note}</span>
+            </p>
             <ul className="ft-rule mt-5">
               {visible.length === 0 ? (
                 <li className="py-6 text-center">
                   <Spot name="empty-tent" className="w-[180px]" />
-                  <p className="ft-h2 mt-3">No options yet.</p>
+                  <p className="ft-h2 mt-3">{poll.kind === "destination" ? THEME_INFO[theme].empty : "No options yet."}</p>
                   <p className="ft-meta mt-1.5">
                     {view.isOrganizer
                       ? `Add ${poll.kind === "destination" ? "two or three places" : poll.kind === "dates" ? "two or three date ranges" : "a few things to do"} below. Your group taps every one they'd do.`

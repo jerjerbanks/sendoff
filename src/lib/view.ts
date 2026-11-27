@@ -1,3 +1,4 @@
+import type { TripTheme } from "./trip-theme";
 import { cache } from "react";
 import { money } from "./format";
 import { DEMO_TRIP_ID } from "./constants";
@@ -224,6 +225,8 @@ export interface TripView {
   pendingApprovals: number;
   /** New people wait for the organizer before they're on the trip. */
   approveJoiners: boolean;
+  /** The organizer's chosen look (migration 0014); null = derived from type, name and options. */
+  storedTheme: TripTheme | null;
   /** People waiting for the organizer to let them in. Always 0 for anyone but the organizer. */
   joinersWaiting: number;
   /** Locked destination, else the leading option, else the trip name. */
@@ -642,6 +645,7 @@ function buildView(
     viewerHasBudget: !!viewerPartyId && budgets.some((budget) => budget.userId === viewerPartyId),
     pendingApprovals: 0,
     approveJoiners: raw.trip.approveJoiners,
+    storedTheme: raw.trip.theme,
     joinersWaiting: 0,
     place: (() => {
       const destination = polls.find((poll) => poll.kind === "destination");

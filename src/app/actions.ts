@@ -12,11 +12,14 @@ import { isContact } from "@/lib/tokens";
 import { parseTripKind } from "@/lib/trip-kind";
 import { withinLimit } from "@/lib/limit-check";
 import { passesTurnstile } from "@/lib/turnstile";
+import { isTripTheme, type TripTheme } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 import {
   deleteTrip,
   leaveTrip,
   decideJoinRequest,
   setApproveJoiners,
+  setTripTheme,
   addCost,
   addPollOption,
   cancelTrip,
@@ -159,6 +162,8 @@ export async function createTripAction(formData: FormData) {
     honorees,
     dateWindow,
     organizerUserId: self && viewer ? viewer.userId : undefined,
+    // "What's the vibe?" is a staging-only step; live ignores the field. Unknown values are dropped.
+    theme: VIBE_STEP_ON && isTripTheme(text(formData, "vibe")) ? (text(formData, "vibe") as TripTheme) : null,
   });
   if (!self) await startSession(created.organizerId);
   redirect(`/trip/${created.tripId}/party?welcome=1`);
@@ -555,6 +560,15 @@ export async function decideJoinAction(formData: FormData) {
 export async function approveJoinersAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   done(tripId, await setApproveJoiners(tripId, await me(), text(formData, "on") === "yes"), `/trip/${tripId}/joiners`);
+}
+
+/** Organizer setting: the trip's look, or "auto" to derive it from the type, name and options again. */
+export async function tripThemeAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  if (!VIBE_STEP_ON) fail(`/trip/${tripId}/settings`, "Trip look isn't available yet.");
+  const value = text(formData, "theme");
+  if (value !== "auto" && !isTripTheme(value)) fail(`/trip/${tripId}/settings`, "Pick a look from the list.");
+  done(tripId, await setTripTheme(tripId, await me(), isTripTheme(value) ? value : null), `/trip/${tripId}/settings`);
 }
 
 export async function bedPolicyAction(formData: FormData) {

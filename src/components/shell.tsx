@@ -4,8 +4,10 @@ import { DemoBanner } from "@/components/demo-panel";
 import { Identify } from "@/components/identify";
 import { TripNav, TripSidebar } from "@/components/nav";
 import { TopBar } from "@/components/top-bar";
-import { TripScene } from "@/components/scene";
-import { sceneFor, sceneSrc } from "@/lib/scene";
+import { TripScene, TripThemeRoot } from "@/components/scene";
+import { sceneForPage, sceneUrl } from "@/lib/scenes";
+import { themeForTrip } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 import { Wordmark } from "@/components/wordmark";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { tripStatusLabel } from "@/lib/labels";
@@ -42,9 +44,10 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
           "invite",
           await requestOrigin(),
         );
-  const scene = sceneFor(view.name, view.place);
+  // v7: the trip's theme, derived from what this member's page already loaded. Nothing stored.
+  const theme = themeForTrip(view);
   return (
-    <div className="min-h-dvh lg:pl-[264px]">
+    <TripThemeRoot derived={theme} flagOn={VIBE_STEP_ON} className="ft-theme-band min-h-dvh lg:pl-[264px]">
       <TripSidebar
         tripId={view.id}
         tripName={view.name}
@@ -52,12 +55,12 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
         isOrganizer={view.isOrganizer}
         meta={status}
         wordmark={<Wordmark />}
-        thumb={sceneSrc(scene).day}
+        thumb={sceneUrl(sceneForPage("home", theme))}
       />
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
         {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} /> : null}
         <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} isOrganizer={view.isOrganizer} share={share} />
-        <TripScene tripId={view.id} scene={scene} />
+        <TripScene tripId={view.id} theme={theme} flagOn={VIBE_STEP_ON} />
         {demo ? (
           <Identify
             tripId={view.id}
@@ -77,7 +80,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
         </main>
       </div>
       <TripNav tripId={view.id} payLabel={payLabel} />
-    </div>
+    </TripThemeRoot>
   );
 }
 

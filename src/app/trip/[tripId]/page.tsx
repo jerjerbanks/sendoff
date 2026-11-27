@@ -9,6 +9,9 @@ import { meterCells, meterSub, tripMeter } from "@/lib/meter";
 import type { JourneyStep, NextStep } from "@/lib/next-step";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView, type PartyView, type TripView } from "@/lib/view";
+import { ThemeIcon } from "@/components/theme-icon";
+import { activeTripTheme, themeChipLabel, themeForTrip, type TripTheme } from "@/lib/trip-theme";
+import { VIBE_STEP_ON } from "@/lib/vibe-flag";
 
 /** S3, rebuilt around one question: what should I do next? Everything else is one tap away. */
 export default async function DashboardPage({
@@ -16,12 +19,13 @@ export default async function DashboardPage({
   searchParams,
 }: {
   params: Promise<{ tripId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; "ft-theme"?: string }>;
 }) {
   const { tripId } = await params;
-  const { error } = await searchParams;
+  const { error, "ft-theme": themePreview } = await searchParams;
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
+  const theme = activeTripTheme(themeForTrip(view), themePreview, VIBE_STEP_ON);
   const origin = await requestOrigin();
 
   return (
@@ -31,7 +35,7 @@ export default async function DashboardPage({
         <TripTrail view={view} />
         {/* TODO(map): the v4 pack opens Plan with a lake map. Deferred (Jeremy, Nov 24): trips have no
             coordinates yet, so there is no map slot here. No tiles, no map API until that's decided. */}
-        <Hero view={view} />
+        <Hero view={view} theme={theme} />
         {view.journey.some((step) => step.state === "current" || step.state === "todo") ? <Journey tripId={view.id} steps={view.journey} /> : null}
       </div>
       {/* The meter comes before the next step, as in 01-trip-home: count first, then the ask. */}
@@ -39,7 +43,7 @@ export default async function DashboardPage({
         <WhoCard view={view} />
         <NextStepCard tripId={view.id} step={view.nextStep} />
       </div>
-      <PlanCard view={view} />
+      <PlanCard view={view} theme={theme} />
       {view.isOrganizer ? <OrganizerCard view={view} /> : null}
       {!view.cancelled && !view.lockedIn ? (
         <section id="invite" className="ft-panel scroll-mt-20">
@@ -75,7 +79,7 @@ export default async function DashboardPage({
 }
 
 /** The invitation: who's asking, where, and the three numbers that matter, as mono kv rows. */
-function Hero({ view }: { view: TripView }) {
+function Hero({ view, theme }: { view: TripView; theme: TripTheme }) {
   const dates = view.polls.find((poll) => poll.kind === "dates");
   const when = dates?.lockedLabel ?? dates?.options.filter((option) => option.votes > 0).sort((a, b) => b.votes - a.votes)[0]?.label ?? null;
   const decided = !!view.polls.find((poll) => poll.kind === "destination")?.lockedLabel;
@@ -95,6 +99,12 @@ function Hero({ view }: { view: TripView }) {
         <br />
         <i>{decided || leading ? `${place}${decided ? "." : "?"}` : "Where to?"}</i>
       </h1>
+      <p className="mt-4">
+        <span className="ft-chip ft-chip-theme">
+          <ThemeIcon theme={theme} size={16} />
+          {themeChipLabel(theme, view)}
+        </span>
+      </p>
       <dl className="ft-rule mt-6">
         <div className="ft-kv">
           <dt>Dates</dt>
@@ -111,7 +121,7 @@ function Hero({ view }: { view: TripView }) {
           <div className="ft-kv">
             <dt>Your share</dt>
             <dd className="flex items-baseline justify-between gap-3">
-              <Link href={`/trip/${view.id}/costs`} className="ft-mono text-[22px] font-semibold text-accent-ink underline decoration-1 underline-offset-4">
+              <Link href={`/trip/${view.id}/costs`} className="ft-mono inline-flex min-h-11 items-center text-[22px] font-semibold text-accent-ink underline decoration-1 underline-offset-4">
                 {money(share).replace(/\.00$/, "")}
               </Link>
               {party ? (
@@ -303,18 +313,24 @@ function WhoCard({ view }: { view: TripView }) {
   );
 }
 
-function PlanCard({ view }: { view: TripView }) {
+function PlanCard({ view, theme }: { view: TripView; theme: TripTheme }) {
   const open = view.polls.some((poll) => !poll.lockedLabel && !poll.closed);
   return (
     <section>
       <h2 className="ft-sec">
         <span className="ix">§2</span>
         <span className="ft-h2 flex-1">The plan</span>
-        <Link href={`/trip/${view.id}/vote`} className="ft-link min-h-0">
+        <Link href={`/trip/${view.id}/vote`} className="ft-link min-w-11 justify-center">
           {open ? "Vote" : "Polls"}
         </Link>
       </h2>
-      <dl className="mt-2">
+      {/* v7: the plan card takes the trip theme's wash, pattern and ink. */}
+      <div className="ft-card-theme mt-3 px-4 pt-3 pb-1">
+        <p className="flex items-center justify-between gap-3">
+          <span className="ft-lbl ft-theme-ink">Where things stand</span>
+          <ThemeIcon theme={theme} className="ft-theme-ink" />
+        </p>
+      <dl className="mt-1">
         {view.polls.map((poll) => {
           const leader = poll.options.filter((option) => !option.hidden).slice().sort((a, b) => b.votes - a.votes)[0];
           return (
@@ -333,6 +349,7 @@ function PlanCard({ view }: { view: TripView }) {
           );
         })}
       </dl>
+      </div>
     </section>
   );
 }

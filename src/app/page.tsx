@@ -9,7 +9,10 @@ import { versionLine } from "@/lib/build-info";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
 import { getViewer } from "@/lib/session";
 import { requestOrigin } from "@/lib/origin";
-import { HERO_ART, LOWER } from "./landing-content";
+import { LOWER } from "./landing-content";
+import { ThemeIcon } from "@/components/theme-icon";
+import { sceneUrl, themeTileScene } from "@/lib/scenes";
+import { THEME_INFO, TRIP_THEMES } from "@/lib/trip-theme";
 import "./landing.css";
 import "./landing-extra.css";
 
@@ -23,7 +26,6 @@ const WORDMARK_HTML = words.length ? `${escapeHtml(words.join(" "))} <i>${escape
 
 // Filled once per isolate, not per request: the landing page is two static strings.
 const fill = (markup: string) => markup.replaceAll("%%WM%%", WORDMARK_HTML).replaceAll("%%APP%%", escapeHtml(APP_NAME)).replaceAll("%%VERSION%%", escapeHtml(versionLine()));
-const HERO_HTML = fill(HERO_ART);
 const LOWER_HTML = fill(LOWER);
 
 const TITLE = `${APP_NAME} — Get the trip out of the group chat`;
@@ -60,9 +62,8 @@ export default async function LandingPage() {
   const signedIn = !!viewer && !viewer.demo;
   return (
     <div className="ftl">
-      <header className="hero">
-        <div className="photo" role="img" aria-label="Sunrise over misty mountain ridges" />
-        <div className="warm" />
+      {/* v7 hero: the six trip-type scenes as a collage (replaces the v5 photo hero). */}
+      <header className="hero collage">
         <nav className="nav" aria-label="Main">
           <Link className="wm" href="/">
             <LogoMark />
@@ -88,7 +89,42 @@ export default async function LandingPage() {
             <LandingMenu />
           </div>
         </nav>
-        <div className="contents" dangerouslySetInnerHTML={{ __html: HERO_HTML }} />
+        <div className="collage-copy">
+          <p className="ft-lbl accent">Any trip, any crew</p>
+          <h1>
+            Get the trip out of <em>the group chat.</em>
+          </h1>
+          <p className="sub">Lake weekends, golf trips, beach weeks, bach parties, city breaks, ski trips. Vote, split fairly, lock it in together.</p>
+          <ul className="ft-tiles mt-6" aria-label="Kinds of trips">
+            {TRIP_THEMES.map((theme, index) => (
+              <li key={theme} data-trip-theme={theme} className="ft-tile">
+                {/* eslint-disable-next-line @next/next/no-img-element -- static WebP served straight from assets, no optimizer on Workers */}
+                <img
+                  src={sceneUrl(themeTileScene(theme))}
+                  alt=""
+                  width={640}
+                  height={360}
+                  loading={index < 2 ? "eager" : "lazy"}
+                  decoding="async"
+                  className="absolute inset-0 size-full object-cover"
+                />
+                <span className="ft-chip ft-chip-theme">
+                  <ThemeIcon theme={theme} size={16} />
+                  <span className="truncate">{THEME_INFO[theme].vibeLabel}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="collage-ctas">
+            <Link className="ft-btn justify-center" href="/new">
+              Start a trip
+            </Link>
+            <a className="ft-btn-sec ft-btn-sec-full" href="#how">
+              See how it works
+            </a>
+          </div>
+          <p className="note">Free for invitees · No app to download</p>
+        </div>
       </header>
       <main className="lower" dangerouslySetInnerHTML={{ __html: LOWER_HTML }} />
       {/* Static: renders nothing until FEEDBACK_URL is set, and never touches the DB. */}
