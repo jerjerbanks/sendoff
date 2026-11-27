@@ -1,13 +1,11 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { Shell } from "@/components/shell";
+import { PrivateTrip, Shell } from "@/components/shell";
 import { ogCard, privateTripCard } from "@/lib/og-copy";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { getViewerId } from "@/lib/session";
 import { loadTripView } from "@/lib/view";
-import { APP_NAME } from "@/lib/constants";
 
 async function origin() {
   const headerList = await headers();
@@ -19,9 +17,9 @@ async function origin() {
 export async function generateMetadata({ params }: { params: Promise<{ tripId: string }> }): Promise<Metadata> {
   const { tripId } = await params;
   const view = await loadTripView(tripId, await getViewerId());
-  if (!view) return { title: APP_NAME };
   // Only members (and the public demo trips) get the trip's own title and preview.
-  const card = view.viewer || isDemoTrip(view.id) ? ogCard(view) : privateTripCard();
+  // An unknown id looks exactly like a private trip, so the page never confirms that a trip exists.
+  const card = view && (view.viewer || isDemoTrip(view.id)) ? ogCard(view) : privateTripCard();
   const base = await origin();
   const image = `${base}/og/trip/${tripId}`;
   return {
@@ -41,6 +39,6 @@ export default async function TripLayout({
 }) {
   const { tripId } = await params;
   const view = await loadTripView(tripId, await getViewerId());
-  if (!view) notFound();
+  if (!view) return <PrivateTrip />;
   return <Shell view={view}>{children}</Shell>;
 }

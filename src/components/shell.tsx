@@ -84,7 +84,8 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
   );
 }
 
-function PrivateTrip() {
+/** Shown to anyone who isn't on a real trip, and for an id that matches no trip at all: the same page, so it confirms nothing. */
+export function PrivateTrip() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-5 py-10">
       <Wordmark />
@@ -95,7 +96,7 @@ function PrivateTrip() {
       </h1>
       <p className="ft-lead mt-4">
         Open the invite link you were sent to join or get back in. If you joined on another phone, open the same link here and use the same
-        phone number or email.
+        phone number or email. If you were never invited, or the organizer deleted the trip, there&apos;s nothing to see here.
       </p>
       <Link href="/" className="ft-link mt-6">
         Go to {APP_NAME}
