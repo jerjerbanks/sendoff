@@ -7,7 +7,7 @@ import { TopBar } from "@/components/top-bar";
 import { TripScene, TripThemeRoot } from "@/components/scene";
 import { sceneForPage, sceneUrl } from "@/lib/scenes";
 import { themeForTrip } from "@/lib/trip-theme";
-import { VIBE_STEP_ON } from "@/lib/vibe-flag";
+import { THEME_PREVIEW_ON } from "@/lib/vibe-flag";
 import { Wordmark } from "@/components/wordmark";
 import { isDemoTrip } from "@/lib/demo-tour";
 import { tripStatusLabel } from "@/lib/labels";
@@ -47,7 +47,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
   // v7: the trip's theme, derived from what this member's page already loaded. Nothing stored.
   const theme = themeForTrip(view);
   return (
-    <TripThemeRoot derived={theme} flagOn={VIBE_STEP_ON} className="ft-theme-band min-h-dvh lg:pl-[264px]">
+    <TripThemeRoot derived={theme} flagOn={THEME_PREVIEW_ON} className="ft-theme-band min-h-dvh lg:pl-[264px]">
       <TripSidebar
         tripId={view.id}
         tripName={view.name}
@@ -60,7 +60,7 @@ export async function Shell({ view, children }: { view: TripView; children: Reac
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
         {demo ? <DemoBanner view={view} tripId={view.id} viewerName={view.viewer?.name.split(" ")[0] ?? null} /> : null}
         <TopBar tripId={view.id} tripName={view.name} payLabel={payLabel} status={status} tone={live} isOrganizer={view.isOrganizer} share={share} />
-        <TripScene tripId={view.id} theme={theme} flagOn={VIBE_STEP_ON} />
+        <TripScene tripId={view.id} theme={theme} flagOn={THEME_PREVIEW_ON} />
         {demo ? (
           <Identify
             tripId={view.id}

@@ -11,7 +11,7 @@ import { getViewerId } from "@/lib/session";
 import { loadMemberView, type PartyView, type TripView } from "@/lib/view";
 import { ThemeIcon } from "@/components/theme-icon";
 import { activeTripTheme, themeChipLabel, themeForTrip, type TripTheme } from "@/lib/trip-theme";
-import { VIBE_STEP_ON } from "@/lib/vibe-flag";
+import { THEME_PREVIEW_ON } from "@/lib/vibe-flag";
 
 /** S3, rebuilt around one question: what should I do next? Everything else is one tap away. */
 export default async function DashboardPage({
@@ -25,7 +25,7 @@ export default async function DashboardPage({
   const { error, "ft-theme": themePreview } = await searchParams;
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
-  const theme = activeTripTheme(themeForTrip(view), themePreview, VIBE_STEP_ON);
+  const theme = activeTripTheme(themeForTrip(view), themePreview, THEME_PREVIEW_ON);
   const origin = await requestOrigin();
 
   return (
