@@ -52,6 +52,7 @@ import {
   toggleOptional,
   toggleVote,
   isMemberOf,
+  skipBudget,
   addTraveler,
   asAgeBand,
   asSplitMode,
@@ -594,6 +595,16 @@ export async function saveBudgetAction(formData: FormData) {
   const welcome = text(formData, "welcome");
   if (welcome === "1") redirect(`/trip/${tripId}/vote`);
   if (welcome === "home") redirect(`/trip/${tripId}`);
+}
+
+/** "I'd rather not say": remember the choice so the budget stops coming back as the next step. */
+export async function skipBudgetAction(formData: FormData) {
+  const tripId = text(formData, "tripId");
+  const userId = await me();
+  if (!(await isMemberOf(tripId, userId))) fail(`/trip/${tripId}`, "Join the trip first.");
+  await skipBudget(tripId, userId);
+  revalidatePath(`/trip/${tripId}`, "layout");
+  redirect(text(formData, "next") === "vote" ? `/trip/${tripId}/vote` : `/trip/${tripId}`);
 }
 
 export async function outOfPocketAction(formData: FormData) {
