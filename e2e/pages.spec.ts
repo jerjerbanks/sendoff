@@ -10,7 +10,7 @@ test("landing page offers a way to start and a sample trip @smoke", async ({ pag
   await expect(page.getByRole("link", { name: /sample trip/i }).first()).toBeAttached();
 });
 
-test("/new: Adult or Family, a Type, and guests of honor only for wedding types @smoke", async ({ page }) => {
+test("/new: Adult or Family, an occasion for Adult only, and guests of honor only for wedding occasions @smoke", async ({ page }) => {
   await page.goto("/new");
   // Let the form hydrate first: a pick made before then is reset by hydration.
   await settled(page);
@@ -18,18 +18,21 @@ test("/new: Adult or Family, a Type, and guests of honor only for wedding types 
   const family = page.getByRole("radio", { name: "Family" });
   await expect(adult).toBeChecked();
   await expect(family).not.toBeChecked();
-  const type = page.getByRole("combobox", { name: /^type/i });
+  const occasion = page.getByRole("combobox", { name: /^occasion/i });
   const honoree = page.getByLabel("Guest of honor 1", { exact: true });
   await expect(honoree).toBeHidden();
-  for (const wedding of ["Bachelor", "Bachelorette", "Joint"]) {
-    await type.selectOption({ label: wedding });
+  for (const wedding of ["Bachelor party", "Bachelorette party", "Joint bach party"]) {
+    await occasion.selectOption({ label: wedding });
     await expect(honoree, `guests of honor show for ${wedding}`).toBeVisible();
   }
-  await type.selectOption({ label: "None / other" });
-  await expect(honoree).toBeHidden();
+  // A family trip has no bachelor or bachelorette: the occasion and guests of honor go away.
   await family.check();
-  await type.selectOption({ label: "Joint" });
-  await expect(honoree).toBeVisible();
+  await expect(occasion).toBeHidden();
+  await expect(honoree).toBeHidden();
+  await adult.check();
+  await expect(occasion).toBeVisible();
+  await occasion.selectOption({ label: "No special occasion" });
+  await expect(honoree).toBeHidden();
 });
 
 test("the buy-in says no real money moves before you commit @smoke", async ({ page }) => {

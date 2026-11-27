@@ -18,8 +18,7 @@ test("a create-form error keeps what was typed", async ({ browser }) => {
   await page.goto("/new");
   await settled(page);
   await page.getByLabel("Trip name").fill("Typed and kept");
-  await page.getByLabel("Family").check();
-  await page.getByLabel("Type").selectOption("bachelorette");
+  await page.getByLabel("Occasion").selectOption("bachelorette");
   await page.getByLabel("Your name").fill("Kim Keeper");
   await page.getByLabel("Your phone or email").fill("not a contact");
   await page.getByLabel("Guest of honor 1", { exact: true }).fill("Casey");
@@ -29,8 +28,8 @@ test("a create-form error keeps what was typed", async ({ browser }) => {
   await page.waitForURL(/\/new\?error=/);
   await expect(page.getByText(/add a phone number or an email address/i)).toBeVisible();
   await expect(page.getByLabel("Trip name")).toHaveValue("Typed and kept");
-  await expect(page.getByLabel("Family")).toBeChecked();
-  await expect(page.getByLabel("Type")).toHaveValue("bachelorette");
+  await expect(page.getByLabel("Adult")).toBeChecked();
+  await expect(page.getByLabel("Occasion")).toHaveValue("bachelorette");
   await expect(page.getByLabel("Your name")).toHaveValue("Kim Keeper");
   await expect(page.getByLabel("Your phone or email")).toHaveValue("not a contact");
   await expect(page.getByLabel("Guest of honor 1", { exact: true })).toHaveValue("Casey");

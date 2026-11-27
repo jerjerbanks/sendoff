@@ -1,11 +1,14 @@
 import type { PreWeddingStyle, TripType } from "@/lib/store";
 
-/** Sub-types offered under both Adult and Family. "none" means no special occasion. */
+/**
+ * The occasion, offered only for Adult trips (a bachelor or bachelorette doesn't apply to a
+ * family trip; tester feedback Nov 27). "none" means no special occasion.
+ */
 export const SUB_TYPES = [
-  { value: "none", label: "None / other" },
-  { value: "bachelor", label: "Bachelor" },
-  { value: "bachelorette", label: "Bachelorette" },
-  { value: "joint", label: "Joint" },
+  { value: "none", label: "No special occasion" },
+  { value: "bachelor", label: "Bachelor party" },
+  { value: "bachelorette", label: "Bachelorette party" },
+  { value: "joint", label: "Joint bach party" },
 ] as const;
 
 export type TripKind = "adult" | "family";
@@ -24,7 +27,8 @@ export function isWeddingSubType(subType: string | undefined): boolean {
  * Maps the form's Adult/Family + sub-type to what is stored.
  * - Adult + wedding sub-type → `pre_wedding` + style (same as trips made before this change).
  * - Adult + none → `adult`.
- * - Family + anything → `family`, keeping the style for a wedding sub-type.
+ * - Family + anything → `family` with no occasion. The form no longer offers one for Family;
+ *   a stale page that still posts one is ignored. Trips saved earlier keep theirs.
  * Also accepts the old form fields (tripType=pre_wedding|family + preWeddingStyle) so a
  * page loaded before a deploy still submits correctly.
  */
@@ -49,7 +53,7 @@ export function parseTripKind(fields: {
     kind = "adult";
     style = null;
   }
-  if (kind === "family") return { tripType: "family", preWeddingStyle: style, allowsHonorees: style !== null };
+  if (kind === "family") return { tripType: "family", preWeddingStyle: null, allowsHonorees: false };
   if (style) return { tripType: "pre_wedding", preWeddingStyle: style, allowsHonorees: true };
   return { tripType: "adult", preWeddingStyle: null, allowsHonorees: false };
 }

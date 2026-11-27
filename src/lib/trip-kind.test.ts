@@ -8,9 +8,9 @@ describe("parseTripKind matrix", () => {
     ["adult", "bachelorette", { tripType: "pre_wedding", preWeddingStyle: "bachelorette", allowsHonorees: true }],
     ["adult", "joint", { tripType: "pre_wedding", preWeddingStyle: "joint", allowsHonorees: true }],
     ["family", "none", { tripType: "family", preWeddingStyle: null, allowsHonorees: false }],
-    ["family", "bachelor", { tripType: "family", preWeddingStyle: "bachelor", allowsHonorees: true }],
-    ["family", "bachelorette", { tripType: "family", preWeddingStyle: "bachelorette", allowsHonorees: true }],
-    ["family", "joint", { tripType: "family", preWeddingStyle: "joint", allowsHonorees: true }],
+    ["family", "bachelor", { tripType: "family", preWeddingStyle: null, allowsHonorees: false }],
+    ["family", "bachelorette", { tripType: "family", preWeddingStyle: null, allowsHonorees: false }],
+    ["family", "joint", { tripType: "family", preWeddingStyle: null, allowsHonorees: false }],
   ];
   it.each(cases)("%s / %s", (tripKind, subType, expected) => {
     expect(parseTripKind({ tripKind, subType })).toEqual(expected);
