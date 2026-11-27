@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { humanCheckDone, uniqueSuffix } from "./helpers";
+import { JOIN_BUTTON, humanCheckDone, letIn, uniqueSuffix } from "./helpers";
 
 /**
  * A real (non-demo) trip, created fresh: members-only access, sessions, and the
@@ -81,7 +81,7 @@ test("joining with a contact that already signed in is refused; a new contact jo
   await stranger.getByLabel("Your name").fill("Mallory Imposter");
   await stranger.getByLabel("Phone or email").fill(organizer.contact);
   await humanCheckDone(stranger);
-  await stranger.getByRole("button", { name: /join the trip/i }).click();
+  await stranger.getByRole("button", { name: JOIN_BUTTON }).click();
   await expect(stranger.getByText(/already joined with that phone or email/i)).toBeVisible();
   // Refused: no session, and the trip stays private to this browser.
   expect((await stranger.context().cookies()).some((cookie) => cookie.name === SESSION_COOKIE)).toBe(false);
@@ -94,8 +94,19 @@ test("joining with a contact that already signed in is refused; a new contact jo
   await friend.getByLabel("Your name").fill("Frankie Friend");
   await friend.getByLabel("Phone or email").fill(`e2e-friend-${uniqueSuffix()}@example.com`);
   await humanCheckDone(friend);
-  await friend.getByRole("button", { name: /join the trip/i }).click();
-  await expect(friend).toHaveURL(new RegExp(`/trip/${organizer.tripId}/party\\?welcome=1`));
+  await friend.getByRole("button", { name: /ask to join/i }).click();
+  // New trips ask the organizer first: Frankie waits, signed in, and sees nothing of the trip.
+  await expect(friend.getByRole("heading", { name: /waiting for erin to let you in/i })).toBeVisible();
+  expect((await friend.context().cookies()).some((cookie) => cookie.name === SESSION_COOKIE)).toBe(true);
+  await friend.goto(`/trip/${organizer.tripId}`);
+  await expect(friend.getByRole("heading", { name: /this trip\s*is private/i })).toBeVisible();
+  expect((await friend.request.get(`/api/trip/${organizer.tripId}`)).status()).toBe(404);
+
+  // The organizer sees Frankie waiting, with the contact they typed, and lets them in.
+  await organizer.page.goto(`/trip/${organizer.tripId}`);
+  await expect(organizer.page.getByText(/1 person wants to join/i)).toBeVisible();
+  await letIn(organizer.page, organizer.tripId, "Frankie Friend");
+
   await friend.goto(`/trip/${organizer.tripId}`);
   await expect(friend.getByRole("heading", { name: /this trip\s*is private/i })).toHaveCount(0);
   await friend.reload();

@@ -12,6 +12,7 @@ import {
   listBudgets,
   listFlightQuotes,
   listSpotRequests,
+  countWaitingJoiners,
   loadTrip,
   mathMembers,
   travelersOf,
@@ -220,6 +221,10 @@ export interface TripView {
   /** Only the viewer's own party: whether it saved a budget. Never another party's. */
   viewerHasBudget: boolean;
   pendingApprovals: number;
+  /** New people wait for the organizer before they're on the trip. */
+  approveJoiners: boolean;
+  /** People waiting for the organizer to let them in. Always 0 for anyone but the organizer. */
+  joinersWaiting: number;
   /** Locked destination, else the leading option, else the trip name. */
   place: string;
   nextStep: NextStep;
@@ -635,6 +640,8 @@ function buildView(
     isDemo: raw.trip.id === DEMO_TRIP_ID || raw.trip.id === LAKE_TRIP_ID,
     viewerHasBudget: !!viewerPartyId && budgets.some((budget) => budget.userId === viewerPartyId),
     pendingApprovals: 0,
+    approveJoiners: raw.trip.approveJoiners,
+    joinersWaiting: 0,
     place: (() => {
       const destination = polls.find((poll) => poll.kind === "destination");
       if (destination?.lockedLabel) return destination.lockedLabel;
@@ -755,21 +762,22 @@ function buildNotices(args: {
  */
 const loadTripData = cache(async (tripId: string) => {
   await ensureDemoSeed();
-  const [raw, budgets, flights, requests] = await Promise.all([
+  const [raw, budgets, flights, requests, joinersWaiting] = await Promise.all([
     loadTrip(tripId),
     listBudgets(tripId),
     listFlightQuotes(tripId),
     listSpotRequests(tripId),
+    countWaitingJoiners(tripId),
   ]);
   if (!raw) return null;
-  return { raw, budgets, flights, pending: requests.filter((request) => request.status === "pending").length };
+  return { raw, budgets, flights, pending: requests.filter((request) => request.status === "pending").length, joinersWaiting };
 });
 
 export const loadTripView = cache(async (tripId: string, viewerUserId: string | null, withSplitPreview = false): Promise<TripView | null> => {
   const data = await loadTripData(tripId);
   if (!data) return null;
   const view = buildView(data.raw, viewerUserId, data.budgets, data.flights, { withSplitPreview });
-  return withNextStep(view, data.pending);
+  return withNextStep({ ...view, joinersWaiting: view.isOrganizer ? data.joinersWaiting : 0 }, data.pending);
 });
 
 /**
@@ -961,6 +969,7 @@ function withNextStep(view: TripView, pendingApprovals: number): TripView {
       : null,
     isOrganizer: view.isOrganizer,
     pendingApprovals,
+    joinersWaiting: view.joinersWaiting,
     payerCount: view.payerCount,
     minPayers: view.minPayerCount,
   };

@@ -27,6 +27,16 @@ describe("next step", () => {
     expect(commit.href).toBe("/pay");
   });
 
+  it("people waiting to join come first for the organizer, and never show to anyone else", () => {
+    const org = { ...base, isOrganizer: true, viewer: { ...base.viewer!, role: "organizer" as const }, unvotedPolls: ["Where"], hasBudget: false };
+    const one = nextStep({ ...org, joinersWaiting: 1 });
+    expect(one.title).toBe("1 person wants to join");
+    expect(one.href).toBe("/joiners");
+    expect(nextStep({ ...org, joinersWaiting: 3 }).title).toBe("3 people want to join");
+    expect(nextStep({ ...org, joinersWaiting: 0 }).href).toBe("/budget");
+    expect(nextStep({ ...base, joinersWaiting: 2 }).href).toBe("/pay");
+  });
+
   it("a skipped budget never blocks the buy-in once voting is done", () => {
     expect(nextStep({ ...base, hasBudget: false }).href).toBe("/pay");
   });

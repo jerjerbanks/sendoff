@@ -28,6 +28,12 @@ export default async function OrganizePage({
     view.status === "booking_ready"
       ? { href: "/book", title: "Book the stay", line: "Record the booking and the real lodging total.", hot: true }
       : null,
+    {
+      href: "/joiners",
+      title: "Who joins",
+      line: view.joinersWaiting ? `${view.joinersWaiting} waiting to join` : view.approveJoiners ? "New people ask you first" : "Anyone with the link joins",
+      hot: view.joinersWaiting > 0,
+    },
     { href: "/approvals", title: "Room requests", line: view.pendingApprovals ? `${view.pendingApprovals} waiting on you` : "Nothing waiting", hot: view.pendingApprovals > 0 },
     { href: "/sleep", title: "Rooms and beds", line: "Beds, prices, accessibility, holds" },
     { href: "/costs", title: "Cost sheet", line: `Lodging ${money(view.lodgingTotalCents).replace(/\.00$/, "")} · split ${splitModeLabel(view.splitMode).toLowerCase()}` },
