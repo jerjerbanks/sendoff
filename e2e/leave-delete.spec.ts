@@ -82,7 +82,8 @@ test("a member leaves, then the organizer deletes the trip for everyone", async 
   // Gone for everyone: pages, API and invite link.
   for (const page of [olivia, mo]) {
     await page.goto(`/trip/${tripId}`);
-    await expect(page.getByRole("heading", { name: /nothing at this address|no trip here/i })).toBeVisible();
+    // A deleted trip looks exactly like a private one, so no page confirms whether a trip id ever existed.
+    await expect(page.getByRole("heading", { name: /this trip\s*is private/i })).toBeVisible();
     expect((await page.request.get(`/api/trip/${tripId}`)).status()).toBe(404);
     await page.goto("/trips");
     await expect(page.getByText(NAME)).toHaveCount(0);

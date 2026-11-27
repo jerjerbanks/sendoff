@@ -87,7 +87,7 @@ function Hero({ view, theme }: { view: TripView; theme: TripTheme }) {
   const leading = !decided && view.place !== view.name;
   const party = view.viewerParty;
   const share = view.currentShareCents ?? view.ifYouCommitCents ?? party?.bill?.totalCents ?? null;
-  const households = view.parties.filter((item) => item.status !== "off_trip" && item.status !== "declined").length;
+  const partyCount = view.parties.filter((item) => item.status !== "off_trip" && item.status !== "declined").length;
   return (
     <section>
       <p className="ft-lbl accent">
@@ -114,7 +114,7 @@ function Hero({ view, theme }: { view: TripView; theme: TripTheme }) {
           <dt>Going</dt>
           <dd className="v">
             {view.travelerCount} {view.travelerCount === 1 ? "person" : "people"}
-            <span className="ft-meta"> · {households} {households === 1 ? "household" : "households"}</span>
+            <span className="ft-meta"> · {partyCount} {partyCount === 1 ? "party" : "parties"}</span>
           </dd>
         </div>
         {share != null && view.viewer?.role !== "honoree" ? (
@@ -252,8 +252,8 @@ function WhoCard({ view }: { view: TripView }) {
         <HeadcountMeter
           cells={meterCells(view)}
           need={need}
-          unit="households"
-          sub={meterSub(tripMeter(view), "households", `${view.travelerCount} ${view.travelerCount === 1 ? "person" : "people"}`)}
+          unit="parties"
+          sub={meterSub(tripMeter(view), "parties", `${view.travelerCount} ${view.travelerCount === 1 ? "person" : "people"}`)}
           booked={view.lockedIn || view.status === "booked"}
         />
       </div>

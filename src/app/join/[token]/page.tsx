@@ -108,7 +108,7 @@ export default async function JoinPage({
                   }`
                 : (() => {
                     const joined = view.parties.filter((party) => party.status !== "off_trip" && party.status !== "declined").length;
-                    return `${joined} ${joined === 1 ? "household has" : "households have"} joined · ${
+                    return `${joined} ${joined === 1 ? "party has" : "parties have"} joined · ${
                       view.status === "planning" || view.status === "voting" ? "still planning, nobody pays yet" : "nobody has committed yet"
                     }`;
                   })()}

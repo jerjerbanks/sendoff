@@ -1,3 +1,4 @@
+import { OrganizerOnly } from "@/components/organizer-only";
 import Link from "next/link";
 import { cancelAction, extendAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
@@ -21,7 +22,7 @@ export default async function OrganizePage({
   const view = await loadMemberView(tripId, await getViewerId());
   if (!view) return null;
   if (!view.isOrganizer) {
-    return <p className="text-sm text-muted">Only the organizer runs these. Use the tabs below for your own steps.</p>;
+    return <OrganizerOnly tripId={view.id} what="runs these tools" />;
   }
   const me = view.viewer?.userId ?? "";
   const tools = [

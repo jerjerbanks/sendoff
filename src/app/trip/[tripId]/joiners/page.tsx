@@ -1,4 +1,5 @@
 import { shortNamer } from "@/lib/display-names";
+import { OrganizerOnly } from "@/components/organizer-only";
 import { approveJoinersAction, decideJoinAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { getViewerId } from "@/lib/session";
@@ -19,7 +20,7 @@ export default async function JoinersPage({
   const view = await loadMemberView(tripId, viewerId);
   if (!view) return null;
   if (!view.isOrganizer || !viewerId) {
-    return <p className="text-sm text-muted">Only the organizer decides who joins.</p>;
+    return view ? <OrganizerOnly tripId={view.id} what="decides who joins" /> : null;
   }
   const requests = (await listJoinRequests(tripId, viewerId)) ?? [];
   const waiting = requests.filter((request) => request.status === "pending");

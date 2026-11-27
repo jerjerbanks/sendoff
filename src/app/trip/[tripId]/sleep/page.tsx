@@ -70,7 +70,7 @@ export default async function SleepSetupPage({
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
       {!error && importedSpots > 0 ? (
         <p className="rounded-xl bg-good-soft px-3 py-2 text-sm text-good">
-          Added {importedSpots} sleeping {importedSpots === 1 ? "spot" : "spots"} from the import. Check private baths, holds and price shares on each room.
+          Added {importedSpots} {importedSpots === 1 ? "bed" : "beds"} from the import. Check private baths, holds and price shares on each room.
         </p>
       ) : null}
 
