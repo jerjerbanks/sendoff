@@ -5,6 +5,7 @@ import "./globals.css";
 import { APP_NAME } from "@/lib/constants";
 import { requestOrigin } from "@/lib/origin";
 import { THEME_BOOT } from "@/lib/theme";
+import { ActivityPing } from "@/components/activity-ping";
 
 const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-geist-mono" });
@@ -62,7 +63,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Before any CSS: the theme is resolved here, never in a React effect. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
-      <body className={`${geist.variable} ${geistMono.variable} ${instrument.variable} antialiased`}>{children}</body>
+      <body className={`${geist.variable} ${geistMono.variable} ${instrument.variable} antialiased`}>
+        {children}
+        <ActivityPing />
+      </body>
     </html>
   );
 }
