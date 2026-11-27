@@ -188,12 +188,12 @@ export function HeadcountMeter({
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-ink-2">
         {anyIn ? (
           <span className="flex items-center gap-1.5">
-            <i className="ft-key bg-sun-meter" aria-hidden /> In
+            <i className="ft-key bg-joy-meter" aria-hidden /> In
           </span>
         ) : null}
         {anyYou ? (
           <span className="flex items-center gap-1.5">
-            <i className="ft-key bg-action" aria-hidden /> You · pending
+            <i className="ft-key bg-accent" aria-hidden /> You · pending
           </span>
         ) : null}
         {booking ? (

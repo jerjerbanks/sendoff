@@ -86,7 +86,7 @@ function Hero({ view }: { view: TripView }) {
   const households = view.parties.filter((item) => item.status !== "off_trip" && item.status !== "declined").length;
   return (
     <section>
-      <p className="ft-lbl action">
+      <p className="ft-lbl accent">
         {view.subtitle}
         {view.organizerName ? ` · from ${view.organizerName}` : ""}
       </p>
@@ -111,7 +111,7 @@ function Hero({ view }: { view: TripView }) {
           <div className="ft-kv">
             <dt>Your share</dt>
             <dd className="flex items-baseline justify-between gap-3">
-              <Link href={`/trip/${view.id}/costs`} className="ft-mono text-[22px] font-semibold text-action-ink underline decoration-1 underline-offset-4">
+              <Link href={`/trip/${view.id}/costs`} className="ft-mono text-[22px] font-semibold text-accent-ink underline decoration-1 underline-offset-4">
                 {money(share).replace(/\.00$/, "")}
               </Link>
               {party ? (
@@ -166,7 +166,7 @@ function TripTrail({ view }: { view: TripView }) {
   );
 }
 
-/** Your steps as numbered mono cells. Done is sun-gold with a check (progress), current is the lake action colour. */
+/** Your steps as numbered mono cells. Done is sun-gold with a check (progress), current is the lake accent colour. */
 function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
   const done = steps.filter((step) => step.state === "done" || step.state === "skipped").length;
   return (
@@ -175,9 +175,9 @@ function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
         {steps.map((step, index) => {
           const tone =
             step.state === "done"
-              ? "border-sun-meter bg-sun-tint text-sun-ink"
+              ? "border-joy-meter bg-sun-tint text-sun-ink"
               : step.state === "current"
-                ? "border-action bg-action-tint text-action-ink"
+                ? "border-accent bg-accent-tint text-accent-ink"
                 : "border-line-strong bg-card text-muted";
           return (
             <li key={step.key}>
@@ -200,12 +200,12 @@ function Journey({ tripId, steps }: { tripId: string; steps: JourneyStep[] }) {
 }
 
 function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
-  const dot = step.tone === "bad" ? "error" : step.tone === "warn" ? "action" : step.tone === "action" ? "action" : "";
+  const dot = step.tone === "bad" ? "error" : step.tone === "warn" ? "warn" : step.tone === "action" ? "accent" : "";
   return (
     <section className={`rise-in ft-panel p-5 ${step.tone === "bad" ? "border-bad/40" : ""}`}>
       <p className="ft-live">
         <span className={`ft-dot ${dot}`} aria-hidden />
-        <span className={step.tone === "bad" ? "text-bad" : "text-action-ink"}>{step.eyebrow.toUpperCase()}</span>
+        <span className={step.tone === "bad" ? "text-bad" : "text-accent-ink"}>{step.eyebrow.toUpperCase()}</span>
       </p>
       <h2 className="ft-h2 mt-3">{step.title}</h2>
       <p className="ft-lead mt-1.5">{step.body}</p>
@@ -222,7 +222,7 @@ function NextStepCard({ tripId, step }: { tripId: string; step: NextStep }) {
 function statusWord(party: PartyView): { text: string; tone: string; dot: string } {
   if (party.isHonoreeOnly) return { text: "Honored", tone: "text-sun-ink", dot: "lake" };
   if (party.status === "committed") return { text: "In", tone: "text-pine", dot: "" };
-  if (party.status === "joined") return { text: "Deciding", tone: "text-action-ink", dot: "action" };
+  if (party.status === "joined") return { text: "Deciding", tone: "text-accent-ink", dot: "accent" };
   if (party.status === "invited") return { text: "Invited", tone: "text-muted", dot: "open" };
   if (party.status === "declined") return { text: "Declined", tone: "text-muted", dot: "open" };
   return { text: "Dropped", tone: "text-bad", dot: "error" };
@@ -349,7 +349,7 @@ function OrganizerCard({ view }: { view: TripView }) {
         <span className="ft-lbl ink block">Organizer tools</span>
         <span className="ft-meta block">{items.length ? items.join(" · ") : "Rooms, costs, payments, settings"}</span>
       </span>
-      <span className="text-action-ink">
+      <span className="text-accent-ink">
         <Arrow />
       </span>
     </Link>

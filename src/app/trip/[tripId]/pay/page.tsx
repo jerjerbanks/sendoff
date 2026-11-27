@@ -53,8 +53,10 @@ export default async function PayPage({
       {everyoneIn ? (
         <section className="ft-panel overflow-hidden px-5 pt-6 pb-5 text-center">
           <Spot name="everyone-in" alt="Friends and family cheering together on a lake dock at sunset" className="w-[240px]" />
-          <p className="ft-lbl mt-4 text-sun-ink">
-            {payingParties.length} of {payingParties.length} parties committed
+          <p className="mt-4">
+            <span className="ft-badge joy">
+              <span aria-hidden>✓</span> {payingParties.length} of {payingParties.length} committed
+            </span>
           </p>
           <h2 className="ft-h1 mt-2">
             You made it out of
@@ -66,7 +68,7 @@ export default async function PayPage({
 
       {viewer?.role === "honoree" ? (
         <section>
-          <p className="ft-lbl action">Guest of honor</p>
+          <p className="ft-lbl accent">Guest of honor</p>
           <h1 className="ft-display mt-3">
             You&apos;re
             <br />
@@ -78,7 +80,7 @@ export default async function PayPage({
 
       {viewer && !viewer.isPayer && viewer.role !== "honoree" ? (
         <section>
-          <p className="ft-lbl action">{party?.name ?? "Your party"}</p>
+          <p className="ft-lbl accent">{party?.name ?? "Your party"}</p>
           <h1 className="ft-display mt-3">
             {party?.payerName.split(" ")[0] ?? "Your payer"} pays
             <br />
@@ -177,7 +179,7 @@ export default async function PayPage({
             <input type="hidden" name="milestoneId" value={buyIn.id} />
             <input type="hidden" name="kind" value="buy_in" />
             <label className="flex min-h-12 items-start gap-3 text-[15px] text-ink-2">
-              <input className="mt-0.5 size-6 shrink-0 accent-[var(--action)]" type="checkbox" name="ack" value="yes" required />
+              <input className="mt-0.5 size-6 shrink-0 accent-[var(--accent)]" type="checkbox" name="ack" value="yes" required />
               I understand it&apos;s refundable only until the stay is booked.
             </label>
             <TestModeNotice />
@@ -193,7 +195,7 @@ export default async function PayPage({
       {viewer?.isPayer && viewer.role !== "honoree" && party?.status === "committed" ? (
         <>
           <section>
-            <p className="ft-lbl action">{party.name} · committed</p>
+            <p className="ft-lbl accent">{party.name} · committed</p>
             <h1 className="ft-display mt-3">
               You&apos;re in.
               <br />
@@ -225,7 +227,7 @@ export default async function PayPage({
           <div className="ft-panel-h">
             <span className="ft-lbl ink">{line.name}</span>
             <span className={`ft-live ${line.status === "late" ? "text-bad" : ""}`}>
-              <span className={`ft-dot ${line.status === "late" ? "error" : "action"}`} aria-hidden />
+              <span className={`ft-dot ${line.status === "late" ? "error" : "accent"}`} aria-hidden />
               {line.status === "late" ? "LATE" : "DUE"} {formatDay(line.dueDate).toUpperCase()}
             </span>
           </div>

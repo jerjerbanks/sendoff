@@ -20,12 +20,12 @@
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ctl: var(--border-ctl);
-  --color-accent: var(--action);
-  /* Text on an action fill: white in light, dark ink in dark (the fill lightens). */
-  --color-accent-ink: var(--on-action);
-  --color-action: var(--action);
-  --color-action-ink: var(--action-ink);
-  --color-action-tint: var(--tint-action);
+  /* Text on an accent fill: white in light, dark ink in dark (the fill lightens). */
+  --color-accent-fg: var(--accent-fg);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-hover: var(--accent-hover);
   --color-lake: var(--lake);
   --color-lake-60: var(--lake-60);
   --color-lake-tint: var(--tint-lake);
@@ -33,7 +33,11 @@
   --color-sun: var(--sun);
   --color-sun-ink: var(--sun-ink);
   --color-sun-tint: var(--tint-sun);
-  --color-sun-meter: var(--sun-meter);
+  --color-joy: var(--joy);
+  --color-joy-ink: var(--joy-ink);
+  --color-joy-fg: var(--joy-fg);
+  --color-joy-tint: var(--joy-tint);
+  --color-joy-meter: var(--joy-meter);
   --color-good: var(--pine);
   --color-good-soft: var(--tint-pine);
   --color-warn: var(--warning);
@@ -80,8 +84,8 @@ body {
 }
 
 ::selection {
-  background: var(--tint-action);
-  color: var(--action-ink);
+  background: var(--accent-tint);
+  color: var(--accent-ink);
 }
 
 :focus-visible {
@@ -165,7 +169,7 @@ body {
     color: var(--ink-3);
   }
   .ft-lbl.ink { color: var(--ink-1); }
-  .ft-lbl.action { color: var(--action-ink); }
+  .ft-lbl.accent { color: var(--accent-ink); }
   .ft-lbl.pine { color: var(--pine); }
   .ft-lbl.lake { color: var(--lake); }
   .ft-mono {
@@ -187,7 +191,16 @@ body {
     font: 400 26px/1 var(--font-display);
     letter-spacing: -0.01em;
   }
-  .ft-wordmark i { color: var(--action-ink); }
+  .ft-wordmark { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-1); }
+  .ft-wordmark i { color: var(--accent-ink); }
+  /* Out of the Chat mark: the bubble spans ~70% of its box, so 1.15em puts it at ~1.1x cap height. */
+  .ft-mark { flex: none; width: 1.15em; height: 1.15em; margin: -0.1em 0; }
+  .ft-mark .m-bubble { fill: var(--mark-bubble); }
+  .ft-mark .m-sun { fill: var(--mark-sun); }
+  .ft-mark .m-meadow { fill: var(--mark-meadow); }
+  .ft-mark .m-hill { fill: var(--mark-hill); }
+  .ft-mark .m-pine { fill: var(--mark-pine); stroke: var(--mark-pine); stroke-width: 0; }
+  .ft-mark path.m-pine[stroke-width] { stroke-width: 3; }
 
   /* ---------- top bar ---------- */
   .ft-bar {
@@ -218,7 +231,7 @@ body {
   }
   .ft-sec .ix {
     font: 500 14px var(--font-mono);
-    color: var(--action-ink);
+    color: var(--accent-ink);
     letter-spacing: 0.04em;
   }
   .ft-rule { border-top: 1px solid var(--line-ink); }
@@ -241,7 +254,8 @@ body {
     background: var(--pine);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pine) 16%, transparent);
   }
-  .ft-dot.action { background: var(--action); box-shadow: 0 0 0 3px color-mix(in srgb, var(--action) 16%, transparent); }
+  .ft-dot.accent { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+  .ft-dot.warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 16%, transparent); }
   .ft-dot.lake { background: var(--lake); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lake) 14%, transparent); }
   .ft-dot.error { background: var(--error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 14%, transparent); }
   .ft-dot.open { background: var(--bg-surface); box-shadow: inset 0 0 0 1px var(--border-ctl); }
@@ -261,9 +275,9 @@ body {
     letter-spacing: 0.01em;
     white-space: nowrap;
   }
-  .ft-chip.on { border-color: var(--action); color: var(--action-ink); background: var(--tint-action); }
+  .ft-chip.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-tint); }
   .ft-chip.pine { border-color: color-mix(in srgb, var(--pine) 40%, transparent); color: var(--pine); background: var(--tint-pine); }
-  .ft-chip.sun { border-color: var(--sun-ink); color: var(--ink-1); background: var(--tint-sun); }
+  .ft-chip.sun { border-color: color-mix(in srgb, var(--joy-meter) 45%, transparent); color: var(--joy-ink); background: var(--joy-tint); }
   .ft-chip.lake { border-color: color-mix(in srgb, var(--lake) 35%, transparent); color: var(--lake); background: var(--tint-lake); }
   .ft-chip.bad { border-color: color-mix(in srgb, var(--error) 40%, transparent); color: var(--error); background: var(--color-bad-soft); }
   .ft-chip.warn { border-color: color-mix(in srgb, var(--warning) 40%, transparent); color: var(--warning); background: var(--tint-sun); }
@@ -304,7 +318,7 @@ body {
   /* Floor plan SVG: fonts and the lifted "yours" bed read tokens, so dark mode can swap them. */
   .ft-svg-ui { font-family: var(--font-ui); }
   .ft-svg-mono { font-family: var(--font-mono); }
-  .ft-bed-lift { filter: drop-shadow(0 3px 2.5px color-mix(in srgb, var(--action-ink) 24%, transparent)); }
+  .ft-bed-lift { filter: drop-shadow(0 3px 2.5px color-mix(in srgb, var(--accent) 30%, transparent)); }
 
   /* Demo banner goal: 16px on phones, the 22px h2 from md up. */
   .ft-demo-goal { font: 600 16px/1.35 var(--font-ui); letter-spacing: -0.01em; }
@@ -339,7 +353,7 @@ body {
     border-bottom: 1px solid var(--line);
   }
   .ft-dotgrid { background: var(--dot-grid), var(--bg-surface); }
-  .ft-glow { background: var(--glow-action); }
+  .ft-glow { background: var(--glow-accent); }
 
   /* ---------- rows ---------- */
   .ft-kv {
@@ -377,15 +391,23 @@ body {
     min-height: var(--btn-h);
     padding: 0 20px 0 24px;
     border-radius: var(--r-pill);
-    background: var(--action);
-    color: var(--on-action);
+    background: var(--accent);
+    color: var(--accent-fg);
     font: 600 16px var(--font-ui);
     letter-spacing: -0.01em;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--action) 70%, black), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 14px -6px color-mix(in srgb, var(--action) 60%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 70%, black), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 14px -6px color-mix(in srgb, var(--accent) 60%, transparent);
     transition: transform var(--dur-micro) var(--spring-micro), background var(--dur-fade) var(--ease-out);
     -webkit-tap-highlight-color: transparent;
   }
+  @media (hover: hover) { .ft-btn:not(.done):not(.joy):not(:disabled):hover { background: var(--accent-hover); } }
   .ft-btn:active:not(:disabled) { transform: scale(0.97); }
+  /* v6.1: the one celebratory button ("Book it", "Everyone's in"). Sun-gold fill, dark label in both themes. */
+  .ft-btn.joy {
+    background: var(--joy);
+    color: var(--joy-fg);
+    box-shadow: 0 0 0 1px var(--joy-meter), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 14px -6px color-mix(in srgb, var(--joy) 60%, transparent);
+  }
+  .ft-badge.joy { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: var(--r-pill); background: var(--joy); color: var(--joy-fg); font: 600 14px var(--font-ui); }
   .ft-btn:disabled { cursor: default; }
   .ft-btn.done {
     background: var(--pine);
@@ -415,7 +437,7 @@ body {
     align-items: center;
     min-height: 44px;
     font: 500 15px var(--font-ui);
-    color: var(--action-ink);
+    color: var(--accent-ink);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
@@ -429,10 +451,10 @@ body {
     border: 1px solid var(--border-ctl);
     border-radius: 6px;
     background: var(--bg-surface);
-    color: var(--on-action);
+    color: var(--accent-fg);
     transition: transform var(--dur-micro) var(--spring-micro), background var(--dur-fade) var(--ease-out);
   }
-  .ft-check.on { background: var(--action); border-color: var(--action); box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--action) 50%, transparent); }
+  .ft-check.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--accent) 30%, transparent); }
   button:active .ft-check { transform: scale(0.88); }
 
   /* ---------- glass ---------- */
@@ -479,7 +501,7 @@ body {
     color: var(--ink-3);
     transition: color var(--dur-fade) var(--ease-out);
   }
-  .ft-tab[aria-current="page"] { color: var(--action-ink); }
+  .ft-tab[aria-current="page"] { color: var(--accent-ink); }
   .ft-tab svg { width: 22px; height: 22px; }
 
   /* ---------- v6 illustrated header: scene + ridge ----------
@@ -513,16 +535,16 @@ body {
   .ft-trail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .ft-trail li { display: grid; gap: 6px; }
   .ft-trail i { display: block; height: 10px; border-radius: var(--r-pill); background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
-  .ft-trail .done i { background: var(--sun-meter); box-shadow: none; }
-  .ft-trail .now i { background: linear-gradient(90deg, var(--sun-meter) 50%, var(--tint-sun) 50%); box-shadow: inset 0 0 0 1px var(--sun-meter); }
+  .ft-trail .done i { background: var(--joy-meter); box-shadow: none; }
+  .ft-trail .now i { background: var(--joy-tint); box-shadow: inset 0 0 0 2px var(--joy-meter); }
   .ft-trail span { font: 500 14px var(--font-ui); color: var(--ink-3); }
   .ft-trail .done span { color: var(--ink-2); }
-  .ft-trail .now span { color: var(--sun-ink); font-weight: 600; }
+  .ft-trail .now span { color: var(--joy-ink); font-weight: 600; }
 
   /* ---------- v6 tinted notice cards: sun for notices, pine for "fits", lake for money ---------- */
   .ft-notice { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; background: var(--tint-sun); color: var(--ink-2); font-size: 15px; line-height: 1.45; }
   .ft-notice b, .ft-notice strong { color: var(--ink-1); }
-  .ft-notice::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: var(--r-pill); background: var(--sun-meter); }
+  .ft-notice::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: var(--r-pill); background: var(--joy-meter); }
 
   /* ---------- headcount meter ---------- */
   .ft-meter { display: flex; align-items: flex-end; gap: 6px; }
@@ -540,8 +562,8 @@ body {
       box-shadow var(--dur-fade) var(--ease-out);
     transition-delay: var(--d, 0ms);
   }
-  .ft-cell.in { background: var(--sun-meter); box-shadow: inset 0 0 0 1px var(--sun-meter); }
-  .ft-cell.you { background: var(--action); box-shadow: inset 0 0 0 1px var(--action-ink), 0 4px 8px -3px color-mix(in srgb, var(--action) 45%, transparent); transform: translateY(-3px); }
+  .ft-cell.in { background: var(--joy-meter); box-shadow: inset 0 0 0 1px var(--joy-meter); }
+  .ft-cell.you { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ink), 0 4px 8px -3px color-mix(in srgb, var(--accent) 30%, transparent); transform: translateY(-3px); }
   .ft-cell.booked { background: var(--pine); box-shadow: inset 0 0 0 1px var(--pine); }
   .ft-threshold { flex: none; align-self: stretch; width: 2px; margin: -6px 2px 0; background: var(--ink-1); }
   .ft-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; }
@@ -550,7 +572,7 @@ body {
   .ft-vbar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 4px; }
   .ft-vbar > i { border-radius: 1px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
   .ft-vbar > i.on { background: var(--lake-60); box-shadow: none; }
-  .ft-vbar.mine > i.on { background: var(--action); }
+  .ft-vbar.mine > i.on { background: var(--accent); }
 
   /* ---------- toast ---------- */
   .ft-toast {

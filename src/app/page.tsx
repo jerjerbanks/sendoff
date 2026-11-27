@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LandingEnhance, LandingMenu } from "@/components/landing-client";
 import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LogoMark } from "@/components/wordmark";
 import { versionLine } from "@/lib/build-info";
 import { APP_NAME, SESSION_COOKIE } from "@/lib/constants";
 import { getViewer } from "@/lib/session";
@@ -31,7 +32,7 @@ const DESCRIPTION = `One headcount, fair costs for every bed, and private budget
 export async function generateMetadata(): Promise<Metadata> {
   // Absolute, per-request origin: a relative og:image resolves against localhost at build time.
   const origin = await requestOrigin();
-  const image = `${origin}/landing/og.jpg`;
+  const image = `${origin}/og-image.png`;
   return {
     metadataBase: new URL(origin),
     title: TITLE,
@@ -64,6 +65,7 @@ export default async function LandingPage() {
         <div className="warm" />
         <nav className="nav" aria-label="Main">
           <Link className="wm" href="/">
+            <LogoMark />
             {words.length ? `${words.join(" ")} ` : null}
             {words.length ? <i>{lastWord}</i> : lastWord}
           </Link>

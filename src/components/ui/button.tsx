@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * v6.1 buttons. Primary is a lake-blue pill with an inner highlight, a 1px ring and a soft
- * shadow; everything presses to .97 on the micro spring. 52px tall, 8px radius.
+ * shadow (hover deepens to --accent-hover); `joy` is the sun-gold celebration-only variant.
+ * Everything presses to .97 on the micro spring. 52px tall pills.
  */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-sans transition-[transform,background-color,color] duration-[var(--dur-micro)] ease-[var(--spring-micro)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60",
@@ -13,6 +14,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "ft-btn justify-center",
+        joy: "ft-btn joy justify-center",
         secondary: "ft-btn2 w-full",
         outline: "ft-btn2",
         ghost: "min-h-12 px-3 text-[15px] font-medium text-ink-2 hover:bg-chip",

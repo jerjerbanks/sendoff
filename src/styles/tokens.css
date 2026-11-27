@@ -1,6 +1,6 @@
-/* Field Trip — v6.1 tokens (v5 system + v6.1 accent roles + dark theme)
-   v6.1: lake blue is the one action colour (buttons, links, focus, selected, tabs, eyebrows).
-   Sun-gold is progress + celebration (trail, meters, "committed", notices). Clay is retired.
+/* Field Trip — v6.1 tokens (v5 system; lake = accent/action, sun-gold = joy; dark theme)
+   Lake blue is every action (buttons, links, focus, selected, tabs, eyebrows, "yours").
+   Sun-gold is progress + celebration (trail, meters, "committed", notices).
    Light is the default (:root / [data-theme=light]). Dark lives under [data-theme=dark].
    v3 palette + modern grotesk/mono + precise geometry + spring motion.
    Fonts (Google Fonts, OFL):
@@ -11,16 +11,19 @@
   --bg-canvas:  #FBF7F0;  /* cream */
   --bg-surface: #FFFFFF;  /* white */
   --bg-sunken:  #F3ECE0;  /* sand */
-  --tint-action:  #E3EDF2; --tint-lake: #E3EDF2; --tint-pine: #E4ECE3; --tint-sun: #FBEFD3;
+  --tint-lake: #E3EDF2; --tint-pine: #E4ECE3; --tint-sun: var(--joy-tint);
   /* ---------- ink ---------- */
   --ink-1: #1F1B16; --ink-2: #4F473D; --ink-3: #6E6558; --ink-disabled: #A69D90;
   /* ---------- accents ---------- */
-  --action: #1F4E6B;  --action-ink: #1F4E6B;   /* every action + "yours": 8.3:1 on cream */
-  --on-action: #FFFFFF;                      /* text on an action fill: 8.9:1 (dark theme flips to dark text) */
+  /* accent (lake): every action, link, focus ring, selected state, tab, eyebrow and "yours" */
+  --accent: #1F4E6B; --accent-ink: #1F4E6B; --accent-fg: #FFFFFF; --accent-hover: #183F57; --accent-tint: #E3EDF2;
+  /* joy (sun-gold): progress, meters, committed, celebration. Gold is a FILL; text uses --joy-ink */
+  --joy: #E3A83A; --joy-ink: #7A5310; --joy-fg: #1F1B16; --joy-tint: #FBEFD3; --joy-meter: #B07A14;
+  /* avatars: white initials pass AA on every one */
+  --av-1:#4D6B57; --av-2:#2F5D46; --av-3:#1F4E6B; --av-4:#8A6416; --av-5:#6A5A8A; --av-6:#7E5F46; --av-7:#456E86;
   --lake: #1F4E6B;  --lake-60: #79A3BC;    /* water, map, data, others */
   --pine: #2F5D46;                         /* success, booked, fits */
-  --sun:  #E3A83A;  --sun-ink: #7A5310;    /* progress + celebration: fill / text */
-  --sun-meter: #B07A14;                    /* meter cells and trail segments (3:1 on cream for non-text) */
+  --sun:  var(--joy);  --sun-ink: var(--joy-ink);    /* legacy aliases of joy */
   --error:#B3261E;  --success: var(--pine); --warning: #8A5800;
   /* ---------- lines (1px everywhere; precision) ---------- */
   --line:        #E4DACB;  /* default 1px border / divider */
@@ -37,6 +40,8 @@
   --r-xl: 28px; /* v6 sheets */
   /* ---------- v6 illustration sky ---------- */
   --sky-a: #F9DCC0; --sky-b: #FBF7F0; --meadow: #A9BFA3;
+  /* Out of the Chat logo mark (logo/field-trip-mark.svg). */
+  --mark-bubble: #F9DCC0; --mark-sun: #E3A83A; --mark-meadow: #A9BFA3; --mark-hill: #2F5D46; --mark-pine: #2F5D46;
   /* ---------- 4/8 rhythm ---------- */
   --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-12:48px; --s-16:64px;
   --margin: 20px; /* 8-col grid, 8px gutters, 350px measure */
@@ -45,7 +50,7 @@
   --shadow-1: 0 0 0 1px rgba(74,44,20,.06), 0 1px 2px rgba(74,44,20,.06);
   --shadow-2: 0 0 0 1px rgba(120,58,24,.08), 0 4px 12px -2px rgba(120,58,24,.16), 0 1px 2px rgba(74,44,20,.08);
   --shadow-3: 0 0 0 1px rgba(74,44,20,.08), 0 16px 36px -8px rgba(120,58,24,.26), 0 4px 10px -4px rgba(74,44,20,.12);
-  --ring-focus: 0 0 0 2px #FBF7F0, 0 0 0 4px #1F4E6B;
+  --ring-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent);
   /* ---------- surface effects ---------- */
   --glass: rgba(251,247,240,.72);
   --glass-white: rgba(255,255,255,.74);
@@ -53,7 +58,7 @@
   --glass-solid: #FBF7F0;
   --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .2  0 0 0 0 .1  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   --dot-grid: radial-gradient(rgba(31,27,22,.10) 1px, transparent 1.2px) 0 0/16px 16px;
-  --glow-action: radial-gradient(60% 70% at 30% 55%, rgba(31,78,107,.12), rgba(31,78,107,0) 70%);
+  --glow-accent: radial-gradient(60% 70% at 30% 55%, rgba(31,78,107,.12), rgba(31,78,107,0) 70%);
   --glow-lake: radial-gradient(60% 70% at 50% 50%, rgba(31,78,107,.12), rgba(31,78,107,0) 70%);
   --scrim: rgba(31,27,22,.32); --select-wash: rgba(31,78,107,.08);
   /* ---------- type ---------- */
@@ -88,7 +93,7 @@
   --soft: #8A7F72;                 /* 3.67:1 on cream: large display text (>=40px) only */
   --card: #FFFFFF; --card-solid: #FFFFFF; --card-line: var(--line); --pv-bg: var(--bg-canvas); --pv-line: var(--line);
   --cmp-bg: #F6F0E6;
-  --lake-a: var(--lake); --action-a: var(--action); --action-t: var(--action-ink); --action-wash: var(--tint-action);
+  --lake-a: var(--lake); --accent-a: var(--accent); --accent-t: var(--accent-ink); --accent-wash: var(--accent-tint);
   --pine-a: var(--pine); --err-a: var(--error);
   --taken: var(--bg-sunken); --taken-line: var(--ink-disabled); --open-line: var(--border-ctl);
   --tip-bg: #1F1B16; --tip-fg: #FFFFFF; --dotc: rgba(31,27,22,.10);
@@ -101,28 +106,30 @@
 
 /* ---------- dark theme ----------
    Contrast on canvas #17130F / surface #221C17:
-   ink-1 16.2 / 14.7 · ink-2 11.7 / 10.6 · ink-3 7.0 / 6.4 · action(dark) #8DB4CB 8.4 / 7.6
-   pine(dark) #7DB394 7.7 / 7.0 · error(dark) #F08A80 7.6 / 6.9 · sun 8.7 / 8.0
-   v6.1: the action fill lightens to #8DB4CB in dark, so text on it is dark (--on-action #17130F, 8.4:1). */
+   ink-1 16.2 / 14.7 · ink-2 11.7 / 10.6 · ink-3 7.0 / 6.4 · accent(dark) #8DB4CB 8.4 / 7.6
+   pine(dark) #7DB394 7.7 / 7.0 · error(dark) #F08A80 7.6 / 6.9 · sun 8.7 / 8.0 · joy-ink #EBC06B 10.8 / 9.9
+   v6.1: the accent fill lightens to #8DB4CB in dark, so text on it is dark (--accent-fg #17130F, 8.4:1). */
 [data-theme="dark"]{
   color-scheme: dark;
   --bg-canvas:#17130F; --bg-surface:#221C17; --bg-sunken:#1C1713;
-  --tint-action: rgba(121,163,188,.16); --tint-lake: rgba(121,163,188,.16); --tint-pine: rgba(125,179,148,.16); --tint-sun: rgba(227,168,58,.14); /* .14, not .18: ink-3 on it needs 4.5:1 */
+  --tint-lake: rgba(121,163,188,.16); --tint-pine: rgba(125,179,148,.16); --tint-sun: var(--joy-tint);
   --ink-1:#F5EFE6; --ink-2:#D6CCBF; --ink-3:#A99E90; --ink-disabled:#6F665B;
-  --action:#8DB4CB; --action-ink:#8DB4CB; --on-action:#17130F;
+  --accent:#8DB4CB; --accent-ink:#8DB4CB; --accent-fg:#17130F; --accent-hover:#A6C6D9; --accent-tint: rgba(141,180,203,.18);
+  --joy:#E3A83A; --joy-ink:#EBC06B; --joy-fg:#1F1B16; --joy-tint: rgba(227,168,58,.18); --joy-meter:#E3A83A;
   --lake:#8DB4CB; --lake-60:#4F7A94;
   --sky-a:#2A211B; --sky-b:#17130F; --meadow:#3D5446;
-  --pine:#7DB394; --sun:#E3A83A; --sun-ink:#E3A83A; --sun-meter:#E3A83A;
+  --mark-bubble:#3A2C22; --mark-sun:#F3D9A0; --mark-meadow:#3D5446; --mark-hill:#4E7D63; --mark-pine:#6E9A7C;
+  --pine:#7DB394; --sun:var(--joy); --sun-ink:var(--joy-ink);
   --error:#F08A80; --warning:#E3A83A;
   --line: rgba(255,248,238,.11); --line-strong: rgba(255,248,238,.18); --line-ink:#F5EFE6; --border-ctl:#857A6C;
   --inner-glass: inset 0 0 0 1px rgba(255,248,238,.08), inset 0 1px 0 rgba(255,248,238,.10);
   --shadow-1: 0 0 0 1px rgba(255,248,238,.08), 0 1px 2px rgba(0,0,0,.4);
   --shadow-2: 0 0 0 1px rgba(255,248,238,.10), 0 6px 16px -4px rgba(0,0,0,.55);
   --shadow-3: 0 0 0 1px rgba(255,248,238,.10), 0 20px 40px -10px rgba(0,0,0,.7);
-  --ring-focus: 0 0 0 2px #17130F, 0 0 0 4px #8DB4CB;
+  --ring-focus: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent);
   --glass: rgba(23,19,15,.70); --glass-white: rgba(34,28,23,.78); --glass-solid:#17130F;
   --dot-grid: radial-gradient(rgba(255,248,238,.10) 1px, transparent 1.2px) 0 0/16px 16px;
-  --glow-action: radial-gradient(60% 70% at 30% 55%, rgba(141,180,203,.16), rgba(141,180,203,0) 70%);
+  --glow-accent: radial-gradient(60% 70% at 30% 55%, rgba(141,180,203,.16), rgba(141,180,203,0) 70%);
   --glow-lake: radial-gradient(60% 70% at 50% 50%, rgba(141,180,203,.16), rgba(141,180,203,0) 70%);
   --scrim: rgba(0,0,0,.55); --select-wash: rgba(141,180,203,.14);
 
@@ -130,7 +137,7 @@
   --soft: #857A6C;
   --card: rgba(255,248,238,.045); --card-solid: var(--bg-surface); --card-line: rgba(255,248,238,.11);
   --pv-bg: rgba(255,248,238,.04); --pv-line: rgba(255,248,238,.10); --cmp-bg: #1E1813;
-  --lake-a:#8DB4CB; --action-a:#8DB4CB; --action-t:#8DB4CB; --action-wash: rgba(141,180,203,.18);
+  --lake-a:#8DB4CB; --accent-a:#8DB4CB; --accent-t:#8DB4CB; --accent-wash: rgba(141,180,203,.18);
   --pine-a:#7DB394; --err-a:#F08A80;
   --taken: rgba(255,248,238,.06); --taken-line:#857A6C; --open-line:#857A6C;
   --tip-bg:#F5EFE6; --tip-fg:#1F1B16; --dotc: rgba(255,248,238,.10);
