@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sceneFor, sceneSrc } from "./scene";
+import { optionScenes, sceneFor, sceneSrc } from "./scene";
 
 describe("sceneFor", () => {
   it.each([
@@ -21,5 +21,22 @@ describe("sceneFor", () => {
       expect(src.day).toMatch(/^\/illustrations\/[a-z-]+\.webp$/);
       expect(src.night).toBe("/illustrations/lake-night.webp");
     }
+  });
+});
+
+describe("optionScenes", () => {
+  it("uses each option's own words first", () => {
+    expect(optionScenes(["Fairway Lodge golf villa", "Harper Lake House", "Cabo beach house"])).toEqual(["golf", "lake", "beach"]);
+  });
+
+  it("gives plain places scenes no other option is using, and never golf", () => {
+    expect(optionScenes(["Lake Geneva, WI", "Door County, WI"])).toEqual(["lake", "cabin"]);
+    const picks = optionScenes(["Austin", "Nashville", "Denver"]);
+    expect(new Set(picks).size).toBe(3);
+    expect(picks).not.toContain("golf");
+  });
+
+  it("cycles once every spare scene is taken", () => {
+    expect(optionScenes(["A", "B", "C", "D"])).toHaveLength(4);
   });
 });

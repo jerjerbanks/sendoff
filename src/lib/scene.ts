@@ -30,3 +30,26 @@ export function sceneFor(...texts: (string | null | undefined)[]): Scene {
 export function sceneSrc(scene: Scene) {
   return { day: `/illustrations/${FILES[scene]}.webp`, night: "/illustrations/lake-night.webp" };
 }
+
+/** Places with no scene words take one of these, so options in one poll look different. Golf only when the words say golf. */
+const SPARE: Scene[] = ["cabin", "lake", "beach"];
+
+/**
+ * Thumbnail scenes for a "where" poll's options, in order: an option's own words first,
+ * then the first spare scene no other option in the poll is using yet (cycling once all are taken).
+ */
+export function optionScenes(labels: string[]): Scene[] {
+  const matched = labels.map((label) => {
+    for (const [scene, re] of WORDS) if (re.test(label)) return scene;
+    return null;
+  });
+  const used = new Set(matched.filter((scene): scene is Scene => scene !== null));
+  let spare = 0;
+  return matched.map((scene) => {
+    if (scene) return scene;
+    const free = SPARE.find((candidate) => !used.has(candidate));
+    const pick = free ?? SPARE[spare++ % SPARE.length]!;
+    used.add(pick);
+    return pick;
+  });
+}

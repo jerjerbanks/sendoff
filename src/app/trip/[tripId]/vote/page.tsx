@@ -7,6 +7,7 @@ import { fieldClass } from "@/components/ui/input";
 import { formatDay, money, utcToZonedInput } from "@/lib/format";
 import { getViewerId } from "@/lib/session";
 import { loadMemberView } from "@/lib/view";
+import { optionScenes, sceneSrc } from "@/lib/scene";
 
 export default async function VotePage({
   params,
@@ -47,6 +48,7 @@ export default async function VotePage({
       {poll ? (() => {
         const visible = poll.options.filter((option) => view.isOrganizer || !option.hidden);
         const leaderVotes = Math.max(0, ...visible.map((option) => option.votes));
+        const thumbs = poll.kind === "destination" ? optionScenes(visible.map((option) => option.label)) : [];
         const [one, two] = title(poll.kind);
         return (
           <section key={poll.id} aria-labelledby={`q-${poll.id}`}>
@@ -93,13 +95,22 @@ export default async function VotePage({
                         type="submit"
                         disabled={disabled}
                         aria-pressed={on}
-                        className={`relative grid w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 py-5 text-left transition-[transform,box-shadow] duration-[var(--dur-snappy)] ease-[var(--spring-snappy)] active:scale-[0.99] disabled:cursor-default disabled:active:scale-100 ${
+                        className={`relative grid w-full ${poll.kind === "destination" ? "grid-cols-[64px_minmax(0,1fr)_auto]" : "grid-cols-[40px_minmax(0,1fr)_auto]"} gap-x-3 py-5 text-left transition-[transform,box-shadow] duration-[var(--dur-snappy)] ease-[var(--spring-snappy)] active:scale-[0.99] disabled:cursor-default disabled:active:scale-100 ${
                           on || won
                             ? "z-10 -mx-3 w-[calc(100%+24px)] rounded-2xl border border-line bg-card px-3 shadow-[var(--shadow-2)] before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-sm before:bg-accent"
                             : "border-b border-line"
                         }`}
                       >
-                        <span className={`ft-mono pt-1 text-[15px] ${on || won ? "text-accent-ink" : "text-muted"}`}>{String(index + 1).padStart(2, "0")}</span>
+                        {poll.kind === "destination" ? (
+                          // Decorative: an illustrated thumbnail so places are easy to tell apart (v6.1). The label names the place.
+                          <span
+                            className={`ft-vthumb ${on || won ? "on" : ""}`}
+                            style={{ backgroundImage: `url(${sceneSrc(thumbs[index] ?? "lake").day})` }}
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className={`ft-mono pt-1 text-[15px] ${on || won ? "text-accent-ink" : "text-muted"}`}>{String(index + 1).padStart(2, "0")}</span>
+                        )}
                         <span className="min-w-0">
                           <span className="block text-[18px] font-semibold leading-snug">{option.label}</span>
                           <span className="ft-meta mt-0.5 block">
