@@ -26,15 +26,12 @@
     "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true }
   },
   "logpush": false,
-  // usefieldtrip.com (bought Nov 27, zone in this account) serves the live Worker;
-  // www redirects to it (next.config.ts). workers.dev stays on so old links, sessions
-  // and the CI checks keep working. Custom domains: wrangler creates the DNS records
-  // and certificates. env.staging sets its own empty list so it never claims them.
+  // usefieldtrip.com and www.usefieldtrip.com are Custom Domains on this Worker, added
+  // in the dashboard (Nov 27). They are deliberately NOT listed as "routes" here: with no
+  // routes in config, wrangler deploy leaves them alone and the CI token needs no zone
+  // permissions. www redirects to the bare domain (next.config.ts). workers.dev stays on
+  // so old links, sessions and the CI checks keep working.
   "workers_dev": true,
-  "routes": [
-    { "pattern": "usefieldtrip.com", "custom_domain": true },
-    { "pattern": "www.usefieldtrip.com", "custom_domain": true }
-  ],
   // Cloudflare Email Sending, for email sign-in codes. usefieldtrip.com is onboarded
   // (SPF, DKIM, DMARC records added). Included on Workers Paid: 3,000 emails a month.
   // Only the sign-in address may send.
