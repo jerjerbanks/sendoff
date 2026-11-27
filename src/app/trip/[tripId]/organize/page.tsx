@@ -31,7 +31,7 @@ export default async function OrganizePage({
     { href: "/approvals", title: "Room requests", line: view.pendingApprovals ? `${view.pendingApprovals} waiting on you` : "Nothing waiting", hot: view.pendingApprovals > 0 },
     { href: "/sleep", title: "Rooms and beds", line: "Beds, prices, accessibility, holds" },
     { href: "/costs", title: "Cost sheet", line: `Lodging ${money(view.lodgingTotalCents).replace(/\.00$/, "")} · split ${splitModeLabel(view.splitMode).toLowerCase()}` },
-    { href: "/party", title: "Parties and travelers", line: `${view.parties.length} parties · ${view.travelerCount} people` },
+    { href: "/party", title: "Parties and travelers", line: `${view.parties.length} ${view.parties.length === 1 ? "party" : "parties"} · ${view.travelerCount} ${view.travelerCount === 1 ? "person" : "people"}` },
     { href: "/pay", title: "Buy-in", line: view.buyInAmountCents ? `${money(view.buyInAmountCents).replace(/\.00$/, "")} per party` : "Not open yet", hot: !view.buyInAmountCents },
     { href: "/settings", title: "Settings", line: "Lodging split, age weights, minimum, bed rules" },
     { href: "/metrics", title: "Pilot metrics", line: "Commit rate and time to commit" },

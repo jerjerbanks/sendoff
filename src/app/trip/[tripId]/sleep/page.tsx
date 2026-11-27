@@ -57,9 +57,15 @@ export default async function SleepSetupPage({
         </p>
       </div>
       <p className={`rounded-xl px-3 py-2 text-sm ${capacity < needAtCap ? "bg-warn-soft text-warn" : "bg-chip"}`}>
-        Beds sleep {capacity}. {view.bedsNeeded} travelers need one now
+        {capacity === 0 ? "No beds yet." : `Beds sleep ${capacity}.`} {view.bedsNeeded} {view.bedsNeeded === 1 ? "traveler needs" : "travelers need"} one now
         {view.maxHeadcount - infants > view.bedsNeeded ? `, up to ${view.maxHeadcount - infants} at the ${view.maxHeadcount}-traveler cap` : ""}.
-        {capacity < needAtCap ? " Add a bed or allow sharing before the trip fills up." : " Infants in a crib don't need a bed."}
+        {capacity < needAtCap
+          ? view.isOrganizer
+            ? capacity === 0
+              ? " Import the listing or add beds below."
+              : " Add a bed or allow sharing before the trip fills up."
+            : " The organizer adds the beds."
+          : " Infants in a crib don't need a bed."}
       </p>
       {error ? <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p> : null}
       {!error && importedSpots > 0 ? (

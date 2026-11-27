@@ -98,8 +98,16 @@ export default async function JoinPage({
                 ))}
             </div>
             <p className="text-sm">
-              {view.payerCount} {view.payerCount === 1 ? "party is" : "parties are"} in
-              {view.payerCount < view.minPayerCount ? ` · ${view.minPayerCount - view.payerCount} more needed to book` : ""}
+              {view.payerCount > 0
+                ? `${view.payerCount} ${view.payerCount === 1 ? "party has" : "parties have"} committed${
+                    view.payerCount < view.minPayerCount ? ` · ${view.minPayerCount - view.payerCount} more needed to book` : ""
+                  }`
+                : (() => {
+                    const joined = view.parties.filter((party) => party.status !== "off_trip" && party.status !== "declined").length;
+                    return `${joined} ${joined === 1 ? "household has" : "households have"} joined · ${
+                      view.status === "planning" || view.status === "voting" ? "still planning, nobody pays yet" : "nobody has committed yet"
+                    }`;
+                  })()}
             </p>
           </div>
           {alreadyIn ? (

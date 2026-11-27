@@ -61,7 +61,7 @@ export async function DemoBanner({ view, tripId, viewerName }: { view: TripView 
                   Next step →
                 </a>
               ) : (
-                <Link href="/new" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg">
+                <Link href="/new#start" className="ml-auto inline-flex h-10 items-center rounded-sm bg-accent px-4 text-sm font-semibold text-accent-fg">
                   Start your own trip →
                 </Link>
               )}
@@ -135,7 +135,7 @@ function PhoneDemoBar({
               Next →
             </a>
           ) : (
-            <Link href="/new" className={`${cell} bg-accent text-accent-fg`}>
+            <Link href="/new#start" className={`${cell} bg-accent text-accent-fg`}>
               Start yours →
             </Link>
           )

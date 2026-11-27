@@ -80,8 +80,10 @@ async function me(): Promise<string> {
 const TOO_MANY = "Too many tries. Wait a minute and try again.";
 const NOT_CHECKED = "We couldn't confirm you're a person. Wait a few seconds and try again. If it keeps happening, turn off any content blocker for this site.";
 
+/** Back to `path` with the error. A `#hash` on the path is kept, so long pages land on their form. */
 function fail(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  const [base, hash] = path.split("#");
+  redirect(`${base}?error=${encodeURIComponent(message)}${hash ? `#${hash}` : ""}`);
 }
 
 function done(tripId: string, result: { ok: boolean; error?: string }, path: string) {
@@ -111,8 +113,8 @@ function honoreeRole(value: string): HonoreeRole {
 }
 
 export async function createTripAction(formData: FormData) {
-  if (!(await withinLimit("create"))) fail("/new", TOO_MANY);
-  if (!(await passesTurnstile(formData, "create"))) fail("/new", NOT_CHECKED);
+  if (!(await withinLimit("create"))) fail("/new#start", TOO_MANY);
+  if (!(await passesTurnstile(formData, "create"))) fail("/new#start", NOT_CHECKED);
   const name = text(formData, "name", 80);
   // Already signed in (for real): organize as yourself, so this phone keeps every trip.
   const viewer = await getViewer();
@@ -127,9 +129,9 @@ export async function createTripAction(formData: FormData) {
     preWeddingStyle: text(formData, "preWeddingStyle"),
   });
   if (!name || !organizerName || !organizerContact || !dateWindow) {
-    fail("/new", "Fill in the trip name, your name and contact, and a rough date window.");
+    fail("/new#start", "Fill in the trip name, your name and contact, and a rough date window.");
   }
-  if (!isContact(organizerContact)) fail("/new", "Add a phone number or an email address you can be reached at.");
+  if (!isContact(organizerContact)) fail("/new#start", "Add a phone number or an email address you can be reached at.");
   // 0..n guests of honor. A row counts once it has a name.
   const honorees: { name: string; contact: string; contactGiven: boolean; role: HonoreeRole }[] = [];
   // Guests of honor only on wedding sub-types; anything posted otherwise is ignored.
@@ -137,7 +139,7 @@ export async function createTripAction(formData: FormData) {
     const honoreeName = text(formData, `honoree${index}Name`, NAME_MAX);
     if (!honoreeName) continue;
     const given = text(formData, `honoree${index}Contact`, 120);
-    if (given && !isContact(given)) fail("/new", `${honoreeName}'s contact needs to be a phone number or an email address.`);
+    if (given && !isContact(given)) fail("/new#start", `${honoreeName}'s contact needs to be a phone number or an email address.`);
     honorees.push({
       name: honoreeName,
       // A made-up placeholder can never be used to sign in as the honoree.
@@ -556,7 +558,9 @@ export async function saveBudgetAction(formData: FormData) {
     }),
     `/trip/${tripId}/budget`,
   );
-  if (text(formData, "welcome") === "1") redirect(`/trip/${tripId}/vote`);
+  const welcome = text(formData, "welcome");
+  if (welcome === "1") redirect(`/trip/${tripId}/vote`);
+  if (welcome === "home") redirect(`/trip/${tripId}`);
 }
 
 export async function outOfPocketAction(formData: FormData) {
