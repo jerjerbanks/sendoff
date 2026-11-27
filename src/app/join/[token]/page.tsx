@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/bits";
 import { Turnstile } from "@/components/turnstile";
 import { turnstileSiteKey } from "@/lib/turnstile";
 import { FeedbackButton } from "@/components/feedback-button";
+import { InviteOpened } from "@/components/activity-ping";
 import { Input } from "@/components/ui/input";
 import { ogCard } from "@/lib/og-copy";
 import { getViewer } from "@/lib/session";
@@ -71,6 +72,7 @@ export default async function JoinPage({
       <Wordmark />
       {view ? (
         <>
+          {!alreadyIn && tripId && !isDemoTrip(tripId) ? <InviteOpened token={token} /> : null}
           <div className="-mx-5 mt-4">
             <SceneHeader scene={sceneForPage("join", themeForTrip(view))} size="sm" />
           </div>
