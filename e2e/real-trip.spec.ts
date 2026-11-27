@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { uniqueSuffix } from "./helpers";
+import { humanCheckDone, uniqueSuffix } from "./helpers";
 
 /**
  * A real (non-demo) trip, created fresh: members-only access, sessions, and the
@@ -28,6 +28,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Your name").fill("Erin Organizer");
   await page.getByLabel("Your phone or email").fill(contact);
   await page.getByLabel("Rough date window").fill("A long weekend in May 2027");
+  await humanCheckDone(page);
   await page.getByRole("button", { name: /create the trip/i }).click();
   await expect(page).toHaveURL(/\/trip\/[^/]+\/party\?welcome=1/);
   const tripId = new URL(page.url()).pathname.split("/")[2]!;
@@ -79,6 +80,7 @@ test("joining with a contact that already signed in is refused; a new contact jo
   await stranger.goto(organizer.invitePath);
   await stranger.getByLabel("Your name").fill("Mallory Imposter");
   await stranger.getByLabel("Phone or email").fill(organizer.contact);
+  await humanCheckDone(stranger);
   await stranger.getByRole("button", { name: /join the trip/i }).click();
   await expect(stranger.getByText(/already joined with that phone or email/i)).toBeVisible();
   // Refused: no session, and the trip stays private to this browser.
@@ -91,6 +93,7 @@ test("joining with a contact that already signed in is refused; a new contact jo
   await friend.goto(organizer.invitePath);
   await friend.getByLabel("Your name").fill("Frankie Friend");
   await friend.getByLabel("Phone or email").fill(`e2e-friend-${uniqueSuffix()}@example.com`);
+  await humanCheckDone(friend);
   await friend.getByRole("button", { name: /join the trip/i }).click();
   await expect(friend).toHaveURL(new RegExp(`/trip/${organizer.tripId}/party\\?welcome=1`));
   await friend.goto(`/trip/${organizer.tripId}`);

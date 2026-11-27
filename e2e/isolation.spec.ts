@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createTrip, expectNotServed, uniqueSuffix } from "./helpers";
+import { createTrip, expectNotServed, uniqueSuffix, settled } from "./helpers";
 
 /**
  * Data isolation: someone who edits the ids in their own forms can't read or change a trip
@@ -31,7 +31,7 @@ async function fieldValue(page: Page, name: string): Promise<string> {
  */
 async function forge(page: Page, path: string, anchor: string, values: Record<string, string>) {
   await page.goto(path);
-  await page.waitForLoadState("networkidle");
+  await settled(page);
   const posted = page.waitForResponse((r) => r.request().method() === "POST", { timeout: 20_000 });
   await page.evaluate(
     ({ anchor, values }) => {
@@ -51,7 +51,7 @@ async function forge(page: Page, path: string, anchor: string, values: Record<st
     { anchor, values },
   );
   await posted;
-  await page.waitForLoadState("networkidle");
+  await settled(page);
 }
 
 test("hand-edited ids can't read or change someone else's trip", async ({ browser }) => {

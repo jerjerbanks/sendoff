@@ -28,7 +28,7 @@ export function urlFor(path: string): RegExp {
  * hidden on screen still fails them.
  */
 export async function served(page: Page): Promise<string> {
-  await page.waitForLoadState("networkidle");
+  await settled(page);
   return page.content();
 }
 
@@ -73,6 +73,7 @@ export async function createTrip(page: Page, name: string, who?: { name: string;
       await page.getByLabel("Your phone or email").fill(who.contact);
     }
     await page.getByLabel("Rough date window").fill("A long weekend in June 2027");
+    await humanCheckDone(page);
     await page.getByRole("button", { name: /create the trip/i }).click();
     await page.waitForURL(/\/trip\/[^/]+\/party\?welcome=1|\/new\?error=/);
     if (/\/trip\//.test(page.url())) return new URL(page.url()).pathname.split("/")[2]!;
@@ -81,4 +82,27 @@ export async function createTrip(page: Page, name: string, who?: { name: string;
     await page.waitForTimeout(61_000 - (Date.now() % 60_000));
   }
   throw new Error("Trip creation stayed rate limited");
+}
+
+/**
+ * Wait for the Turnstile bot check on create/join forms, where it's switched on (staging
+ * uses Cloudflare's always-pass test keys). A no-op where it's off.
+ */
+export async function humanCheckDone(page: Page) {
+  if (!(await page.locator("[data-turnstile]").count())) return;
+  await expect(page.locator('[data-turnstile] input[name="cf-turnstile-response"]')).not.toHaveValue("", { timeout: 20_000 });
+}
+
+/**
+ * The page has hydrated and stopped loading. Usually that's network idle, but the Turnstile
+ * widget (create and join forms, where it's on) keeps a connection open, so there it waits
+ * for the widget's mount mark instead.
+ */
+export async function settled(page: Page) {
+  await page.waitForLoadState("load");
+  if (await page.locator("[data-turnstile]").count()) {
+    await expect(page.locator('[data-turnstile][data-mounted="yes"]').first()).toBeAttached();
+  } else {
+    await page.waitForLoadState("networkidle");
+  }
 }
