@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { saveBudgetAction } from "@/app/actions";
+import { saveBudgetAction, skipBudgetAction } from "@/app/actions";
 import { SubmitButton } from "@/components/bits";
 import { Input } from "@/components/ui/input";
 import { getViewerId } from "@/lib/session";
@@ -107,9 +107,20 @@ export default async function BudgetPage({
           </>
         )}
       </form>
-      <Link href={`/trip/${view.id}${nothingToVote ? "" : "/vote"}`} className="text-sm font-semibold text-accent-ink">
-        {welcome ? "Skip — I'd rather not say" : nothingToVote ? "Back to the trip" : "Continue to the polls"}
-      </Link>
+      {!own && !locked ? (
+        // Remembered on the trip, so "Set a private budget" stops coming back as the next step.
+        <form action={skipBudgetAction}>
+          <input type="hidden" name="tripId" value={view.id} />
+          <input type="hidden" name="next" value={nothingToVote ? "home" : "vote"} />
+          <button type="submit" className="min-h-12 text-sm font-semibold text-accent-ink">
+            Skip — I&apos;d rather not say
+          </button>
+        </form>
+      ) : (
+        <Link href={`/trip/${view.id}${nothingToVote ? "" : "/vote"}`} className="text-sm font-semibold text-accent-ink">
+          {nothingToVote ? "Back to the trip" : "Continue to the polls"}
+        </Link>
+      )}
     </div>
   );
 }

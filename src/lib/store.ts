@@ -2289,6 +2289,23 @@ function funnel(tripId: string, userId: string, step: FunnelStep) {
   return recordFunnel(getD1(), tripId, userId, step);
 }
 
+const BUDGET_SKIPPED = "budget_skipped";
+
+/** Records a payer's "I'd rather not say" once. Writing a budget later still counts as having one. */
+export async function skipBudget(tripId: string, userId: string): Promise<void> {
+  if ((await listBudgetSkips(tripId)).includes(userId)) return;
+  await recordEvent(tripId, userId, BUDGET_SKIPPED);
+}
+
+/** Payers who chose "I'd rather not say" on the budget page, so it stops being their next step. */
+export async function listBudgetSkips(tripId: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ userId: tripEvents.userId })
+    .from(tripEvents)
+    .where(and(eq(tripEvents.tripId, tripId), eq(tripEvents.kind, BUDGET_SKIPPED)));
+  return rows.map((row) => row.userId).filter((id): id is string => !!id);
+}
+
 export async function listEvents(tripId: string) {
   return getDb().select().from(tripEvents).where(eq(tripEvents.tripId, tripId));
 }

@@ -27,6 +27,14 @@ describe("next step", () => {
     expect(commit.href).toBe("/pay");
   });
 
+  it("a budget skipped on purpose stops coming back as the next step", () => {
+    const skipped = { ...base, hasBudget: false, skippedBudget: true, unvotedPolls: ["Where"] };
+    expect(nextStep(skipped).title).toBe("Vote on where");
+    const steps = journey(skipped);
+    expect(steps.find((step) => step.key === "budget")?.state).toBe("skipped");
+    expect(steps.find((step) => step.key === "vote")?.state).toBe("current");
+  });
+
   it("people waiting to join come first for the organizer, and never show to anyone else", () => {
     const org = { ...base, isOrganizer: true, viewer: { ...base.viewer!, role: "organizer" as const }, unvotedPolls: ["Where"], hasBudget: false };
     const one = nextStep({ ...org, joinersWaiting: 1 });

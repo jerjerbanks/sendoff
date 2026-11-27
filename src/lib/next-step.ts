@@ -34,6 +34,8 @@ export interface NextStepInput {
   partySize: number;
   tripStatus: string;
   hasBudget: boolean;
+  /** The payer chose not to set a budget; stop asking. */
+  skippedBudget?: boolean;
   /** Labels of open polls ("Where", "When", ...) this viewer hasn't voted in. */
   unvotedPolls: string[];
   hasRoom: boolean;
@@ -146,7 +148,7 @@ export function journey(input: NextStepInput): JourneyStep[] {
   const committed = viewer.status === "committed";
   const steps: { key: StepKey; label: string; done: boolean; skipped?: boolean }[] = [
     { key: "party", label: "Party", done: true },
-    { key: "budget", label: "Budget", done: input.hasBudget, skipped: !input.hasBudget && (committed || votingDone(input)) },
+    { key: "budget", label: "Budget", done: input.hasBudget, skipped: !input.hasBudget && (!!input.skippedBudget || committed || votingDone(input)) },
     { key: "vote", label: "Vote", done: votingDone(input) },
     { key: "commit", label: "Commit", done: committed },
     { key: "room", label: "Room", done: input.hasRoom },
@@ -226,7 +228,7 @@ export function nextStep(input: NextStepInput): NextStep {
 
   const committed = viewer.status === "committed";
   if (!committed && input.unvotedPolls.length > 0) {
-    if (!input.hasBudget) {
+    if (!input.hasBudget && !input.skippedBudget) {
       return {
         eyebrow: "Your next step",
         title: "Set a private budget",

@@ -15,6 +15,7 @@ import {
   listFlightQuotes,
   listSpotRequests,
   countWaitingJoiners,
+  listBudgetSkips,
   loadTrip,
   mathMembers,
   travelersOf,
@@ -767,22 +768,24 @@ function buildNotices(args: {
  */
 const loadTripData = cache(async (tripId: string) => {
   await ensureDemoSeed();
-  const [raw, budgets, flights, requests, joinersWaiting] = await Promise.all([
+  const [raw, budgets, flights, requests, joinersWaiting, budgetSkips] = await Promise.all([
     loadTrip(tripId),
     listBudgets(tripId),
     listFlightQuotes(tripId),
     listSpotRequests(tripId),
     countWaitingJoiners(tripId),
+    listBudgetSkips(tripId),
   ]);
   if (!raw) return null;
-  return { raw, budgets, flights, pending: requests.filter((request) => request.status === "pending").length, joinersWaiting };
+  return { raw, budgets, flights, pending: requests.filter((request) => request.status === "pending").length, joinersWaiting, budgetSkips };
 });
 
 export const loadTripView = cache(async (tripId: string, viewerUserId: string | null, withSplitPreview = false): Promise<TripView | null> => {
   const data = await loadTripData(tripId);
   if (!data) return null;
   const view = buildView(data.raw, viewerUserId, data.budgets, data.flights, { withSplitPreview });
-  return withNextStep({ ...view, joinersWaiting: view.isOrganizer ? data.joinersWaiting : 0 }, data.pending);
+  const skippedBudget = !!view.viewer && data.budgetSkips.includes(view.viewer.userId);
+  return withNextStep({ ...view, joinersWaiting: view.isOrganizer ? data.joinersWaiting : 0 }, data.pending, skippedBudget);
 });
 
 /**
@@ -960,7 +963,7 @@ export function lodgingBedless(view: Pick<TripView, "splitMode" | "spots" | "cos
 const pollLabel = (kind: string) => (kind === "destination" ? "Where" : kind === "dates" ? "When" : "What we'll do");
 
 /** Adds the viewer's next step and journey. Kept separate so the logic stays pure and testable. */
-function withNextStep(view: TripView, pendingApprovals: number): TripView {
+function withNextStep(view: TripView, pendingApprovals: number, skippedBudget = false): TripView {
   const viewer = view.viewer;
   const unvotedPolls = view.polls
     .filter((poll) => !poll.closed && poll.options.some((option) => !option.hidden))
@@ -972,6 +975,7 @@ function withNextStep(view: TripView, pendingApprovals: number): TripView {
     partySize: view.viewerParty?.travelers.length ?? 1,
     tripStatus: view.status,
     hasBudget: view.viewerHasBudget,
+    skippedBudget,
     unvotedPolls: viewer && viewer.status !== "invited" ? unvotedPolls : [],
     hasRoom: (view.viewerParty?.rooms.length ?? 0) > 0,
     buyInLabel: money(view.buyInAmountCents).replace(/\.00$/, ""),

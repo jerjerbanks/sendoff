@@ -6,6 +6,7 @@ import { turnstileSiteKey } from "@/lib/turnstile";
 import { Arrow } from "@/components/motion";
 import { Input } from "@/components/ui/input";
 import { FeedbackButton } from "@/components/feedback-button";
+import { FormMemory } from "@/components/form-memory";
 import { TripKindFields } from "@/components/trip-kind-fields";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
@@ -107,6 +108,7 @@ export default async function NewTripPage({
         <Turnstile siteKey={turnstileSiteKey()} />
         <SubmitButton pendingLabel="Creating…">Create the trip</SubmitButton>
       </form>
+      <FormMemory formId="start" storageKey="ft-new-trip" />
       <FeedbackButton className="mt-6 self-center" />
     </main>
   );
