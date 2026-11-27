@@ -1120,7 +1120,7 @@ function newMemberBlocked(raw: RawTrip): string | null {
 }
 
 const CONTACT_TAKEN =
-  "Someone on this trip already joined with that phone or email. If it's you, open the trip on the phone you joined with, go to Your party, and tap “Sign in on another phone.”";
+  "Someone on this trip already joined with that phone or email. If it's you and you joined with your email, sign in with a code (below). If you joined with a phone number, open the trip on that phone, go to Your party, and tap “Sign in on another phone.”";
 
 /**
  * Join a trip as the person this phone is already signed in as, so one sign-in holds

@@ -102,8 +102,13 @@ export default async function TripsPage({
         <p className="mt-3 text-sm text-muted">
           {viewer && !viewer.demo
             ? "No trips on this phone yet."
-            : "This phone isn't signed in to a trip. Open a trip on the phone you joined with, or use an invite code below."}
+            : "This phone isn't signed in to a trip. Joined with your email? Sign in with a code. Or use an invite code below."}
         </p>
+        {viewer && !viewer.demo ? null : (
+          <Link href="/signin" className="ft-btn mt-4">
+            Sign in with email
+          </Link>
+        )}
         </div>
       )}
 

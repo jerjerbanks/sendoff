@@ -16,3 +16,10 @@ export const SIGN_IN_LINK_COOKIE = "ft_link";
 
 // Public tester form: no sign-in, no email collection. FeedbackButton renders nothing if this is ever emptied.
 export const FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLScAUKA2izW9IWHKVeHKxgO_AXta-h4dvMA4SpGqC2J-pmOkVg/viewform";
+
+/** The app's own domain (custom domain on the live Worker). workers.dev keeps working too. */
+export const APP_DOMAIN = "usefieldtrip.com";
+/** Sign-in codes come from here. The domain is onboarded to Cloudflare Email Sending (SPF/DKIM/DMARC set). */
+export const SIGN_IN_FROM = `signin@${APP_DOMAIN}`;
+/** Ties an email sign-in code to the browser that asked for it. Path-scoped to /signin. */
+export const SIGN_IN_TICKET_COOKIE = "ft_code";

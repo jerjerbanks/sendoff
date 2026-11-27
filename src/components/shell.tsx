@@ -95,10 +95,12 @@ export function PrivateTrip() {
         <i>is private.</i>
       </h1>
       <p className="ft-lead mt-4">
-        Open the invite link you were sent to join or get back in. If you joined on another phone, open the same link here and use the same
-        phone number or email. If you were never invited, or the organizer deleted the trip, there&apos;s nothing to see here.
+        Open the invite link you were sent to join or get back in. Already on it? Sign in with the email you joined with. If you were never invited, or the organizer deleted the trip, there&apos;s nothing to see here.
       </p>
-      <Link href="/" className="ft-link mt-6">
+      <Link href="/signin" className="ft-btn mt-6 self-start">
+        Sign in with email
+      </Link>
+      <Link href="/" className="ft-link mt-4">
         Go to {APP_NAME}
       </Link>
       <FeedbackButton className="mt-4" />

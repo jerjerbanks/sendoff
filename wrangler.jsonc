@@ -26,6 +26,16 @@
     "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true }
   },
   "logpush": false,
+  // usefieldtrip.com and www.usefieldtrip.com are Custom Domains on this Worker, added
+  // in the dashboard (Nov 27). They are deliberately NOT listed as "routes" here: with no
+  // routes in config, wrangler deploy leaves them alone and the CI token needs no zone
+  // permissions. www redirects to the bare domain (next.config.ts). workers.dev stays on
+  // so old links, sessions and the CI checks keep working.
+  "workers_dev": true,
+  // Cloudflare Email Sending, for email sign-in codes. usefieldtrip.com is onboarded
+  // (SPF, DKIM, DMARC records added). Included on Workers Paid: 3,000 emails a month.
+  // Only the sign-in address may send.
+  "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["signin@usefieldtrip.com"] }],
   "assets": {
     "directory": "dist/client",
     "html_handling": "none",
@@ -46,6 +56,10 @@
   "env": {
     "staging": {
       "name": "sendoff-staging",
+      "workers_dev": true,
+      "routes": [],
+      // Staging sends real email too (the same domain), so the sign-in flow can be tried there.
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["signin@usefieldtrip.com"] }],
       "d1_databases": [
         {
           "binding": "DB",

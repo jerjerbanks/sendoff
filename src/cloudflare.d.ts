@@ -10,6 +10,8 @@ interface SendoffEnv {
   JOIN_RATE_LIMITER: RateLimit;
   /** New trips per client IP: 5 per 60 s (wrangler.jsonc ratelimits). */
   CREATE_TRIP_RATE_LIMITER: RateLimit;
+  /** Cloudflare Email Sending (wrangler.jsonc send_email). Typed where used, in lib/email. */
+  EMAIL?: unknown;
 }
 
 declare module "cloudflare:workers" {

@@ -20,7 +20,7 @@ export function turnstileSiteKey(): string | null {
 }
 
 /** Server side of the check, for a form that carried the widget. Logs the outcome, never the token. */
-export async function passesTurnstile(formData: FormData, bucket: "create" | "join"): Promise<boolean> {
+export async function passesTurnstile(formData: FormData, bucket: "create" | "join" | "signin"): Promise<boolean> {
   const configured = keys();
   const outcome = await verifyTurnstile({
     secret: configured?.secret ?? null,

@@ -13,6 +13,17 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // www.usefieldtrip.com is attached to the Worker only to send people to the bare domain.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.usefieldtrip.com" }],
+        destination: "https://usefieldtrip.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
